@@ -148,11 +148,8 @@ export const OnBotChat: React.FC<OnBotChatProps> = ({ onClose }) => {
       {/* Header - MANTIDO O AVATAR */}
       <div className="flex items-center justify-between p-3 border-b border-gray-700 bg-gray-900 rounded-t-lg">
         <div className="flex items-center gap-2">
-          <img 
-            src="/onbot-avatar.png" 
-            alt="OnBot"
-            className="w-6 h-6 rounded"
-          />
+          <img src="onbot-avatar.png" <img src="objetivo.png" alt="OnBot"
+            className="w-6 h-6 rounded">
           <div>
             <span className="font-semibold text-white text-sm">OnBot</span>
             <div className="flex items-center gap-1">
