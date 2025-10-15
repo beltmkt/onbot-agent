@@ -145,11 +145,14 @@ export const OnBotChat: React.FC<OnBotChatProps> = ({ onClose }) => {
 
   return (
     <div className="fixed left-4 bottom-4 w-80 h-96 bg-gray-800 rounded-lg shadow-xl border border-gray-700 flex flex-col z-50">
-      {/* Header - MANTIDO O AVATAR */}
+      {/* Header - IMAGEM CORRIGIDA */}
       <div className="flex items-center justify-between p-3 border-b border-gray-700 bg-gray-900 rounded-t-lg">
         <div className="flex items-center gap-2">
           <img 
-            src="/onbot-avatar.png"  alt="OnBot" className="w-6 h-6 rounded"/>
+            src="/onbot-avatar.png" 
+            alt="OnBot" 
+            className="w-6 h-6 rounded"
+          />
           <div>
             <span className="font-semibold text-white text-sm">OnBot</span>
             <div className="flex items-center gap-1">
@@ -247,7 +250,7 @@ export const OnBotChat: React.FC<OnBotChatProps> = ({ onClose }) => {
         />
         
         <div className="flex gap-2">
-          {/* Botão de Anexar - NOVO */}
+          {/* Botão de Anexar */}
           <button
             onClick={triggerFileInput}
             className="bg-gray-700 hover:bg-gray-600 text-gray-300 rounded-lg p-2 transition-colors flex items-center justify-center"
