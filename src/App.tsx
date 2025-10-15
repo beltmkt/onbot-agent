@@ -94,7 +94,7 @@ const App: React.FC = () => {
   className="fixed left-6 bottom-6 bg-blue-600 hover:bg-blue-700 text-white rounded-full p-3 shadow-lg transition-all z-50 flex items-center gap-2 group hover:scale-105"
 >
   <img 
-    src="/onbot-avatar.jpg" 
+    src="onbot-avatar.png" 
     alt="Falar com OnBot" 
     className="w-8 h-8 rounded-full object-cover border-2 border-white"
   />

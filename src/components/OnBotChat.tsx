@@ -149,10 +149,7 @@ export const OnBotChat: React.FC<OnBotChatProps> = ({ onClose }) => {
       <div className="flex items-center justify-between p-3 border-b border-gray-700 bg-gray-900 rounded-t-lg">
         <div className="flex items-center gap-2">
           <img 
-            src="/onbot-avatar.jpg" 
-            alt="OnBot"
-            className="w-6 h-6 rounded"
-          />
+            src="/onbot-avatar.png"  alt="OnBot" className="w-6 h-6 rounded"/>
           <div>
             <span className="font-semibold text-white text-sm">OnBot</span>
             <div className="flex items-center gap-1">
