@@ -1,90 +1,149 @@
 // src/services/onbotService.ts
-export const sendMessageToOnbot = async (message: string, sessionId: string, file?: File): Promise<string> => {
+export const sendMessageToOnbot = async (
+  message: string,
+  sessionId: string,
+  file?: File
+): Promise<string> => {
   try {
-    console.log('🚀 Enviando para n8n:', { message, sessionId, hasFile: !!file });
-
-    const formData = new FormData();
-    formData.append('chatInput', message);
-    formData.append('sessionId', sessionId);
-    
-    if (file) {
-      formData.append('file', file);
-      console.log('📁 Arquivo anexado:', file.name, file.type, file.size);
-    }
-
-    const response = await fetch('https://consentient-bridger-pyroclastic.ngrok-free.dev/webhook/bc410b9e-0c7e-4625-b4aa-06f42b413ddc/chat', {
-      method: 'POST',
-      body: formData, // ✅ Mude para FormData para suportar arquivos
+    console.log('🔄 Enviando para n8n:', { 
+      message, 
+      sessionId, 
+      hasFile: !!file 
     });
 
-    if (!response.ok) {
-      throw new Error(`Erro HTTP: ${response.status}`);
+    const url = 'https://consentient-bridger-pyroclastic.ngrok-free.dev/webhook/bc410b9e-0c7e-4625-b4aa-06f42b413ddc/chat';
+
+    // 🔥 Se houver arquivo, envia como FormData NO FORMATO CORRETO
+    if (file) {
+      const formData = new FormData();
+      
+      // 🔥 FORMATO CORRETO: Cria um objeto único com todos os dados
+      const inputData = {
+        chatInput: message,
+        sessionId: sessionId,
+        file: file
+      };
+      
+      // 🔥 Envia como JSON stringificado no FormData
+      formData.append('data', JSON.stringify({
+        chatInput: message,
+        sessionId: sessionId
+      }));
+      
+      // 🔥 Adiciona o arquivo separadamente
+      formData.append('file', file);
+
+      console.log('📁 Enviando arquivo via FormData corrigido:', {
+        data: { chatInput: message, sessionId },
+        file: file.name
+      });
+
+      const response = await fetch(url, { 
+        method: 'POST', 
+        body: formData 
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ Erro HTTP:', response.status, errorText);
+        throw new Error(`Erro HTTP: ${response.status}`);
+      }
+      
+      const responseText = await response.text();
+      console.log('📨 Resposta bruta (FormData):', responseText);
+      return processN8NResponse(responseText);
     }
+
+    // 🔥 Se não houver arquivo, envia JSON normal (isso funciona)
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
+      body: JSON.stringify({ 
+        chatInput: message, 
+        sessionId 
+      }),
+    });
+
+    if (!response.ok) throw new Error(`Erro HTTP: ${response.status}`);
 
     const responseText = await response.text();
-    console.log('📨 Resposta bruta do n8n:', responseText);
-
-    // Estratégias de extração (mantenha seu código atual)
-    let finalResponse = '';
-
-    try {
-      const jsonData = JSON.parse(responseText);
-      if (jsonData.response || jsonData.message) {
-        finalResponse = jsonData.response || jsonData.message;
-      } else if (jsonData.content) {
-        finalResponse = jsonData.content;
-      }
-    } catch (jsonError) {
-      const lines = responseText.split('\n').filter(line => line.trim());
-      const contents: string[] = [];
-      
-      for (const line of lines) {
-        try {
-          const data = JSON.parse(line);
-          if (data.type === 'item' && data.content) {
-            contents.push(data.content);
-          } else if (data.content) {
-            contents.push(data.content);
-          } else if (data.response) {
-            contents.push(data.response);
-          }
-        } catch (lineError) {
-          if (line.trim() && !line.includes('event:') && !line.includes('data:')) {
-            contents.push(line.trim());
-          }
-        }
-      }
-      
-      finalResponse = contents.join(' ').replace(/\\n/g, '\n').replace(/\\\\/g, '\\').trim();
-    }
-
-    if (!finalResponse) {
-      finalResponse = responseText
-        .replace(/\\n/g, '\n')
-        .replace(/\\\\/g, '\\')
-        .replace(/event:.*\n/g, '')
-        .replace(/data:.*\n/g, '')
-        .trim();
-    }
-
-    if (!finalResponse) {
-      finalResponse = '✅ Mensagem recebida! Processando...';
-    }
-
-    console.log('✅ Resposta processada:', finalResponse);
-    return finalResponse;
+    console.log('📨 Resposta bruta (JSON):', responseText);
+    return processN8NResponse(responseText);
 
   } catch (error) {
-    console.error('❌ Erro no serviço onbot:', error);
-    
+    console.error('❌ Erro no serviço OnBot:', error);
     if (error instanceof Error) {
-      if (error.message.includes('Failed to fetch')) {
-        return '🔌 Erro de conexão: Não foi possível conectar ao servidor.';
-      } else if (error.message.includes('HTTP')) {
-        return '🌐 Erro no servidor: Tente novamente.';
+      if (error.message.includes('Failed to fetch')) return '🔌 Erro de conexão: Verifique sua internet.';
+      if (error.message.includes('HTTP')) return '🌐 Erro no servidor: Tente novamente mais tarde.';
+    }
+    return '⚠️ Ocorreu um erro inesperado. Por favor, tente novamente.';
+  }
+};
+
+// 🔹 Mantém o processamento da resposta (já está funcionando para texto)
+const processN8NResponse = (responseText: string): string => {
+  console.log('🔧 INICIANDO PROCESSAMENTO - Resposta bruta:', responseText);
+
+  if (!responseText || responseText.trim() === '') {
+    console.log('📭 Resposta vazia do servidor');
+    return '👋 Olá! Sou o OnBot. Como posso ajudar?';
+  }
+
+  try {
+    const data = JSON.parse(responseText);
+    console.log('📋 JSON parseado:', data);
+
+    // 🔹 Extrai a mensagem de erro ou sucesso
+    if (data.error && typeof data.error === 'string') {
+      console.error('❌ Erro do n8n:', data.error);
+      
+      // 🔹 Mensagens amigáveis para erros conhecidos
+      if (data.error.includes('3 keys') || data.error.includes('input key')) {
+        return '📎 **Erro de configuração do arquivo**\n\nO servidor não está configurado para receber arquivos no momento. Por favor, envie apenas mensagens de texto.';
+      }
+      
+      return `⚠️ **Erro do servidor**: ${data.error}`;
+    }
+
+    if (data.output && typeof data.output === 'string') {
+      console.log('✅ Extraído do campo "output":', data.output);
+      return data.output;
+    }
+
+    if (data.content && typeof data.content === 'string') {
+      console.log('✅ Extraído do campo "content":', data.content);
+      return data.content;
+    }
+
+    if (Array.isArray(data)) {
+      console.log('🔄 Processando array SSE');
+      const messages = data
+        .filter(item => item.content && typeof item.content === 'string')
+        .map(item => item.content);
+      
+      if (messages.length > 0) {
+        const fullMessage = messages.join('').trim();
+        console.log('✅ Mensagem montada do array:', fullMessage);
+        return fullMessage;
+      }
+    }
+
+    // Se for objeto mas não tem campos conhecidos
+    return JSON.stringify(data, null, 2);
+
+  } catch (error) {
+    console.log('📝 Não é JSON, retornando texto limpo');
+    
+    if (responseText.includes('Olá! Eu sou o OnBot') || responseText.includes('Token de acesso')) {
+      const match = responseText.match(/"output":"([^"]*)"/);
+      if (match && match[1]) {
+        return match[1].replace(/\\n/g, '\n');
       }
     }
     
-    return '⚠️ Ocorreu um erro inesperado. Por favor, tente novamente.';
+    return responseText.replace(/\\n/g, '\n').trim();
   }
 };
