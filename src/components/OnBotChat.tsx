@@ -1,7 +1,8 @@
 // src/components/OnBotChat.tsx
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Send, Wifi, WifiOff, RefreshCw, Paperclip, FileText, Image } from 'lucide-react';
+import { X, Send, Wifi, WifiOff, RefreshCw, Paperclip, FileText, Image, Bot, User, Maximize2, Minimize2 } from 'lucide-react';
 import { sendMessageToOnbot } from '../services/onbotService';
+import onbotAvatar from '/onbot-avatar.png';
 
 interface OnBotChatProps {
   onClose: () => void;
@@ -15,12 +16,21 @@ interface FileAttachment {
   type: string;
 }
 
+interface ChatMessage {
+  id: string;
+  sender: 'user' | 'bot' | 'system';
+  text: string;
+  timestamp: Date;
+  attachments?: { name: string }[];
+  isTyping?: boolean;
+}
+
 export const OnBotChat: React.FC<OnBotChatProps> = ({ onClose }) => {
-  const [messages, setMessages] = useState([
+  const [messages, setMessages] = useState<ChatMessage[]>([
     { 
       id: 'welcome',
       sender: 'bot', 
-      text: 'Olá! Eu sou OnBot - Agente Digital de Onboarding! Vou te ajudar na criação de novos usuários. Para começar me envia o Token de acesso a empresa',
+      text: '👋 **Olá! Sou o OnBot - Seu Assistente de Onboarding**\n\nEstou pronto para ajudar na criação de usuários!\n\n🔑 **Envie seu Token de acesso para começar**',
       timestamp: new Date()
     }
   ]);
@@ -31,12 +41,54 @@ export const OnBotChat: React.FC<OnBotChatProps> = ({ onClose }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [sessionId] = useState(() => `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`);
   const chatEndRef = useRef<HTMLDivElement>(null);
+  const [isExpanded, setIsExpanded] = useState(false);
 
+  // Scroll automático para novas mensagens
   useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    chatEndRef.current?.scrollIntoView({ 
+      behavior: 'smooth',
+      block: 'end'
+    });
   }, [messages]);
 
-  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+  // Efeito de digitação em tempo real
+  const addTypingEffect = async (message: string, delay: number = 20) => {
+    return new Promise<void>((resolve) => {
+      let currentText = '';
+      let index = 0;
+
+      const typingMessageId = `typing_${Date.now()}`;
+      setMessages(prev => [...prev, {
+        id: typingMessageId,
+        sender: 'bot',
+        text: '',
+        timestamp: new Date(),
+        isTyping: true
+      }]);
+
+      const interval = setInterval(() => {
+        if (index < message.length) {
+          currentText += message[index];
+          setMessages(prev => prev.map(msg => 
+            msg.id === typingMessageId 
+              ? { ...msg, text: currentText }
+              : msg
+          ));
+          index++;
+        } else {
+          clearInterval(interval);
+          setMessages(prev => prev.map(msg => 
+            msg.id === typingMessageId 
+              ? { ...msg, isTyping: false }
+              : msg
+          ));
+          resolve();
+        }
+      }, delay);
+    });
+  };
+
+  const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
     if (!files) return;
 
@@ -59,7 +111,6 @@ export const OnBotChat: React.FC<OnBotChatProps> = ({ onClose }) => {
 
     setAttachments(prev => [...prev, ...newAttachments]);
     
-    // Reset do input de arquivo
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -81,52 +132,52 @@ export const OnBotChat: React.FC<OnBotChatProps> = ({ onClose }) => {
     }
   };
 
+  // 🔥 FUNÇÃO ÚNICA handleSendMessage - SEM DUPLICAÇÃO
   const handleSendMessage = async () => {
     if ((!inputMessage.trim() && attachments.length === 0) || loading) return;
 
-    const userMessage = { 
+    const userMessageText = inputMessage.trim();
+    setInputMessage('');
+    setLoading(true);
+
+    // Mensagem do usuário
+    const userMessage: ChatMessage = { 
       id: `msg_${Date.now()}_user`,
       sender: 'user', 
-      text: inputMessage,
+      text: userMessageText,
       timestamp: new Date(),
       attachments: attachments.length > 0 ? attachments.map(a => ({ name: a.name })) : undefined
     };
     
-    setMessages((prev) => [...prev, userMessage]);
-    setInputMessage('');
-    setAttachments([]);
-    setLoading(true);
+    setMessages(prev => [...prev, userMessage]);
 
     try {
-      let messageToSend = inputMessage;
+      console.log('🚀 Enviando para OnBot...', {
+        message: userMessageText, 
+        sessionId,
+        hasFile: attachments.length > 0 
+      });
       
-      // Adiciona informações sobre arquivos à mensagem
-      if (attachments.length > 0) {
-        const fileInfo = attachments.map(a => `[Arquivo: ${a.name} (${a.size})]`).join(' ');
-        messageToSend = inputMessage ? `${inputMessage} ${fileInfo}` : `Anexei ${attachments.length} arquivo(s): ${fileInfo}`;
-      }
-
-      console.log('🔄 Enviando mensagem para n8n...');
-      const botResponse = await sendMessageToOnbot(messageToSend, sessionId);
+      // 🔥 ENVIA MENSAGEM PARA O ONBOT
+      const botResponse = await sendMessageToOnbot(
+        userMessageText, 
+        sessionId, 
+        attachments.length > 0 ? attachments[0].file : undefined
+      );
       
-      const botMessage = { 
-        id: `msg_${Date.now()}_bot`,
-        sender: 'bot', 
-        text: botResponse,
-        timestamp: new Date()
-      };
+      console.log('✅ Resposta recebida:', botResponse);
       
-      setMessages((prev) => [...prev, botMessage]);
-      console.log('✅ Resposta recebida do n8n');
+      // Adicionar resposta com efeito de digitação
+      await addTypingEffect(botResponse);
+      
+      // Limpar anexos após envio
+      setAttachments([]);
       
     } catch (error) {
-      console.error('❌ Erro ao enviar mensagem:', error);
-      setMessages((prev) => [...prev, { 
-        id: `msg_${Date.now()}_error`,
-        sender: 'bot', 
-        text: `Erro de comunicação: ${error instanceof Error ? error.message : 'Tente novamente'}`,
-        timestamp: new Date()
-      }]);
+      console.error('❌ Erro na comunicação:', error);
+      await addTypingEffect(
+        '⚠️ **Erro de comunicação**\n\nNão foi possível conectar com o servidor. Tente novamente.'
+      );
     } finally {
       setLoading(false);
     }
@@ -143,91 +194,149 @@ export const OnBotChat: React.FC<OnBotChatProps> = ({ onClose }) => {
     fileInputRef.current?.click();
   };
 
+  const formatMessageText = (text: string) => {
+    return text.split('\n').map((line, index) => (
+      <div key={index} className="leading-relaxed">
+        {line.split('**').map((part, i) => 
+          i % 2 === 1 ? <strong key={i} className="text-cyan-300">{part}</strong> : part
+        )}
+      </div>
+    ));
+  };
+
+  const chatDimensions = isExpanded 
+    ? 'w-[500px] h-[700px]' 
+    : 'w-[400px] h-[550px]';
+
   return (
-    <div className="fixed left-4 bottom-4 w-80 h-96 bg-gray-800 rounded-lg shadow-xl border border-gray-700 flex flex-col z-50">
-      {/* Header - IMAGEM CORRIGIDA */}
-      <div className="flex items-center justify-between p-3 border-b border-gray-700 bg-gray-900 rounded-t-lg">
-        <div className="flex items-center gap-2">
-          <img 
-            src="/dist/onbot-avatar.png" 
-            alt="OnBot" 
-            className="w-6 h-6 rounded"
-          />
+    <div className={`fixed inset-0 m-auto ${chatDimensions} bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 rounded-2xl shadow-2xl border border-cyan-500/20 flex flex-col z-50 backdrop-blur-sm transition-all duration-300`}>
+      
+      {/* Header Tecnológico */}
+      <div className="flex items-center justify-between p-4 border-b border-cyan-500/30 bg-gradient-to-r from-cyan-600 via-blue-600 to-purple-600 rounded-t-2xl relative overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent animate-pulse"></div>
+        <div className="flex items-center gap-3 relative z-10">
+          <div className="relative">
+            <img 
+              src={onbotAvatar} 
+              alt="OnBot" 
+              className="w-8 h-8 rounded-full border-2 border-white shadow-lg"
+            />
+            <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-green-400 rounded-full border-2 border-gray-900 animate-pulse"></div>
+          </div>
           <div>
-            <span className="font-semibold text-white text-sm">OnBot</span>
+            <span className="font-bold text-white text-sm drop-shadow-lg">OnBot AI</span>
             <div className="flex items-center gap-1">
               {isConnected ? (
-                <Wifi className="w-3 h-3 text-green-400" />
+                <div className="flex items-center gap-1">
+                  <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                  <span className="text-xs text-cyan-100">Conectado</span>
+                </div>
               ) : (
-                <WifiOff className="w-3 h-3 text-red-400" />
+                <div className="flex items-center gap-1">
+                  <div className="w-2 h-2 bg-red-400 rounded-full"></div>
+                  <span className="text-xs text-red-100">Offline</span>
+                </div>
               )}
-              <span className="text-xs text-gray-400">
-                {isConnected ? 'Online' : 'Offline'}
-              </span>
             </div>
           </div>
         </div>
-        <button
-          onClick={onClose}
-          className="text-gray-400 hover:text-white transition-colors"
-        >
-          <X className="w-4 h-4" />
-        </button>
+        
+        <div className="flex items-center gap-2 relative z-10">
+          <button
+            onClick={() => setIsExpanded(!isExpanded)}
+            className="text-white hover:bg-white/20 rounded-lg p-2 transition-all duration-200 backdrop-blur-sm"
+            title={isExpanded ? "Reduzir" : "Expandir"}
+          >
+            {isExpanded ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+          </button>
+          <button
+            onClick={onClose}
+            className="text-white hover:bg-white/20 rounded-lg p-2 transition-all duration-200 backdrop-blur-sm"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
       </div>
 
-      {/* Mensagens */}
-      <div className="flex-1 overflow-y-auto p-3 space-y-2">
+      {/* Área de Mensagens */}
+      <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gradient-to-b from-gray-900 via-gray-850 to-gray-900">
         {messages.map((msg) => (
           <div
             key={msg.id}
-            className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}
+            className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'} animate-fade-in`}
           >
             <div
-              className={`max-w-[80%] rounded-lg px-3 py-2 text-sm ${
+              className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm backdrop-blur-sm border ${
                 msg.sender === 'user'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-700 text-gray-100'
+                  ? 'bg-gradient-to-r from-blue-500/90 to-cyan-500/90 text-white shadow-lg border-blue-400/30'
+                  : msg.isTyping
+                  ? 'bg-gradient-to-r from-gray-700/80 to-gray-600/80 text-gray-100 border-gray-500/30'
+                  : 'bg-gradient-to-r from-gray-750/80 to-gray-700/80 text-gray-100 border-gray-600/30 shadow-lg'
               }`}
             >
-              {msg.text}
+              <div className="flex items-center gap-2 mb-2">
+                {msg.sender === 'user' ? (
+                  <div className="flex items-center gap-2">
+                    <User className="w-4 h-4" />
+                    <span className="text-xs opacity-70 font-medium">Você</span>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <Bot className="w-4 h-4" />
+                    <span className="text-xs opacity-70 font-medium">OnBot AI</span>
+                  </div>
+                )}
+                {msg.isTyping && (
+                  <div className="flex gap-1 ml-2">
+                    <div className="w-1.5 h-1.5 bg-cyan-400 rounded-full animate-bounce"></div>
+                    <div className="w-1.5 h-1.5 bg-cyan-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                    <div className="w-1.5 h-1.5 bg-cyan-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                  </div>
+                )}
+              </div>
+              
+              <div className="whitespace-pre-wrap leading-relaxed text-sm">
+                {formatMessageText(msg.text)}
+              </div>
+              
               {msg.attachments && msg.attachments.length > 0 && (
-                <div className="mt-2 pt-2 border-t border-white/20">
-                  <div className="text-xs opacity-80">
-                    📎 {msg.attachments.length} arquivo(s) anexado(s)
+                <div className="mt-3 pt-2 border-t border-white/20">
+                  <div className="text-xs opacity-80 flex items-center gap-2">
+                    <Paperclip className="w-3 h-3" />
+                    <span>{msg.attachments.length} arquivo(s) anexado(s)</span>
                   </div>
                 </div>
               )}
             </div>
           </div>
         ))}
-        {loading && (
-          <div className="flex justify-start">
-            <div className="bg-gray-700 rounded-lg px-3 py-2 text-sm text-gray-300">
-              <div className="flex items-center gap-2">
-                <RefreshCw className="w-4 h-4 animate-spin" />
-                <span>OnBot está digitando...</span>
-              </div>
-            </div>
-          </div>
-        )}
         <div ref={chatEndRef} />
       </div>
 
       {/* Área de Anexos */}
       {attachments.length > 0 && (
-        <div className="px-3 py-2 border-t border-gray-700 bg-gray-750">
+        <div className="px-4 py-3 border-t border-cyan-500/20 bg-gray-800/60 backdrop-blur-sm">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-xs text-cyan-300 flex items-center gap-2 font-medium">
+              <Paperclip className="w-3 h-3" />
+              Arquivos Prontos para Envio
+            </span>
+            <span className="text-xs bg-cyan-500/20 text-cyan-300 px-2 py-1 rounded-full">
+              {attachments.length}
+            </span>
+          </div>
           <div className="flex flex-wrap gap-2">
             {attachments.map((attachment) => (
               <div
                 key={attachment.id}
-                className="flex items-center gap-2 bg-gray-600 rounded-lg px-3 py-1 text-xs text-white"
+                className="flex items-center gap-2 bg-gray-700/60 rounded-xl px-3 py-2 text-xs text-white border border-cyan-500/20 backdrop-blur-sm hover:border-cyan-400/40 transition-all duration-200"
               >
                 {getFileIcon(attachment.type)}
-                <span className="max-w-[120px] truncate">{attachment.name}</span>
-                <span className="text-gray-400 text-xs">{attachment.size}</span>
+                <span className="max-w-[120px] truncate font-medium">{attachment.name}</span>
+                <span className="text-cyan-300 text-xs">{attachment.size}</span>
                 <button
                   onClick={() => removeAttachment(attachment.id)}
-                  className="text-gray-400 hover:text-white ml-1"
+                  className="text-gray-400 hover:text-red-400 ml-1 transition-colors"
                 >
                   <X className="w-3 h-3" />
                 </button>
@@ -237,9 +346,8 @@ export const OnBotChat: React.FC<OnBotChatProps> = ({ onClose }) => {
         </div>
       )}
 
-      {/* Input Area com Botão de Anexar */}
-      <div className="p-3 border-t border-gray-700">
-        {/* Input de arquivo oculto */}
+      {/* Área de Input */}
+      <div className="p-4 border-t border-cyan-500/20 bg-gradient-to-t from-gray-800 to-gray-900/80 backdrop-blur-sm rounded-b-2xl">
         <input
           type="file"
           ref={fileInputRef}
@@ -249,32 +357,45 @@ export const OnBotChat: React.FC<OnBotChatProps> = ({ onClose }) => {
           accept=".csv,.xlsx,.xls,.txt,.pdf,.jpg,.jpeg,.png"
         />
         
-        <div className="flex gap-2">
-          {/* Botão de Anexar */}
+        <div className="flex gap-3 items-end">
           <button
             onClick={triggerFileInput}
-            className="bg-gray-700 hover:bg-gray-600 text-gray-300 rounded-lg p-2 transition-colors flex items-center justify-center"
+            className="bg-gradient-to-r from-gray-700 to-gray-600 hover:from-gray-600 hover:to-gray-500 text-cyan-300 rounded-xl p-3 transition-all duration-200 flex items-center justify-center shadow-lg hover:shadow-cyan-500/20 border border-cyan-500/20 hover:border-cyan-400/40 mb-1"
             title="Anexar arquivo"
             disabled={loading}
           >
-            <Paperclip className="w-4 h-4" />
+            <Paperclip className="w-5 h-5" />
           </button>
 
-          <input
-            type="text"
-            value={inputMessage}
-            onChange={(e) => setInputMessage(e.target.value)}
-            onKeyPress={handleKeyPress}
-            placeholder="Digite sua mensagem..."
-            className="flex-1 bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-400 focus:outline-none focus:border-blue-500"
-            disabled={loading}
-          />
+          <div className="flex-1 relative">
+            <textarea
+              value={inputMessage}
+              onChange={(e) => setInputMessage(e.target.value)}
+              onKeyDown={handleKeyPress}
+              placeholder="Digite sua mensagem... (Shift+Enter para nova linha)"
+              className="w-full bg-gray-700/80 border border-cyan-500/30 rounded-xl px-4 py-3 text-sm text-white placeholder-cyan-200/50 focus:outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-500/30 transition-all duration-200 backdrop-blur-sm resize-none"
+              disabled={loading}
+              rows={3}
+              style={{ 
+                minHeight: '60px',
+                maxHeight: '120px'
+              }}
+            />
+            <div className="absolute bottom-2 right-2 text-xs text-cyan-300/50">
+              {inputMessage.length}/500
+            </div>
+          </div>
+          
           <button
             onClick={handleSendMessage}
             disabled={(!inputMessage.trim() && attachments.length === 0) || loading}
-            className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed rounded-lg p-2 transition-colors"
+            className="bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 disabled:from-gray-600 disabled:to-gray-700 disabled:cursor-not-allowed rounded-xl p-3 transition-all duration-200 shadow-lg hover:shadow-xl flex items-center justify-center mb-1 group"
           >
-            <Send className="w-4 h-4 text-white" />
+            {loading ? (
+              <RefreshCw className="w-5 h-5 text-white animate-spin" />
+            ) : (
+              <Send className="w-5 h-5 text-white group-hover:scale-110 transition-transform" />
+            )}
           </button>
         </div>
       </div>
