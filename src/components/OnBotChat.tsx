@@ -1,7 +1,8 @@
 // src/components/OnBotChat.tsx
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Send, Wifi, WifiOff, RefreshCw, Paperclip, FileText, Image, Bot, User, Maximize2, Minimize2 } from 'lucide-react';
+import { X, Send, RefreshCw, Paperclip, FileText, Image, Bot, User, Maximize2, Minimize2 } from 'lucide-react';
 import { sendMessageToOnbot } from '../services/onbotService';
+import { FileUploadChat } from './FileUploadChat';
 import onbotAvatar from '/onbot-avatar.png';
 
 interface OnBotChatProps {
@@ -36,14 +37,14 @@ export const OnBotChat: React.FC<OnBotChatProps> = ({ onClose }) => {
   ]);
   const [loading, setLoading] = useState(false);
   const [inputMessage, setInputMessage] = useState('');
-  const [isConnected, setIsConnected] = useState(true);
   const [attachments, setAttachments] = useState<FileAttachment[]>([]);
+  const [showFileUpload, setShowFileUpload] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [sessionId] = useState(() => `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`);
   const chatEndRef = useRef<HTMLDivElement>(null);
-  const [isExpanded, setIsExpanded] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(true); // 🔥 SEMPRE EXPANDIDO POR PADRÃO
 
-  // Scroll automático para novas mensagens
+  // Scroll automático melhorado
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ 
       behavior: 'smooth',
@@ -139,7 +140,6 @@ export const OnBotChat: React.FC<OnBotChatProps> = ({ onClose }) => {
     setInputMessage('');
     setLoading(true);
 
-    // Mensagem do usuário
     const userMessage: ChatMessage = { 
       id: `msg_${Date.now()}_user`,
       sender: 'user', 
@@ -151,35 +151,47 @@ export const OnBotChat: React.FC<OnBotChatProps> = ({ onClose }) => {
     setMessages(prev => [...prev, userMessage]);
 
     try {
-      console.log('🚀 Enviando para Gemini API...', { 
-        message: userMessageText, 
-        sessionId,
-        hasFile: attachments.length > 0 
-      });
+      console.log('🚀 Enviando para OnBot...');
+
+      let botResponse: string;
       
-      // 🔥 ENVIA COM ARQUIVO REAL - NÃO APENAS O NOME
-      const botResponse = await sendMessageToOnbot(
-        userMessageText, 
-        sessionId, 
-        attachments.length > 0 ? attachments[0].file : undefined // ✅ ENVIA O ARQUIVO REAL
-      );
+      if (attachments.length > 0) {
+        const file = attachments[0].file;
+        await addTypingEffect(`📊 **Processando arquivo...**\n\nAnalisando "${file.name}"...`);
+        botResponse = await sendMessageToOnbot(userMessageText, sessionId, file);
+      } else {
+        botResponse = await sendMessageToOnbot(userMessageText, sessionId);
+      }
       
-      // Adicionar resposta com efeito de digitação
+      console.log('✅ Resposta recebida:', botResponse);
+      
+      setMessages(prev => prev.filter(msg => !msg.isTyping));
       await addTypingEffect(botResponse);
       
-      console.log('✅ Resposta recebida da Gemini');
-
-      // Limpar anexos após envio
       setAttachments([]);
       
     } catch (error) {
       console.error('❌ Erro na comunicação:', error);
+      setMessages(prev => prev.filter(msg => !msg.isTyping));
       await addTypingEffect(
-        '⚠️ **Erro de comunicação**\n\nNão foi possível enviar o arquivo. Tente novamente.'
+        '⚠️ **Erro de comunicação**\n\nNão foi possível processar sua solicitação. Tente novamente.'
       );
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleFileUploadMessage = (message: string, file?: File) => {
+    const userMessage: ChatMessage = { 
+      id: `msg_${Date.now()}_user`,
+      sender: 'user', 
+      text: message || `Arquivo: ${file?.name || 'anexado'}`,
+      timestamp: new Date(),
+      attachments: file ? [{ name: file.name }] : undefined
+    };
+    
+    setMessages(prev => [...prev, userMessage]);
+    setShowFileUpload(false);
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -203,12 +215,13 @@ export const OnBotChat: React.FC<OnBotChatProps> = ({ onClose }) => {
     ));
   };
 
+  // 🔥 TAMANHO MAIOR - SEM BARRA DE ROLAGEM HORIZONTAL
   const chatDimensions = isExpanded 
-    ? 'w-[500px] h-[700px]' 
-    : 'w-[400px] h-[550px]';
+    ? 'w-[90vw] max-w-[800px] h-[85vh] max-h-[700px]'  // 🔥 MUITO MAIOR
+    : 'w-[600px] h-[600px]'; // 🔥 TAMANHO REDUZIDO TAMBÉM MAIOR
 
   return (
-    <div className={`fixed inset-0 m-auto ${chatDimensions} bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 rounded-2xl shadow-2xl border border-cyan-500/20 flex flex-col z-50 backdrop-blur-sm transition-all duration-300`}>
+    <div className={`fixed inset-0 m-auto ${chatDimensions} bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 rounded-2xl shadow-2xl border border-cyan-500/20 flex flex-col z-50 backdrop-blur-sm transition-all duration-300 overflow-hidden`}>
       
       {/* Header Tecnológico */}
       <div className="flex items-center justify-between p-4 border-b border-cyan-500/30 bg-gradient-to-r from-cyan-600 via-blue-600 to-purple-600 rounded-t-2xl relative overflow-hidden">
@@ -225,17 +238,8 @@ export const OnBotChat: React.FC<OnBotChatProps> = ({ onClose }) => {
           <div>
             <span className="font-bold text-white text-sm drop-shadow-lg">OnBot AI</span>
             <div className="flex items-center gap-1">
-              {isConnected ? (
-                <div className="flex items-center gap-1">
-                  <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-                  <span className="text-xs text-cyan-100">Conectado</span>
-                </div>
-              ) : (
-                <div className="flex items-center gap-1">
-                  <div className="w-2 h-2 bg-red-400 rounded-full"></div>
-                  <span className="text-xs text-red-100">Offline</span>
-                </div>
-              )}
+              <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+              <span className="text-xs text-cyan-100">Conectado</span>
             </div>
           </div>
         </div>
@@ -257,15 +261,15 @@ export const OnBotChat: React.FC<OnBotChatProps> = ({ onClose }) => {
         </div>
       </div>
 
-      {/* Área de Mensagens */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gradient-to-b from-gray-900 via-gray-850 to-gray-900">
+      {/* Área de Mensagens - SCROLLBAR PERSONALIZADA */}
+      <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gradient-to-b from-gray-900 via-gray-850 to-gray-900 scrollbar-thin scrollbar-thumb-cyan-600/30 scrollbar-track-gray-800 hover:scrollbar-thumb-cyan-500/40">
         {messages.map((msg) => (
           <div
             key={msg.id}
             className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'} animate-fade-in`}
           >
             <div
-              className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm backdrop-blur-sm border ${
+              className={`max-w-[90%] rounded-2xl px-4 py-3 text-sm backdrop-blur-sm border ${
                 msg.sender === 'user'
                   ? 'bg-gradient-to-r from-blue-500/90 to-cyan-500/90 text-white shadow-lg border-blue-400/30'
                   : msg.isTyping
@@ -294,7 +298,7 @@ export const OnBotChat: React.FC<OnBotChatProps> = ({ onClose }) => {
                 )}
               </div>
               
-              <div className="whitespace-pre-wrap leading-relaxed text-sm">
+              <div className="whitespace-pre-wrap leading-relaxed text-sm break-words">
                 {formatMessageText(msg.text)}
               </div>
               
@@ -358,7 +362,7 @@ export const OnBotChat: React.FC<OnBotChatProps> = ({ onClose }) => {
         
         <div className="flex gap-3 items-end">
           <button
-            onClick={triggerFileInput}
+            onClick={() => setShowFileUpload(true)}
             className="bg-gradient-to-r from-gray-700 to-gray-600 hover:from-gray-600 hover:to-gray-500 text-cyan-300 rounded-xl p-3 transition-all duration-200 flex items-center justify-center shadow-lg hover:shadow-cyan-500/20 border border-cyan-500/20 hover:border-cyan-400/40 mb-1"
             title="Anexar arquivo"
             disabled={loading}
@@ -370,14 +374,9 @@ export const OnBotChat: React.FC<OnBotChatProps> = ({ onClose }) => {
             <textarea
               value={inputMessage}
               onChange={(e) => setInputMessage(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault();
-                  handleSendMessage();
-                }
-              }}
+              onKeyDown={handleKeyPress}
               placeholder="Digite sua mensagem... (Shift+Enter para nova linha)"
-              className="w-full bg-gray-700/80 border border-cyan-500/30 rounded-xl px-4 py-3 text-sm text-white placeholder-cyan-200/50 focus:outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-500/30 transition-all duration-200 backdrop-blur-sm resize-none"
+              className="w-full bg-gray-700/80 border border-cyan-500/30 rounded-xl px-4 py-3 text-sm text-white placeholder-cyan-200/50 focus:outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-500/30 transition-all duration-200 backdrop-blur-sm resize-none scrollbar-thin scrollbar-thumb-cyan-600/20 scrollbar-track-gray-600"
               disabled={loading}
               rows={3}
               style={{ 
@@ -403,6 +402,15 @@ export const OnBotChat: React.FC<OnBotChatProps> = ({ onClose }) => {
           </button>
         </div>
       </div>
+
+      {/* Modal de Upload de Arquivo */}
+      {showFileUpload && (
+        <FileUploadChat
+          sessionId={sessionId}
+          onMessageSent={handleFileUploadMessage}
+          onClose={() => setShowFileUpload(false)}
+        />
+      }
     </div>
   );
 };
