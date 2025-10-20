@@ -55,8 +55,8 @@ export const TokenInput = ({ onTokenChange, token }: TokenInputProps) => {
         {/* Mensagem de erro */}
         {error && (
           <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-3">
-            <div className="flex items-center gap-2">
-              <AlertCircle className="w-4 h-4 text-red-400 flex-shrink-0" />
+            <div className="flex items-center gap-2"/>
+              <AlertCircle className="w-4 h-4 text-red-400 flex-shrink-0" >
               <span className="text-red-400 text-sm">{error}</span>
             </div>
           </div>

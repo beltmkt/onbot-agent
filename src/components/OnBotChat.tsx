@@ -1,8 +1,7 @@
-// src/components/OnBotChat.tsx
+// src/components/OnBotChat.tsx - VERSÃO CORRIGIDA
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Send, RefreshCw, Paperclip, FileText, Image, Bot, User, Maximize2, Minimize2 } from 'lucide-react';
-import { sendMessageToOnbot } from '../services/onbotService';
-import { FileUploadChat } from './FileUploadChat';
+import { X, Send, Wifi, WifiOff, RefreshCw, Paperclip, FileText, Image, Bot, User, Maximize2, Minimize2 } from 'lucide-react';
+import { sendMessageToOnbot, testOnbotConnection } from '../services/onbotService'; // ✅ Adicionado testOnbotConnection
 import onbotAvatar from '/onbot-avatar.png';
 
 interface OnBotChatProps {
@@ -37,14 +36,52 @@ export const OnBotChat: React.FC<OnBotChatProps> = ({ onClose }) => {
   ]);
   const [loading, setLoading] = useState(false);
   const [inputMessage, setInputMessage] = useState('');
+  const [isConnected, setIsConnected] = useState(true);
   const [attachments, setAttachments] = useState<FileAttachment[]>([]);
-  const [showFileUpload, setShowFileUpload] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [sessionId] = useState(() => `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`);
   const chatEndRef = useRef<HTMLDivElement>(null);
-  const [isExpanded, setIsExpanded] = useState(true); // 🔥 SEMPRE EXPANDIDO POR PADRÃO
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [connectionStatus, setConnectionStatus] = useState<'checking' | 'connected' | 'error'>('checking'); // ✅ Novo estado
 
-  // Scroll automático melhorado
+  // ✅ NOVO: Verificar conexão ao inicializar
+  useEffect(() => {
+    const checkConnection = async () => {
+      setConnectionStatus('checking');
+      try {
+        const result = await testOnbotConnection();
+        if (result.status === 'success') {
+          setConnectionStatus('connected');
+          setIsConnected(true);
+          
+          // Adicionar mensagem de status
+          setMessages(prev => [...prev, {
+            id: 'connection_ok',
+            sender: 'system',
+            text: '✅ **Sistema conectado**\nOnBot AI está pronto para ajudar!',
+            timestamp: new Date()
+          }]);
+        } else {
+          setConnectionStatus('error');
+          setIsConnected(false);
+          
+          setMessages(prev => [...prev, {
+            id: 'connection_error',
+            sender: 'system',
+            text: '⚠️ **Sistema em modo limitado**\nAlgumas funcionalidades podem não estar disponíveis.',
+            timestamp: new Date()
+          }]);
+        }
+      } catch (error) {
+        setConnectionStatus('error');
+        setIsConnected(false);
+      }
+    };
+
+    checkConnection();
+  }, []);
+
+  // Scroll automático para novas mensagens
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ 
       behavior: 'smooth',
@@ -52,7 +89,7 @@ export const OnBotChat: React.FC<OnBotChatProps> = ({ onClose }) => {
     });
   }, [messages]);
 
-  // Efeito de digitação em tempo real
+  // ✅ MELHORADO: Efeito de digitação mais suave
   const addTypingEffect = async (message: string, delay: number = 20) => {
     return new Promise<void>((resolve) => {
       let currentText = '';
@@ -97,6 +134,18 @@ export const OnBotChat: React.FC<OnBotChatProps> = ({ onClose }) => {
     
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
+      
+      // ✅ VALIDAÇÃO DE TAMANHO DE ARQUIVO (10MB máximo)
+      if (file.size > 10 * 1024 * 1024) {
+        setMessages(prev => [...prev, {
+          id: `error_${Date.now()}`,
+          sender: 'system',
+          text: `❌ **Arquivo muito grande**\n"${file.name}" excede o limite de 10MB.`,
+          timestamp: new Date()
+        }]);
+        continue;
+      }
+
       const fileSize = file.size > 1024 * 1024 
         ? `${(file.size / (1024 * 1024)).toFixed(1)} MB` 
         : `${Math.round(file.size / 1024)} KB`;
@@ -110,7 +159,17 @@ export const OnBotChat: React.FC<OnBotChatProps> = ({ onClose }) => {
       });
     }
 
-    setAttachments(prev => [...prev, ...newAttachments]);
+    if (newAttachments.length > 0) {
+      setAttachments(prev => [...prev, ...newAttachments]);
+      
+      // ✅ FEEDBACK VISUAL PARA ARQUIVOS ADICIONADOS
+      setMessages(prev => [...prev, {
+        id: `file_added_${Date.now()}`,
+        sender: 'system',
+        text: `📎 **${newAttachments.length} arquivo(s) preparado(s)**\nPronto para envio!`,
+        timestamp: new Date()
+      }]);
+    }
     
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
@@ -133,6 +192,7 @@ export const OnBotChat: React.FC<OnBotChatProps> = ({ onClose }) => {
     }
   };
 
+  // ✅ MELHORADO: Tratamento de envio com melhor feedback
   const handleSendMessage = async () => {
     if ((!inputMessage.trim() && attachments.length === 0) || loading) return;
 
@@ -140,6 +200,7 @@ export const OnBotChat: React.FC<OnBotChatProps> = ({ onClose }) => {
     setInputMessage('');
     setLoading(true);
 
+    // Mensagem do usuário
     const userMessage: ChatMessage = { 
       id: `msg_${Date.now()}_user`,
       sender: 'user', 
@@ -151,47 +212,51 @@ export const OnBotChat: React.FC<OnBotChatProps> = ({ onClose }) => {
     setMessages(prev => [...prev, userMessage]);
 
     try {
-      console.log('🚀 Enviando para OnBot...');
-
-      let botResponse: string;
+      console.log('🚀 Enviando mensagem...', { 
+        message: userMessageText, 
+        sessionId,
+        fileCount: attachments.length,
+        connectionStatus
+      });
       
-      if (attachments.length > 0) {
-        const file = attachments[0].file;
-        await addTypingEffect(`📊 **Processando arquivo...**\n\nAnalisando "${file.name}"...`);
-        botResponse = await sendMessageToOnbot(userMessageText, sessionId, file);
-      } else {
-        botResponse = await sendMessageToOnbot(userMessageText, sessionId);
-      }
+      // ✅ ENVIA PRIMEIRO ARQUIVO SE EXISTIR
+      const fileToSend = attachments.length > 0 ? attachments[0].file : undefined;
+      
+      const botResponse = await sendMessageToOnbot(
+        userMessageText, 
+        sessionId, 
+        fileToSend
+      );
       
       console.log('✅ Resposta recebida:', botResponse);
       
-      setMessages(prev => prev.filter(msg => !msg.isTyping));
+      // ✅ ADICIONA RESPOSTA COM EFEITO DE DIGITAÇÃO
       await addTypingEffect(botResponse);
       
+      // Limpar anexos após envio bem-sucedido
       setAttachments([]);
       
     } catch (error) {
       console.error('❌ Erro na comunicação:', error);
-      setMessages(prev => prev.filter(msg => !msg.isTyping));
-      await addTypingEffect(
-        '⚠️ **Erro de comunicação**\n\nNão foi possível processar sua solicitação. Tente novamente.'
-      );
+      
+      // ✅ MENSAGEM DE ERRO MAIS INFORMATIVA
+      let errorMessage = '⚠️ **Erro de comunicação**\n\nNão foi possível processar sua solicitação. ';
+      
+      if (error instanceof Error) {
+        if (error.message.includes('Failed to fetch')) {
+          errorMessage += 'Verifique sua conexão com a internet.';
+        } else if (error.message.includes('404')) {
+          errorMessage += 'Serviço temporariamente indisponível.';
+        } else {
+          errorMessage += 'Tente novamente em alguns instantes.';
+        }
+      }
+      
+      await addTypingEffect(errorMessage);
+      
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleFileUploadMessage = (message: string, file?: File) => {
-    const userMessage: ChatMessage = { 
-      id: `msg_${Date.now()}_user`,
-      sender: 'user', 
-      text: message || `Arquivo: ${file?.name || 'anexado'}`,
-      timestamp: new Date(),
-      attachments: file ? [{ name: file.name }] : undefined
-    };
-    
-    setMessages(prev => [...prev, userMessage]);
-    setShowFileUpload(false);
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -215,13 +280,41 @@ export const OnBotChat: React.FC<OnBotChatProps> = ({ onClose }) => {
     ));
   };
 
-  // 🔥 TAMANHO MAIOR - SEM BARRA DE ROLAGEM HORIZONTAL
+  // ✅ MELHORADO: Indicador de status de conexão
+  const renderConnectionStatus = () => {
+    switch (connectionStatus) {
+      case 'checking':
+        return (
+          <div className="flex items-center gap-1">
+            <RefreshCw className="w-3 h-3 text-yellow-400 animate-spin" />
+            <span className="text-xs text-yellow-300">Conectando...</span>
+          </div>
+        );
+      case 'connected':
+        return (
+          <div className="flex items-center gap-1">
+            <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+            <span className="text-xs text-green-300">Conectado</span>
+          </div>
+        );
+      case 'error':
+        return (
+          <div className="flex items-center gap-1">
+            <div className="w-2 h-2 bg-red-400 rounded-full"></div>
+            <span className="text-xs text-red-300">Offline</span>
+          </div>
+        );
+      default:
+        return null;
+    }
+  };
+
   const chatDimensions = isExpanded 
-    ? 'w-[90vw] max-w-[800px] h-[85vh] max-h-[700px]'  // 🔥 MUITO MAIOR
-    : 'w-[600px] h-[600px]'; // 🔥 TAMANHO REDUZIDO TAMBÉM MAIOR
+    ? 'w-[500px] h-[700px]' 
+    : 'w-[400px] h-[550px]';
 
   return (
-    <div className={`fixed inset-0 m-auto ${chatDimensions} bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 rounded-2xl shadow-2xl border border-cyan-500/20 flex flex-col z-50 backdrop-blur-sm transition-all duration-300 overflow-hidden`}>
+    <div className={`fixed inset-0 m-auto ${chatDimensions} bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 rounded-2xl shadow-2xl border border-cyan-500/20 flex flex-col z-50 backdrop-blur-sm transition-all duration-300`}>
       
       {/* Header Tecnológico */}
       <div className="flex items-center justify-between p-4 border-b border-cyan-500/30 bg-gradient-to-r from-cyan-600 via-blue-600 to-purple-600 rounded-t-2xl relative overflow-hidden">
@@ -233,14 +326,14 @@ export const OnBotChat: React.FC<OnBotChatProps> = ({ onClose }) => {
               alt="OnBot" 
               className="w-8 h-8 rounded-full border-2 border-white shadow-lg"
             />
-            <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-green-400 rounded-full border-2 border-gray-900 animate-pulse"></div>
+            <div className={`absolute -bottom-1 -right-1 w-3 h-3 rounded-full border-2 border-gray-900 ${
+              connectionStatus === 'connected' ? 'bg-green-400 animate-pulse' : 
+              connectionStatus === 'error' ? 'bg-red-400' : 'bg-yellow-400 animate-pulse'
+            }`}></div>
           </div>
           <div>
             <span className="font-bold text-white text-sm drop-shadow-lg">OnBot AI</span>
-            <div className="flex items-center gap-1">
-              <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-              <span className="text-xs text-cyan-100">Conectado</span>
-            </div>
+            {renderConnectionStatus()}
           </div>
         </div>
         
@@ -261,17 +354,19 @@ export const OnBotChat: React.FC<OnBotChatProps> = ({ onClose }) => {
         </div>
       </div>
 
-      {/* Área de Mensagens - SCROLLBAR PERSONALIZADA */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gradient-to-b from-gray-900 via-gray-850 to-gray-900 scrollbar-thin scrollbar-thumb-cyan-600/30 scrollbar-track-gray-800 hover:scrollbar-thumb-cyan-500/40">
+      {/* Área de Mensagens */}
+      <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gradient-to-b from-gray-900 via-gray-850 to-gray-900">
         {messages.map((msg) => (
           <div
             key={msg.id}
             className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'} animate-fade-in`}
           >
             <div
-              className={`max-w-[90%] rounded-2xl px-4 py-3 text-sm backdrop-blur-sm border ${
+              className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm backdrop-blur-sm border ${
                 msg.sender === 'user'
                   ? 'bg-gradient-to-r from-blue-500/90 to-cyan-500/90 text-white shadow-lg border-blue-400/30'
+                  : msg.sender === 'system'
+                  ? 'bg-gradient-to-r from-purple-500/20 to-pink-500/20 text-purple-200 border-purple-400/20'
                   : msg.isTyping
                   ? 'bg-gradient-to-r from-gray-700/80 to-gray-600/80 text-gray-100 border-gray-500/30'
                   : 'bg-gradient-to-r from-gray-750/80 to-gray-700/80 text-gray-100 border-gray-600/30 shadow-lg'
@@ -282,6 +377,11 @@ export const OnBotChat: React.FC<OnBotChatProps> = ({ onClose }) => {
                   <div className="flex items-center gap-2">
                     <User className="w-4 h-4" />
                     <span className="text-xs opacity-70 font-medium">Você</span>
+                  </div>
+                ) : msg.sender === 'system' ? (
+                  <div className="flex items-center gap-2">
+                    <Wifi className="w-4 h-4" />
+                    <span className="text-xs opacity-70 font-medium">Sistema</span>
                   </div>
                 ) : (
                   <div className="flex items-center gap-2">
@@ -298,7 +398,7 @@ export const OnBotChat: React.FC<OnBotChatProps> = ({ onClose }) => {
                 )}
               </div>
               
-              <div className="whitespace-pre-wrap leading-relaxed text-sm break-words">
+              <div className="whitespace-pre-wrap leading-relaxed text-sm">
                 {formatMessageText(msg.text)}
               </div>
               
@@ -362,10 +462,14 @@ export const OnBotChat: React.FC<OnBotChatProps> = ({ onClose }) => {
         
         <div className="flex gap-3 items-end">
           <button
-            onClick={() => setShowFileUpload(true)}
-            className="bg-gradient-to-r from-gray-700 to-gray-600 hover:from-gray-600 hover:to-gray-500 text-cyan-300 rounded-xl p-3 transition-all duration-200 flex items-center justify-center shadow-lg hover:shadow-cyan-500/20 border border-cyan-500/20 hover:border-cyan-400/40 mb-1"
-            title="Anexar arquivo"
+            onClick={triggerFileInput}
             disabled={loading}
+            className={`rounded-xl p-3 transition-all duration-200 flex items-center justify-center shadow-lg border mb-1 ${
+              loading 
+                ? 'bg-gray-600 text-gray-400 border-gray-500 cursor-not-allowed' 
+                : 'bg-gradient-to-r from-gray-700 to-gray-600 hover:from-gray-600 hover:to-gray-500 text-cyan-300 border-cyan-500/20 hover:border-cyan-400/40 hover:shadow-cyan-500/20'
+            }`}
+            title="Anexar arquivo"
           >
             <Paperclip className="w-5 h-5" />
           </button>
@@ -375,8 +479,12 @@ export const OnBotChat: React.FC<OnBotChatProps> = ({ onClose }) => {
               value={inputMessage}
               onChange={(e) => setInputMessage(e.target.value)}
               onKeyDown={handleKeyPress}
-              placeholder="Digite sua mensagem... (Shift+Enter para nova linha)"
-              className="w-full bg-gray-700/80 border border-cyan-500/30 rounded-xl px-4 py-3 text-sm text-white placeholder-cyan-200/50 focus:outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-500/30 transition-all duration-200 backdrop-blur-sm resize-none scrollbar-thin scrollbar-thumb-cyan-600/20 scrollbar-track-gray-600"
+              placeholder={
+                connectionStatus === 'error' 
+                  ? "Modo offline - funcionalidades limitadas..."
+                  : "Digite sua mensagem... (Shift+Enter para nova linha)"
+              }
+              className="w-full bg-gray-700/80 border border-cyan-500/30 rounded-xl px-4 py-3 text-sm text-white placeholder-cyan-200/50 focus:outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-500/30 transition-all duration-200 backdrop-blur-sm resize-none disabled:opacity-50"
               disabled={loading}
               rows={3}
               style={{ 
@@ -402,15 +510,6 @@ export const OnBotChat: React.FC<OnBotChatProps> = ({ onClose }) => {
           </button>
         </div>
       </div>
-
-      {/* Modal de Upload de Arquivo */}
-      {showFileUpload && (
-        <FileUploadChat
-          sessionId={sessionId}
-          onMessageSent={handleFileUploadMessage}
-          onClose={() => setShowFileUpload(false)}
-        />
-      }
     </div>
   );
 };
