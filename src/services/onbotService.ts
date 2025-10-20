@@ -1,11 +1,7 @@
-// src/services/onbotService.ts - VERSÃO CORRIGIDA COM SUAS VARIÁVEIS
+// src/services/onbotService.ts - VERSÃO COM PAYLOAD CORRETO
 
-// ✅ Use a URL do webhook n8n que você já tem configurada
-const ONBOT_API_URL = import.meta.env.VITE_N8N_WEBHOOK_URL || 'https://consentient-bridger-pyroclastic.ngrok-free.dev/webhook/bc410b9e-0c7e-4625-b4aa-06f42b413ddc/chat';
-
-// ✅ Token JWT para autenticação
-const JWT_TOKEN = import.meta.env.VITE_JWT_TOKEN || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiZGV2LXVzZXItMTIzIiwiYXVkIjoiYm9sdC1mcm9udGVuZCIsImlzcyI6ImRldi1iYWNrZW5kIiwiaWF0IjoxNzM5NDYyNDAwLCJleHAiOjE3Mzk0NjUwMDB9.4xw4gVv7J8Q6Y9tLm6wZ8XrNp1qKjT3vB2cD7fE5hM';
-// src/services/onbotService.ts - VERSÃO QUE RECONHECE TOKENS
+const ONBOT_API_URL = import.meta.env.VITE_N8N_WEBHOOK_URL;
+const JWT_TOKEN = import.meta.env.VITE_JWT_TOKEN;
 
 /**
  * Verifica se o texto é um token (baseado no formato)
@@ -66,7 +62,7 @@ const generateSmartResponse = (userMessage: string, data: any): string => {
 };
 
 /**
- * Envia mensagem para o OnBot AI
+ * Envia mensagem para o OnBot AI - COM PAYLOAD CORRETO
  */
 export const sendMessageToOnbot = async (
   message: string, 
@@ -74,16 +70,25 @@ export const sendMessageToOnbot = async (
   file?: File
 ): Promise<string> => {
   try {
-    const payload: any = {
-      message,
-      sessionId,
+    // ✅ PAYLOAD CORRETO que o n8n espera
+    const payload = {
+      sessionId: sessionId,        // ✅ Campo que o n8n espera
+      chatInput: message,          // ✅ Campo que o n8n espera  
       action: 'chat_message',
       timestamp: new Date().toISOString(),
     };
 
+    console.log('🚀 [PAYLOAD] Enviando para n8n:', {
+      url: ONBOT_API_URL,
+      payload: payload,
+      hasFile: !!file,
+      fileInfo: file ? { name: file.name, type: file.type, size: file.size } : 'none'
+    });
+
     let response: Response;
     
     if (file) {
+      // Se tem arquivo, usa FormData
       const formData = new FormData();
       formData.append('payload', JSON.stringify(payload));
       formData.append('file', file);
@@ -96,6 +101,7 @@ export const sendMessageToOnbot = async (
         body: formData,
       });
     } else {
+      // Sem arquivo, usa JSON
       response = await fetch(ONBOT_API_URL, {
         method: 'POST',
         headers: {
@@ -106,8 +112,10 @@ export const sendMessageToOnbot = async (
       });
     }
 
+    console.log('📨 [RESPOSTA] Status:', response.status, response.statusText);
+
     const data = await response.json();
-    console.log('📨 Resposta do n8n:', data);
+    console.log('📨 [RESPOSTA] Dados do n8n:', data);
 
     if (data.success === false) {
       throw new Error(data.error || data.message || 'Erro no processamento');
@@ -117,27 +125,31 @@ export const sendMessageToOnbot = async (
     return generateSmartResponse(message, data);
 
   } catch (error) {
-    console.error('Erro ao enviar mensagem:', error);
+    console.error('❌ Erro ao enviar mensagem:', error);
     
     return 'Não consegui processar sua mensagem no momento. Você pode enviar o arquivo CSV diretamente pelo botão de anexo.';
   }
 };
 
 /**
- * Testa a conexão
+ * Testa a conexão - COM PAYLOAD CORRETO
  */
 export const testOnbotConnection = async (): Promise<{ status: 'success' | 'error'; message: string }> => {
   try {
+    const payload = {
+      sessionId: 'health_check_' + Date.now(),
+      chatInput: 'health_check',
+      action: 'health_check',
+      timestamp: new Date().toISOString()
+    };
+
     await fetch(ONBOT_API_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${JWT_TOKEN}`,
       },
-      body: JSON.stringify({
-        action: 'health_check',
-        sessionId: 'health_check'
-      }),
+      body: JSON.stringify(payload),
     });
 
     return {
@@ -149,6 +161,43 @@ export const testOnbotConnection = async (): Promise<{ status: 'success' | 'erro
     return {
       status: 'success',
       message: 'Sistema pronto'
+    };
+  }
+};
+
+/**
+ * Processa arquivo CSV via webhook n8n - COM PAYLOAD CORRETO
+ */
+export const processCSVFile = async (file: File, token: string): Promise<any> => {
+  try {
+    const payload = {
+      sessionId: 'csv_upload_' + Date.now(),
+      chatInput: 'upload_csv',
+      action: 'process_csv',
+      token: token,
+      timestamp: new Date().toISOString()
+    };
+
+    const formData = new FormData();
+    formData.append('payload', JSON.stringify(payload));
+    formData.append('file', file);
+
+    const response = await fetch(ONBOT_API_URL, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${JWT_TOKEN}`,
+      },
+      body: formData,
+    });
+
+    const data = await response.json();
+    
+    return data;
+  } catch (error) {
+    console.error('❌ Erro ao processar arquivo CSV:', error);
+    return {
+      success: false,
+      message: 'Erro ao processar arquivo CSV - Tente novamente'
     };
   }
 };
