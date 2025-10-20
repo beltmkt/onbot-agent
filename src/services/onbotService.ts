@@ -1,234 +1,240 @@
-// ✅ src/services/onbotService.ts — VERSÃO 2025 REFINADA
+// src/services/onbotService.ts - VERSÃO COMPATÍVEL COM SEU DECODIFICADOR
 
-// 🔧 Variáveis de ambiente obrigatórias
-const DATA_WEBHOOK_URL = import.meta.env.VITE_N8N_WEBHOOK_URL;       // Ex: /dados_recebidos
-const CHAT_WEBHOOK_URL = import.meta.env.VITE_N8N_WEBHOOK_URLCHAT;   // Ex: /chat
+const ONBOT_API_URL = import.meta.env.VITE_N8N_WEBHOOK_URL;
 const JWT_TOKEN = import.meta.env.VITE_JWT_TOKEN;
 
-// ============================================================
-// 🧩 Função utilitária: leitura segura de arquivos CSV como texto
-// ============================================================
-const readFileAsText = (file: File): Promise<string> => {
+/**
+ * Converte File para Base64 (formato que seu decodificador espera)
+ */
+const fileToBase64 = (file: File): Promise<string> => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
-    reader.onload = (e) => resolve(e.target?.result as string);
-    reader.onerror = () => reject(new Error("Falha ao ler o arquivo"));
-    reader.readAsText(file, "UTF-8");
-  });
-};
-
-// ============================================================
-// 🧠 Processamento LOCAL do CSV (antes de enviar ao n8n)
-// ============================================================
-const processCSVLocal = (
-  csvContent: string
-): { users: any[]; total: number; errors: string[] } => {
-  try {
-    const lines = csvContent.split(/\r?\n/).filter((l) => l.trim());
-    if (lines.length < 2)
-      return { users: [], total: 0, errors: ["Arquivo precisa ter cabeçalho e dados."] };
-
-    const headers = lines[0].split(",").map((h) => h.trim().toLowerCase());
-    const users = lines
-      .slice(1)
-      .map((line) => line.split(","))
-      .map((row) => {
-        const obj: any = {};
-        headers.forEach((h, i) => (obj[h] = (row[i] || "").trim()));
-        return {
-          nome: obj.nome || obj.name || "",
-          email: (obj.email || obj.mail || "").toLowerCase(),
-          telefone: obj.telefone || obj.phone || obj.tel || "",
-          empresa_ou_equipe:
-            obj.empresa_ou_equipe ||
-            obj.empresa ||
-            obj.company ||
-            obj.equipe ||
-            obj.team ||
-            "",
-          master: (obj.master || obj.is_master || "não").toString().toLowerCase(),
-        };
-      })
-      .filter((u) => u.nome && u.email && u.empresa_ou_equipe);
-
-    return {
-      users,
-      total: users.length,
-      errors: users.length ? [] : ["Nenhum usuário válido encontrado."],
-    };
-  } catch (error: any) {
-    console.error("❌ Erro no processamento local:", error);
-    return { users: [], total: 0, errors: [`Erro ao processar CSV: ${error.message}`] };
-  }
-};
-
-// ============================================================
-// 📤 Envio de dados processados (usuários) ao webhook de dados
-// ============================================================
-const sendToDataWebhook = async (
-  processedData: any,
-  sessionId: string,
-  fileName: string = ""
-): Promise<string> => {
-  if (!DATA_WEBHOOK_URL) throw new Error("Webhook de dados não configurado");
-
-  const payload = {
-    sessionId,
-    action: "process_csv",
-    timestamp: new Date().toISOString(),
-    token: JWT_TOKEN,
-    empresa: "Onboarding | Olha o Mistério",
-    processType: "csv_upload",
-    processedData,
-    fileName,
-    totalUsers: processedData.total,
-    users: processedData.users,
-    errors: processedData.errors,
-  };
-
-  console.log("📡 Enviando dados processados:", payload);
-
-  const response = await fetch(DATA_WEBHOOK_URL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${JWT_TOKEN}`,
-    },
-    body: JSON.stringify(payload),
-  });
-
-  if (!response.ok) {
-    const text = await response.text();
-    throw new Error(`Erro ${response.status}: ${text}`);
-  }
-
-  const data = await response.json().catch(() => ({}));
-  console.log("✅ Resposta webhook de dados:", data);
-  return data.output || data.response || data.message || "Dados enviados com sucesso!";
-};
-
-// ============================================================
-// 💬 Envio de mensagens normais de chat (via webhook de chat)
-// ============================================================
-const sendToChatEndpoint = async (
-  message: string,
-  sessionId: string,
-  file?: File
-): Promise<string> => {
-  if (!CHAT_WEBHOOK_URL) throw new Error("Webhook de chat não configurado");
-
-  let chatInput = message;
-
-  if (file) {
-    try {
-      const content = await readFileAsText(file);
-      chatInput += `\n\n📎 Arquivo enviado: ${file.name}\n\`\`\`csv\n${content}\n\`\`\``;
-    } catch {
-      chatInput += `\n\n📎 Arquivo: ${file.name} (erro ao ler conteúdo)`;
-    }
-  }
-
-  const payload = {
-    sessionId,
-    chatInput,
-    action: "chat_message",
-    timestamp: new Date().toISOString(),
-    token: JWT_TOKEN,
-  };
-
-  console.log("💬 Enviando mensagem ao chat webhook:", payload);
-
-  const response = await fetch(CHAT_WEBHOOK_URL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${JWT_TOKEN}`,
-    },
-    body: JSON.stringify(payload),
-  });
-
-  if (!response.ok) {
-    const text = await response.text();
-    throw new Error(`Erro ${response.status}: ${text}`);
-  }
-
-  const data = await response.json().catch(() => ({}));
-  console.log("📥 Resposta do chat webhook:", data);
-  return data.output || data.response || data.message || "Mensagem enviada!";
-};
-
-// ============================================================
-// 🧠 Função principal — escolhe o fluxo certo (CSV ou Chat)
-// ============================================================
-export const sendMessageToOnbot = async (
-  message: string,
-  sessionId: string,
-  file?: File
-): Promise<string> => {
-  try {
-    if (file) {
-      console.log("📁 Processando arquivo local:", file.name);
-      const content = await readFileAsText(file);
-      const processedData = processCSVLocal(content);
-
-      if (processedData.total > 0) {
-        const result = await sendToDataWebhook(processedData, sessionId, file.name);
-        return `✅ ${processedData.total} usuário(s) processado(s) localmente.\n${result}`;
+    reader.readAsDataURL(file);
+    reader.onload = () => {
+      // Remove o prefixo "data:*/*;base64,"
+      const base64 = reader.result?.toString().split(',')[1];
+      if (base64) {
+        resolve(base64);
       } else {
-        return `❌ Erro: ${processedData.errors.join(", ")}`;
+        reject(new Error('Falha ao converter arquivo para base64'));
+      }
+    };
+    reader.onerror = error => reject(error);
+  });
+};
+
+/**
+ * Envia mensagem para o OnBot AI - COMPATÍVEL COM SEU DECODIFICADOR
+ */
+export const sendMessageToOnbot = async (
+  message: string, 
+  sessionId: string, 
+  file?: File
+): Promise<string> => {
+  try {
+    if (!ONBOT_API_URL) {
+      throw new Error('URL do webhook não configurada');
+    }
+
+    // ✅ CORREÇÃO: Se só tem arquivo sem mensagem, envia mensagem específica
+    const finalMessage = file && !message.trim() 
+      ? 'Enviando arquivo CSV com dados dos usuários' 
+      : message;
+
+    let response: Response;
+    
+    if (file) {
+      // ✅ ESTRATÉGIA 1: Enviar como JSON com base64 (mais confiável)
+      console.log('📁 Convertendo arquivo para base64...');
+      const fileBase64 = await fileToBase64(file);
+      
+      const payload = {
+        sessionId: sessionId,
+        chatInput: finalMessage,
+        action: 'process_csv',
+        timestamp: new Date().toISOString(),
+        // ✅ ENVIA O ARQUIVO COMO BASE64 NO JSON (seu decodificador busca aqui)
+        fileContent: fileBase64,
+        fileName: file.name,
+        fileType: file.type,
+        fileSize: file.size
+      };
+
+      console.log('🚀 Enviando arquivo como base64 no JSON:', {
+        fileName: file.name,
+        fileSize: file.size,
+        base64Length: fileBase64.length,
+        sessionId: sessionId
+      });
+
+      response = await fetch(ONBOT_API_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${JWT_TOKEN}`,
+        },
+        body: JSON.stringify(payload),
+      });
+
+    } else {
+      // ✅ PARA MENSAGENS: JSON direto
+      const payload = {
+        sessionId: sessionId,
+        chatInput: finalMessage,
+        action: 'chat_message',
+        timestamp: new Date().toISOString(),
+      };
+
+      response = await fetch(ONBOT_API_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${JWT_TOKEN}`,
+        },
+        body: JSON.stringify(payload),
+      });
+    }
+
+    console.log('📨 Status da resposta:', response.status, response.statusText);
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('❌ Erro HTTP detalhado:', errorText);
+      throw new Error(`Erro HTTP: ${response.status} - ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    console.log('📨 Resposta do n8n:', data);
+
+    // ✅ EXTRAI APENAS O TEXTO DA RESPOSTA
+    if (data && typeof data === 'object') {
+      if (data.output && typeof data.output === 'string') {
+        return data.output;
+      } else if (data.response && typeof data.response === 'string') {
+        return data.response;
+      } else if (data.message && typeof data.message === 'string') {
+        return data.message;
       }
     }
 
-    if (message.trim()) {
-      const lines = message.split("\n").filter((l) => l.includes(","));
-      if (lines.length > 0) {
-        const processedData = processCSVLocal(lines.join("\n"));
-        if (processedData.total > 0) {
-          const result = await sendToDataWebhook(processedData, sessionId, "dados_manuais.csv");
-          return `✅ ${processedData.total} usuário(s) processado(s) manualmente.\n${result}`;
-        }
-      }
-      return await sendToChatEndpoint(message, sessionId);
-    }
+    return file 
+      ? 'Arquivo recebido! Processando...' 
+      : 'Mensagem recebida com sucesso!';
 
-    return "Envie uma mensagem ou um arquivo CSV para processar.";
-  } catch (error: any) {
-    console.error("❌ Erro no fluxo principal:", error);
-    try {
-      console.log("🔄 Fallback para chat (erro no envio principal)");
-      return await sendToChatEndpoint(
-        file ? `Falha ao enviar ${file.name}: ${error.message}` : message,
-        sessionId
-      );
-    } catch {
+  } catch (error) {
+    console.error('❌ Erro no sendMessageToOnbot:', error);
+    
+    if (error instanceof Error) {
       return `Erro: ${error.message}`;
     }
+    
+    return 'Erro ao processar sua solicitação. Tente novamente.';
   }
 };
 
-// ============================================================
-// 🔍 Teste de conexão
-// ============================================================
-export const testOnbotConnection = async (): Promise<{
-  status: "success" | "error";
-  message: string;
-}> => {
+/**
+ * Processa arquivo CSV via webhook n8n - COMPATÍVEL
+ */
+export const processCSVFile = async (file: File, token: string, sessionId: string): Promise<any> => {
   try {
-    if (!DATA_WEBHOOK_URL || !CHAT_WEBHOOK_URL)
-      throw new Error("Webhooks não configurados.");
-    return { status: "success", message: "Conexão com o OnBot OK 🚀" };
-  } catch (error: any) {
-    return { status: "error", message: error.message };
+    if (!ONBOT_API_URL) {
+      return {
+        success: false,
+        message: 'URL do webhook não configurada'
+      };
+    }
+
+    // ✅ CONVERTE PARA BASE64 (compatível com seu decodificador)
+    const fileBase64 = await fileToBase64(file);
+
+    const payload = {
+      sessionId: sessionId,
+      chatInput: 'upload_csv',
+      action: 'process_csv',
+      token: token,
+      timestamp: new Date().toISOString(),
+      fileContent: fileBase64, // ✅ SEU DECODIFICADOR BUSCA AQUI
+      fileName: file.name,
+      fileType: file.type,
+      fileSize: file.size
+    };
+
+    console.log('📁 Processando CSV como base64:', file.name);
+
+    const response = await fetch(ONBOT_API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${JWT_TOKEN}`,
+      },
+      body: JSON.stringify(payload),
+    });
+
+    console.log('📨 Resposta CSV - Status:', response.status);
+
+    if (!response.ok) {
+      throw new Error(`Erro HTTP: ${response.status}`);
+    }
+
+    const data = await response.json();
+    console.log('📨 Resposta do CSV:', data);
+    
+    return data;
+
+  } catch (error) {
+    console.error('❌ Erro ao processar CSV:', error);
+    return {
+      success: false,
+      message: 'Erro ao processar arquivo CSV.'
+    };
   }
 };
 
-// ============================================================
-// 📊 Interface auxiliar — para processamento isolado de CSV
-// ============================================================
-export const processCSVFile = async (
-  file: File,
-  sessionId: string
-): Promise<{ success: boolean; message: string }> => {
-  const message = await sendMessageToOnbot("Upload CSV", sessionId, file);
-  return { success: true, message };
+/**
+ * Testa a conexão com o n8n
+ */
+export const testOnbotConnection = async (): Promise<{ status: 'success' | 'error'; message: string }> => {
+  try {
+    if (!ONBOT_API_URL) {
+      return {
+        status: 'error',
+        message: 'URL do webhook não configurada'
+      };
+    }
+
+    const payload = {
+      sessionId: 'health_check_' + Date.now(),
+      chatInput: 'health_check',
+      action: 'health_check',
+      timestamp: new Date().toISOString()
+    };
+
+    const response = await fetch(ONBOT_API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${JWT_TOKEN}`,
+      },
+      body: JSON.stringify(payload),
+    });
+
+    if (response.ok) {
+      return {
+        status: 'success',
+        message: 'Conectado'
+      };
+    } else {
+      return {
+        status: 'error',
+        message: 'Serviço indisponível'
+      };
+    }
+
+  } catch (error) {
+    console.error('❌ Erro no teste de conexão:', error);
+    return {
+      status: 'error',
+      message: 'Erro de conexão'
+    };
+  }
 };
