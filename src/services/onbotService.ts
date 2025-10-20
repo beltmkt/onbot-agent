@@ -6,7 +6,7 @@ const ONBOT_API_URL = import.meta.env.VITE_N8N_WEBHOOK_URL || 'https://consentie
 // ✅ Token JWT para autenticação
 const JWT_TOKEN = import.meta.env.VITE_JWT_TOKEN || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiZGV2LXVzZXItMTIzIiwiYXVkIjoiYm9sdC1mcm9udGVuZCIsImlzcyI6ImRldi1iYWNrZW5kIiwiaWF0IjoxNzM5NDYyNDAwLCJleHAiOjE3Mzk0NjUwMDB9.4xw4gVv7J8Q6Y9tLm6wZ8XrNp1qKjT3vB2cD7fE5hM';
 /**
- * Envia mensagem para o OnBot AI e retorna a resposta EXATA do n8n
+ * Envia mensagem para o OnBot AI e retorna APENAS o texto da resposta do n8n
  */
 export const sendMessageToOnbot = async (
   message: string, 
@@ -61,32 +61,35 @@ export const sendMessageToOnbot = async (
     }
 
     const data = await response.json();
-    console.log('📨 [RESPOSTA EXATA] Dados do n8n:', data);
+    console.log('📨 [RESPOSTA COMPLETA] Dados do n8n:', data);
 
-    // ✅ RETORNA A RESPOSTA EXATA DO N8N - SEM MODIFICAÇÕES
-    // O n8n pode retornar a resposta em diferentes campos
-    if (data.response) {
-      return data.response; // Campo mais comum
+    // ✅ EXTRAI APENAS O TEXTO DA RESPOSTA - CAMPO "output"
+    if (data.output) {
+      console.log('✅ [TEXTO EXTRAÍDO] output:', data.output);
+      return data.output; // ✅ RETORNA APENAS O TEXTO DO CAMPO "output"
+    } 
+    // ✅ FALLBACK: outros campos possíveis
+    else if (data.response) {
+      console.log('✅ [TEXTO EXTRAÍDO] response:', data.response);
+      return data.response;
     } else if (data.message) {
-      return data.message; // Campo alternativo
+      console.log('✅ [TEXTO EXTRAÍDO] message:', data.message);
+      return data.message;
     } else if (data.text) {
-      return data.text; // Outro campo possível
-    } else if (data.answer) {
-      return data.answer; // Outro campo possível
+      console.log('✅ [TEXTO EXTRAÍDO] text:', data.text);
+      return data.text;
     } else if (typeof data === 'string') {
-      return data; // Se for string direta
-    } else if (data.success && data.data?.message) {
-      return data.data.message; // Estrutura aninhada
+      console.log('✅ [TEXTO EXTRAÍDO] string direta:', data);
+      return data;
     } else {
-      // Se não encontrar resposta específica, retorna o JSON completo para debug
-      console.warn('⚠️ Estrutura de resposta não reconhecida, retornando JSON:', data);
+      console.warn('⚠️ Estrutura de resposta não reconhecida:', data);
+      // Se não encontrar, retorna o JSON formatado como fallback
       return JSON.stringify(data, null, 2);
     }
 
   } catch (error) {
     console.error('❌ Erro ao enviar mensagem:', error);
     
-    // ✅ Em caso de erro, retorna mensagem simples
     if (error instanceof Error) {
       return `Erro: ${error.message}`;
     }
@@ -162,6 +165,11 @@ export const processCSVFile = async (file: File, token: string, sessionId: strin
     }
 
     const data = await response.json();
+    
+    // ✅ PARA CSV TAMBÉM: extrai apenas o texto
+    if (data.output) {
+      return { ...data, message: data.output };
+    }
     
     return data;
 
