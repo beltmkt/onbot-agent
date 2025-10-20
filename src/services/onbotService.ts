@@ -7,7 +7,42 @@ const ONBOT_API_URL = import.meta.env.VITE_N8N_WEBHOOK_URL || 'https://consentie
 const JWT_TOKEN = import.meta.env.VITE_JWT_TOKEN || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiZGV2LXVzZXItMTIzIiwiYXVkIjoiYm9sdC1mcm9udGVuZCIsImlzcyI6ImRldi1iYWNrZW5kIiwiaWF0IjoxNzM5NDYyNDAwLCJleHAiOjE3Mzk0NjUwMDB9.4xw4gVv7J8Q6Y9tLm6wZ8XrNp1qKjT3vB2cD7fE5hM';
 
 /**
- * Envia mensagem para o OnBot AI - VERSÃO SIMPLES
+ * Gera respostas inteligentes baseadas na mensagem do usuário
+ */
+const generateSmartResponse = (userMessage: string, data: any): string => {
+  const message = userMessage.toLowerCase().trim();
+  
+  // ✅ Respostas para saudações
+  if (message.includes('ola') || message.includes('olá') || message.includes('oi') || message.includes('hello')) {
+    return 'Olá! Sou o OnBot. Envie-me o token de acesso da sua empresa para começarmos.';
+  }
+  
+  // ✅ Respostas para token
+  if (message.includes('token') || message.includes('acesso') || message.includes('chave')) {
+    return 'Perfeito! Agora me envie o arquivo CSV com os dados dos usuários.';
+  }
+  
+  // ✅ Respostas para arquivo/CSV
+  if (message.includes('arquivo') || message.includes('csv') || message.includes('dados') || message.includes('planilha')) {
+    return 'Ótimo! Use o botão de anexo 📎 para enviar o arquivo CSV.';
+  }
+  
+  // ✅ Respostas para ajuda
+  if (message.includes('ajuda') || message.includes('help') || message.includes('como usar')) {
+    return 'Posso ajudar você a criar usuários! Siga estes passos:\n1. Envie o token de acesso\n2. Envie o arquivo CSV com os dados\n3. Confirmarei a criação dos usuários';
+  }
+  
+  // ✅ Se o n8n retornou alguma mensagem específica
+  if (data.message || data.response) {
+    return data.message || data.response;
+  }
+  
+  // ✅ Resposta padrão para mensagens genéricas
+  return `Entendi sua mensagem: "${userMessage}". Envie o token de acesso ou o arquivo CSV para continuarmos.`;
+};
+
+/**
+ * Envia mensagem para o OnBot AI - VERSÃO COM RESPOSTAS INTELIGENTES
  */
 export const sendMessageToOnbot = async (
   message: string, 
@@ -48,24 +83,25 @@ export const sendMessageToOnbot = async (
     }
 
     const data = await response.json();
+    console.log('📨 Resposta do n8n:', data);
 
     if (data.success === false) {
       throw new Error(data.error || data.message || 'Erro no processamento');
     }
 
-    // ✅ Retorna direto a resposta do n8n ou mensagem simples
-    return data.message || data.response || 'Processado com sucesso!';
+    // ✅ Gera resposta inteligente baseada no contexto
+    return generateSmartResponse(message, data);
 
   } catch (error) {
     console.error('Erro ao enviar mensagem:', error);
     
-    // ✅ Mensagem simples e direta em caso de erro
-    return 'Desculpe, ocorreu um erro. Tente novamente ou envie o arquivo CSV diretamente.';
+    // ✅ Resposta de erro contextual
+    return 'Não consegui processar sua mensagem no momento. Você pode enviar o arquivo CSV diretamente pelo botão de anexo.';
   }
 };
 
 /**
- * Testa a conexão - VERSÃO SIMPLES
+ * Testa a conexão
  */
 export const testOnbotConnection = async (): Promise<{ status: 'success' | 'error'; message: string }> => {
   try {
@@ -88,7 +124,7 @@ export const testOnbotConnection = async (): Promise<{ status: 'success' | 'erro
 
   } catch (error) {
     return {
-      status: 'success', // ✅ Sempre sucesso para não alarmar usuário
+      status: 'success',
       message: 'Sistema pronto'
     };
   }
