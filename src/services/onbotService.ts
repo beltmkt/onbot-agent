@@ -5,12 +5,39 @@ const ONBOT_API_URL = import.meta.env.VITE_N8N_WEBHOOK_URL || 'https://consentie
 
 // ✅ Token JWT para autenticação
 const JWT_TOKEN = import.meta.env.VITE_JWT_TOKEN || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiZGV2LXVzZXItMTIzIiwiYXVkIjoiYm9sdC1mcm9udGVuZCIsImlzcyI6ImRldi1iYWNrZW5kIiwiaWF0IjoxNzM5NDYyNDAwLCJleHAiOjE3Mzk0NjUwMDB9.4xw4gVv7J8Q6Y9tLm6wZ8XrNp1qKjT3vB2cD7fE5hM';
+// src/services/onbotService.ts - VERSÃO QUE RECONHECE TOKENS
+
+const ONBOT_API_URL = import.meta.env.VITE_N8N_WEBHOOK_URL;
+const JWT_TOKEN = import.meta.env.VITE_JWT_TOKEN;
+
+/**
+ * Verifica se o texto é um token (baseado no formato)
+ */
+const isLikelyToken = (text: string): boolean => {
+  const cleanText = text.trim();
+  
+  // ✅ Tokens geralmente têm entre 20-64 caracteres alfanuméricos
+  if (cleanText.length >= 20 && cleanText.length <= 64) {
+    // Verifica se é principalmente hex ou base64
+    const hexRegex = /^[0-9a-fA-F]+$/;
+    const base64Regex = /^[A-Za-z0-9+/=]+$/;
+    
+    return hexRegex.test(cleanText) || base64Regex.test(cleanText);
+  }
+  
+  return false;
+};
 
 /**
  * Gera respostas inteligentes baseadas na mensagem do usuário
  */
 const generateSmartResponse = (userMessage: string, data: any): string => {
   const message = userMessage.toLowerCase().trim();
+  
+  // ✅ PRIMEIRO verifica se é um token
+  if (isLikelyToken(userMessage)) {
+    return '✅ **Token recebido com sucesso!**\n\nAgora me envie o arquivo CSV com os dados dos usuários. Use o botão de anexo 📎 para enviar o arquivo.';
+  }
   
   // ✅ Respostas para saudações
   if (message.includes('ola') || message.includes('olá') || message.includes('oi') || message.includes('hello')) {
@@ -19,7 +46,7 @@ const generateSmartResponse = (userMessage: string, data: any): string => {
   
   // ✅ Respostas para token
   if (message.includes('token') || message.includes('acesso') || message.includes('chave')) {
-    return 'Perfeito! Agora me envie o arquivo CSV com os dados dos usuários.';
+    return 'Perfeito! Aguardo o token de acesso. Ele geralmente é uma sequência longa de letras e números.';
   }
   
   // ✅ Respostas para arquivo/CSV
@@ -38,11 +65,11 @@ const generateSmartResponse = (userMessage: string, data: any): string => {
   }
   
   // ✅ Resposta padrão para mensagens genéricas
-  return `Entendi sua mensagem: "${userMessage}". Envie o token de acesso ou o arquivo CSV para continuarmos.`;
+  return `Obrigado pela mensagem! Para criar usuários, preciso que você:\n\n1. **Envie o token de acesso** da sua empresa\n2. **Envie o arquivo CSV** com os dados dos usuários\n\nVamos começar pelo token! 🔑`;
 };
 
 /**
- * Envia mensagem para o OnBot AI - VERSÃO COM RESPOSTAS INTELIGENTES
+ * Envia mensagem para o OnBot AI
  */
 export const sendMessageToOnbot = async (
   message: string, 
@@ -95,7 +122,6 @@ export const sendMessageToOnbot = async (
   } catch (error) {
     console.error('Erro ao enviar mensagem:', error);
     
-    // ✅ Resposta de erro contextual
     return 'Não consegui processar sua mensagem no momento. Você pode enviar o arquivo CSV diretamente pelo botão de anexo.';
   }
 };
