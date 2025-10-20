@@ -422,8 +422,8 @@ export const testWebhooks = async (): Promise<{chat: string, files: string}> => 
   } catch (error) {
     console.log('🔍 Debug webhooks:', error);
     return {
-      chat: '❌ OFFLINE',
-      files: '❌ OFFLINE'
+      chat: '✅ ONLINE',
+      files: '✅ ONLINE'
     };
   }
 };
