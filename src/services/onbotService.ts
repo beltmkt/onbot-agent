@@ -5,61 +5,8 @@ const ONBOT_API_URL = import.meta.env.VITE_N8N_WEBHOOK_URL || 'https://consentie
 
 // ✅ Token JWT para autenticação
 const JWT_TOKEN = import.meta.env.VITE_JWT_TOKEN || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiZGV2LXVzZXItMTIzIiwiYXVkIjoiYm9sdC1mcm9udGVuZCIsImlzcyI6ImRldi1iYWNrZW5kIiwiaWF0IjoxNzM5NDYyNDAwLCJleHAiOjE3Mzk0NjUwMDB9.4xw4gVv7J8Q6Y9tLm6wZ8XrNp1qKjT3vB2cD7fE5hM';
-// src/services/onbotService.ts - VERSÃO QUE RECONHECE TOKENS
-
-// src/services/onbotService.ts - VERSÃO COM SESSIONID CORRETO
-
 /**
- * Verifica se o texto é um token (baseado no formato)
- */
-const isLikelyToken = (text: string): boolean => {
-  const cleanText = text.trim();
-  
-  if (cleanText.length >= 20 && cleanText.length <= 64) {
-    const hexRegex = /^[0-9a-fA-F]+$/;
-    const base64Regex = /^[A-Za-z0-9+/=]+$/;
-    
-    return hexRegex.test(cleanText) || base64Regex.test(cleanText);
-  }
-  
-  return false;
-};
-
-/**
- * Gera respostas inteligentes baseadas na mensagem do usuário
- */
-const generateSmartResponse = (userMessage: string, data: any): string => {
-  const message = userMessage.toLowerCase().trim();
-  
-  if (isLikelyToken(userMessage)) {
-    return '✅ **Token recebido com sucesso!**\n\nAgora me envie o arquivo CSV com os dados dos usuários. Use o botão de anexo 📎 para enviar o arquivo.';
-  }
-  
-  if (message.includes('ola') || message.includes('olá') || message.includes('oi') || message.includes('hello')) {
-    return 'Olá! Sou o OnBot. Envie-me o token de acesso da sua empresa para começarmos.';
-  }
-  
-  if (message.includes('token') || message.includes('acesso') || message.includes('chave')) {
-    return 'Perfeito! Aguardo o token de acesso. Ele geralmente é uma sequência longa de letras e números.';
-  }
-  
-  if (message.includes('arquivo') || message.includes('csv') || message.includes('dados') || message.includes('planilha')) {
-    return 'Ótimo! Use o botão de anexo 📎 para enviar o arquivo CSV.';
-  }
-  
-  if (message.includes('ajuda') || message.includes('help') || message.includes('como usar')) {
-    return 'Posso ajudar você a criar usuários! Siga estes passos:\n1. Envie o token de acesso\n2. Envie o arquivo CSV com os dados\n3. Confirmarei a criação dos usuários';
-  }
-  
-  if (data.message || data.response) {
-    return data.message || data.response;
-  }
-  
-  return `Obrigado pela mensagem! Para criar usuários, preciso que você:\n\n1. **Envie o token de acesso** da sua empresa\n2. **Envie o arquivo CSV** com os dados dos usuários\n\nVamos começar pelo token! 🔑`;
-};
-
-/**
- * Envia mensagem para o OnBot AI - COM SESSIONID CORRETO
+ * Envia mensagem para o OnBot AI e retorna a resposta EXATA do n8n
  */
 export const sendMessageToOnbot = async (
   message: string, 
@@ -67,7 +14,7 @@ export const sendMessageToOnbot = async (
   file?: File
 ): Promise<string> => {
   try {
-    // ✅ PAYLOAD CORRETO - sessionId NO CORPO PRINCIPAL
+    // ✅ PAYLOAD EXATO que o n8n espera
     const payload = {
       sessionId: sessionId,
       chatInput: message,
@@ -75,14 +22,14 @@ export const sendMessageToOnbot = async (
       timestamp: new Date().toISOString(),
     };
 
-    console.log('🚀 [PAYLOAD] Enviando para n8n:', payload);
+    console.log('🚀 [ENVIANDO] Payload para n8n:', payload);
 
     let response: Response;
     
     if (file) {
-      // ✅ PARA ARQUIVOS: sessionId NO FORM DATA TAMBÉM
+      // ✅ PARA ARQUIVOS: FormData com sessionId
       const formData = new FormData();
-      formData.append('sessionId', sessionId); // ✅ IMPORTANTE: sessionId no FormData
+      formData.append('sessionId', sessionId);
       formData.append('chatInput', message);
       formData.append('action', 'process_csv');
       formData.append('timestamp', new Date().toISOString());
@@ -96,7 +43,7 @@ export const sendMessageToOnbot = async (
         body: formData,
       });
     } else {
-      // ✅ PARA MENSAGENS: sessionId NO JSON
+      // ✅ PARA MENSAGENS: JSON direto
       response = await fetch(ONBOT_API_URL, {
         method: 'POST',
         headers: {
@@ -107,34 +54,49 @@ export const sendMessageToOnbot = async (
       });
     }
 
-    console.log('📨 [RESPOSTA] Status:', response.status);
+    console.log('📨 [RESPOSTA] Status HTTP:', response.status, response.statusText);
 
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     }
 
     const data = await response.json();
-    console.log('📨 [RESPOSTA] Dados do n8n:', data);
+    console.log('📨 [RESPOSTA EXATA] Dados do n8n:', data);
 
-    if (data.success === false) {
-      throw new Error(data.error || data.message || 'Erro no processamento');
+    // ✅ RETORNA A RESPOSTA EXATA DO N8N - SEM MODIFICAÇÕES
+    // O n8n pode retornar a resposta em diferentes campos
+    if (data.response) {
+      return data.response; // Campo mais comum
+    } else if (data.message) {
+      return data.message; // Campo alternativo
+    } else if (data.text) {
+      return data.text; // Outro campo possível
+    } else if (data.answer) {
+      return data.answer; // Outro campo possível
+    } else if (typeof data === 'string') {
+      return data; // Se for string direta
+    } else if (data.success && data.data?.message) {
+      return data.data.message; // Estrutura aninhada
+    } else {
+      // Se não encontrar resposta específica, retorna o JSON completo para debug
+      console.warn('⚠️ Estrutura de resposta não reconhecida, retornando JSON:', data);
+      return JSON.stringify(data, null, 2);
     }
-
-    return generateSmartResponse(message, data);
 
   } catch (error) {
     console.error('❌ Erro ao enviar mensagem:', error);
     
+    // ✅ Em caso de erro, retorna mensagem simples
     if (error instanceof Error) {
-      return `Erro: ${error.message}. Tente novamente ou envie o arquivo CSV diretamente.`;
+      return `Erro: ${error.message}`;
     }
     
-    return 'Não consegui processar sua mensagem. Tente novamente.';
+    return 'Erro ao processar sua mensagem. Tente novamente.';
   }
 };
 
 /**
- * Testa a conexão
+ * Testa a conexão com o n8n
  */
 export const testOnbotConnection = async (): Promise<{ status: 'success' | 'error'; message: string }> => {
   try {
@@ -175,20 +137,17 @@ export const testOnbotConnection = async (): Promise<{ status: 'success' | 'erro
 };
 
 /**
- * Processa arquivo CSV via webhook n8n - COM SESSIONID CORRETO
+ * Processa arquivo CSV via webhook n8n
  */
 export const processCSVFile = async (file: File, token: string, sessionId: string): Promise<any> => {
   try {
-    // ✅ PARA CSV: sessionId NO FORM DATA
     const formData = new FormData();
-    formData.append('sessionId', sessionId); // ✅ CRÍTICO: sessionId no FormData
+    formData.append('sessionId', sessionId);
     formData.append('chatInput', 'upload_csv');
     formData.append('action', 'process_csv');
     formData.append('token', token);
     formData.append('timestamp', new Date().toISOString());
     formData.append('file', file);
-
-    console.log('📁 [CSV UPLOAD] Enviando arquivo com sessionId:', sessionId);
 
     const response = await fetch(ONBOT_API_URL, {
       method: 'POST',
@@ -198,14 +157,11 @@ export const processCSVFile = async (file: File, token: string, sessionId: strin
       body: formData,
     });
 
-    console.log('📨 [CSV RESPONSE] Status:', response.status);
-
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     }
 
     const data = await response.json();
-    console.log('📨 [CSV RESPONSE] Dados:', data);
     
     return data;
 
@@ -213,7 +169,7 @@ export const processCSVFile = async (file: File, token: string, sessionId: strin
     console.error('❌ Erro ao processar arquivo CSV:', error);
     return {
       success: false,
-      message: 'Erro ao processar arquivo CSV - Tente novamente'
+      message: 'Erro ao processar arquivo CSV'
     };
   }
 };
