@@ -7,9 +7,6 @@ const ONBOT_API_URL = import.meta.env.VITE_N8N_WEBHOOK_URL || 'https://consentie
 const JWT_TOKEN = import.meta.env.VITE_JWT_TOKEN || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiZGV2LXVzZXItMTIzIiwiYXVkIjoiYm9sdC1mcm9udGVuZCIsImlzcyI6ImRldi1iYWNrZW5kIiwiaWF0IjoxNzM5NDYyNDAwLCJleHAiOjE3Mzk0NjUwMDB9.4xw4gVv7J8Q6Y9tLm6wZ8XrNp1qKjT3vB2cD7fE5hM';
 // src/services/onbotService.ts - VERSÃO QUE RECONHECE TOKENS
 
-const ONBOT_API_URL = import.meta.env.VITE_N8N_WEBHOOK_URL;
-const JWT_TOKEN = import.meta.env.VITE_JWT_TOKEN;
-
 /**
  * Verifica se o texto é um token (baseado no formato)
  */
