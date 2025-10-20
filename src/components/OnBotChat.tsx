@@ -1,7 +1,7 @@
 // src/components/OnBotChat.tsx - VERSÃO CORRIGIDA
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Send, Wifi, WifiOff, RefreshCw, Paperclip, FileText, Image, Bot, User, Maximize2, Minimize2 } from 'lucide-react';
-import { sendMessageToOnbot, testOnbotConnection } from '../services/onbotService'; // ✅ Adicionado testOnbotConnection
+import { X, Send, RefreshCw, Paperclip, FileText, Image, Bot, User, Maximize2, Minimize2 } from 'lucide-react';
+import { sendMessageToOnbot, testOnbotConnection } from '../services/onbotService';
 import onbotAvatar from '/onbot-avatar.png';
 
 interface OnBotChatProps {
@@ -36,15 +36,14 @@ export const OnBotChat: React.FC<OnBotChatProps> = ({ onClose }) => {
   ]);
   const [loading, setLoading] = useState(false);
   const [inputMessage, setInputMessage] = useState('');
-  const [isConnected, setIsConnected] = useState(true);
   const [attachments, setAttachments] = useState<FileAttachment[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [sessionId] = useState(() => `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const [isExpanded, setIsExpanded] = useState(false);
-  const [connectionStatus, setConnectionStatus] = useState<'checking' | 'connected' | 'error'>('checking'); // ✅ Novo estado
+  const [connectionStatus, setConnectionStatus] = useState<'checking' | 'connected' | 'error'>('checking');
 
-  // ✅ NOVO: Verificar conexão ao inicializar
+  // ✅ Verificar conexão ao inicializar
   useEffect(() => {
     const checkConnection = async () => {
       setConnectionStatus('checking');
@@ -52,9 +51,7 @@ export const OnBotChat: React.FC<OnBotChatProps> = ({ onClose }) => {
         const result = await testOnbotConnection();
         if (result.status === 'success') {
           setConnectionStatus('connected');
-          setIsConnected(true);
           
-          // Adicionar mensagem de status
           setMessages(prev => [...prev, {
             id: 'connection_ok',
             sender: 'system',
@@ -63,7 +60,6 @@ export const OnBotChat: React.FC<OnBotChatProps> = ({ onClose }) => {
           }]);
         } else {
           setConnectionStatus('error');
-          setIsConnected(false);
           
           setMessages(prev => [...prev, {
             id: 'connection_error',
@@ -74,7 +70,6 @@ export const OnBotChat: React.FC<OnBotChatProps> = ({ onClose }) => {
         }
       } catch (error) {
         setConnectionStatus('error');
-        setIsConnected(false);
       }
     };
 
@@ -89,7 +84,7 @@ export const OnBotChat: React.FC<OnBotChatProps> = ({ onClose }) => {
     });
   }, [messages]);
 
-  // ✅ MELHORADO: Efeito de digitação mais suave
+  // ✅ Efeito de digitação mais suave
   const addTypingEffect = async (message: string, delay: number = 20) => {
     return new Promise<void>((resolve) => {
       let currentText = '';
@@ -192,7 +187,7 @@ export const OnBotChat: React.FC<OnBotChatProps> = ({ onClose }) => {
     }
   };
 
-  // ✅ MELHORADO: Tratamento de envio com melhor feedback
+  // ✅ Tratamento de envio com melhor feedback
   const handleSendMessage = async () => {
     if ((!inputMessage.trim() && attachments.length === 0) || loading) return;
 
@@ -280,7 +275,7 @@ export const OnBotChat: React.FC<OnBotChatProps> = ({ onClose }) => {
     ));
   };
 
-  // ✅ MELHORADO: Indicador de status de conexão
+  // ✅ Indicador de status de conexão
   const renderConnectionStatus = () => {
     switch (connectionStatus) {
       case 'checking':
@@ -380,7 +375,7 @@ export const OnBotChat: React.FC<OnBotChatProps> = ({ onClose }) => {
                   </div>
                 ) : msg.sender === 'system' ? (
                   <div className="flex items-center gap-2">
-                    <Wifi className="w-4 h-4" />
+                    <RefreshCw className="w-4 h-4" />
                     <span className="text-xs opacity-70 font-medium">Sistema</span>
                   </div>
                 ) : (
