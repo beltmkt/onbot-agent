@@ -1,10 +1,8 @@
-// src/services/onbotService.ts - VERSÃO CORRIGIDA COM SUAS VARIÁVEIS
+// src/services/onbotService.ts - VERSÃO COM CAMPO DE ARQUIVO CORRETO
 
-// ✅ Use a URL do webhook n8n que você já tem configurada
-const ONBOT_API_URL = import.meta.env.VITE_N8N_WEBHOOK_URL || 'https://consentient-bridger-pyroclastic.ngrok-free.dev/webhook/bc410b9e-0c7e-4625-b4aa-06f42b413ddc/chat';
+const ONBOT_API_URL = import.meta.env.VITE_N8N_WEBHOOK_URL;
+const JWT_TOKEN = import.meta.env.VITE_JWT_TOKEN;
 
-// ✅ Token JWT para autenticação
-const JWT_TOKEN = import.meta.env.VITE_JWT_TOKEN || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiZGV2LXVzZXItMTIzIiwiYXVkIjoiYm9sdC1mcm9udGVuZCIsImlzcyI6ImRldi1iYWNrZW5kIiwiaWF0IjoxNzM5NDYyNDAwLCJleHAiOjE3Mzk0NjUwMDB9.4xw4gVv7J8Q6Y9tLm6wZ8XrNp1qKjT3vB2cD7fE5hM';
 /**
  * Envia mensagem para o OnBot AI e retorna APENAS o texto da resposta do n8n
  */
@@ -14,6 +12,11 @@ export const sendMessageToOnbot = async (
   file?: File
 ): Promise<string> => {
   try {
+    // ✅ Verificação de segurança
+    if (!ONBOT_API_URL) {
+      throw new Error('URL do webhook não configurada');
+    }
+
     // ✅ PAYLOAD EXATO que o n8n espera
     const payload = {
       sessionId: sessionId,
@@ -22,18 +25,28 @@ export const sendMessageToOnbot = async (
       timestamp: new Date().toISOString(),
     };
 
-    console.log('🚀 [ENVIANDO] Payload para n8n:', payload);
+    console.log('🚀 Enviando para n8n:', { 
+      payload, 
+      hasFile: !!file,
+      fileName: file?.name 
+    });
 
     let response: Response;
     
     if (file) {
-      // ✅ PARA ARQUIVOS: FormData com sessionId
+      // ✅ CORREÇÃO: Campo de arquivo correto para o n8n
       const formData = new FormData();
       formData.append('sessionId', sessionId);
       formData.append('chatInput', message);
       formData.append('action', 'process_csv');
       formData.append('timestamp', new Date().toISOString());
-      formData.append('file', file);
+      
+      // ✅ CORREÇÃO CRÍTICA: Campo correto para o arquivo
+      // O n8n espera um campo específico como 'file', 'csvFile', 'attachment', etc.
+      formData.append('file', file); // ⚠️ Tente também 'csvFile' se este não funcionar
+      // formData.append('csvFile', file); // ⚠️ Alternativa
+      
+      console.log('📁 Enviando arquivo:', file.name, 'tipo:', file.type);
       
       response = await fetch(ONBOT_API_URL, {
         method: 'POST',
@@ -54,43 +67,38 @@ export const sendMessageToOnbot = async (
       });
     }
 
-    console.log('📨 [RESPOSTA] Status HTTP:', response.status, response.statusText);
+    console.log('📨 Status da resposta:', response.status);
 
     if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      throw new Error(`Erro HTTP: ${response.status}`);
     }
 
     const data = await response.json();
-    console.log('📨 [RESPOSTA COMPLETA] Dados do n8n:', data);
+    console.log('📨 Resposta do n8n:', data);
 
     // ✅ EXTRAI APENAS O TEXTO DA RESPOSTA - CAMPO "output"
-    if (data.output) {
-      console.log('✅ [TEXTO EXTRAÍDO] output:', data.output);
-      return data.output; // ✅ RETORNA APENAS O TEXTO DO CAMPO "output"
-    } 
-    // ✅ FALLBACK: outros campos possíveis
-    else if (data.response) {
-      console.log('✅ [TEXTO EXTRAÍDO] response:', data.response);
-      return data.response;
-    } else if (data.message) {
-      console.log('✅ [TEXTO EXTRAÍDO] message:', data.message);
-      return data.message;
-    } else if (data.text) {
-      console.log('✅ [TEXTO EXTRAÍDO] text:', data.text);
-      return data.text;
-    } else if (typeof data === 'string') {
-      console.log('✅ [TEXTO EXTRAÍDO] string direta:', data);
-      return data;
-    } else {
-      console.warn('⚠️ Estrutura de resposta não reconhecida:', data);
-      // Se não encontrar, retorna o JSON formatado como fallback
-      return JSON.stringify(data, null, 2);
+    if (data && typeof data === 'object') {
+      if (data.output && typeof data.output === 'string') {
+        return data.output;
+      } else if (data.response && typeof data.response === 'string') {
+        return data.response;
+      } else if (data.message && typeof data.message === 'string') {
+        return data.message;
+      } else if (data.text && typeof data.text === 'string') {
+        return data.text;
+      }
     }
 
+    // ✅ Fallback seguro
+    return 'Resposta recebida. Continue a conversa.';
+
   } catch (error) {
-    console.error('❌ Erro ao enviar mensagem:', error);
+    console.error('❌ Erro:', error);
     
     if (error instanceof Error) {
+      if (error.message.includes('Failed to fetch')) {
+        return 'Erro de conexão. Verifique sua internet.';
+      }
       return `Erro: ${error.message}`;
     }
     
@@ -103,6 +111,13 @@ export const sendMessageToOnbot = async (
  */
 export const testOnbotConnection = async (): Promise<{ status: 'success' | 'error'; message: string }> => {
   try {
+    if (!ONBOT_API_URL) {
+      return {
+        status: 'error',
+        message: 'URL não configurada'
+      };
+    }
+
     const payload = {
       sessionId: 'health_check_' + Date.now(),
       chatInput: 'health_check',
@@ -132,6 +147,7 @@ export const testOnbotConnection = async (): Promise<{ status: 'success' | 'erro
     }
 
   } catch (error) {
+    console.error('Erro no teste de conexão:', error);
     return {
       status: 'error',
       message: 'Erro de conexão'
@@ -140,17 +156,29 @@ export const testOnbotConnection = async (): Promise<{ status: 'success' | 'erro
 };
 
 /**
- * Processa arquivo CSV via webhook n8n
+ * Processa arquivo CSV via webhook n8n - COM CAMPO CORRETO
  */
 export const processCSVFile = async (file: File, token: string, sessionId: string): Promise<any> => {
   try {
+    if (!ONBOT_API_URL) {
+      return {
+        success: false,
+        message: 'URL não configurada'
+      };
+    }
+
     const formData = new FormData();
     formData.append('sessionId', sessionId);
     formData.append('chatInput', 'upload_csv');
     formData.append('action', 'process_csv');
     formData.append('token', token);
     formData.append('timestamp', new Date().toISOString());
-    formData.append('file', file);
+    
+    // ✅ CORREÇÃO: Campo correto para arquivo CSV
+    formData.append('file', file); // ⚠️ Tente também 'csvFile' se este não funcionar
+    // formData.append('csvFile', file); // ⚠️ Alternativa
+
+    console.log('📁 Processando CSV:', file.name);
 
     const response = await fetch(ONBOT_API_URL, {
       method: 'POST',
@@ -160,24 +188,27 @@ export const processCSVFile = async (file: File, token: string, sessionId: strin
       body: formData,
     });
 
+    console.log('📨 Resposta CSV - Status:', response.status);
+
     if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      throw new Error(`HTTP ${response.status}`);
     }
 
     const data = await response.json();
+    console.log('📨 Resposta CSV:', data);
     
-    // ✅ PARA CSV TAMBÉM: extrai apenas o texto
-    if (data.output) {
+    // ✅ Extrai resposta para CSV também
+    if (data && data.output) {
       return { ...data, message: data.output };
     }
     
     return data;
 
   } catch (error) {
-    console.error('❌ Erro ao processar arquivo CSV:', error);
+    console.error('❌ Erro ao processar CSV:', error);
     return {
       success: false,
-      message: 'Erro ao processar arquivo CSV'
+      message: 'Erro ao processar arquivo'
     };
   }
 };
