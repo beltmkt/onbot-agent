@@ -1,4 +1,4 @@
-// src/components/OnBotChat.tsx - VERSÃO CORRIGIDA
+// src/components/OnBotChat.tsx - VERSÃO CORRIGIDA E SIMPLIFICADA
 import React, { useState, useEffect, useRef } from 'react';
 import { X, Send, RefreshCw, Paperclip, FileText, Image, Bot, User, Maximize2, Minimize2 } from 'lucide-react';
 import { sendMessageToOnbot, testOnbotConnection } from '../services/onbotService';
@@ -30,7 +30,7 @@ export const OnBotChat: React.FC<OnBotChatProps> = ({ onClose }) => {
     { 
       id: 'welcome',
       sender: 'bot', 
-      text: '👋 **Olá! Sou o OnBot - Seu Assistente de Onboarding**\n\nEstou pronto para ajudar na criação de usuários!\n\n🔑 **Envie seu Token de acesso para começar**',
+      text: 'Olá! Sou o OnBot e vou te ajudar a criar novos usuários. Para começar, me envie o token de acesso da sua empresa.',
       timestamp: new Date()
     }
   ]);
@@ -51,22 +51,8 @@ export const OnBotChat: React.FC<OnBotChatProps> = ({ onClose }) => {
         const result = await testOnbotConnection();
         if (result.status === 'success') {
           setConnectionStatus('connected');
-          
-          setMessages(prev => [...prev, {
-            id: 'connection_ok',
-            sender: 'system',
-            text: '✅ **Sistema conectado**\nOnBot AI está pronto para ajudar!',
-            timestamp: new Date()
-          }]);
         } else {
           setConnectionStatus('error');
-          
-          setMessages(prev => [...prev, {
-            id: 'connection_error',
-            sender: 'system',
-            text: '⚠️ **Sistema em modo limitado**\nAlgumas funcionalidades podem não estar disponíveis.',
-            timestamp: new Date()
-          }]);
         }
       } catch (error) {
         setConnectionStatus('error');
@@ -135,7 +121,7 @@ export const OnBotChat: React.FC<OnBotChatProps> = ({ onClose }) => {
         setMessages(prev => [...prev, {
           id: `error_${Date.now()}`,
           sender: 'system',
-          text: `❌ **Arquivo muito grande**\n"${file.name}" excede o limite de 10MB.`,
+          text: `❌ Arquivo muito grande: "${file.name}" excede 10MB.`,
           timestamp: new Date()
         }]);
         continue;
@@ -161,7 +147,7 @@ export const OnBotChat: React.FC<OnBotChatProps> = ({ onClose }) => {
       setMessages(prev => [...prev, {
         id: `file_added_${Date.now()}`,
         sender: 'system',
-        text: `📎 **${newAttachments.length} arquivo(s) preparado(s)**\nPronto para envio!`,
+        text: `📎 ${newAttachments.length} arquivo(s) preparado(s) para envio!`,
         timestamp: new Date()
       }]);
     }
@@ -210,8 +196,7 @@ export const OnBotChat: React.FC<OnBotChatProps> = ({ onClose }) => {
       console.log('🚀 Enviando mensagem...', { 
         message: userMessageText, 
         sessionId,
-        fileCount: attachments.length,
-        connectionStatus
+        fileCount: attachments.length
       });
       
       // ✅ ENVIA PRIMEIRO ARQUIVO SE EXISTIR
@@ -234,16 +219,14 @@ export const OnBotChat: React.FC<OnBotChatProps> = ({ onClose }) => {
     } catch (error) {
       console.error('❌ Erro na comunicação:', error);
       
-      // ✅ MENSAGEM DE ERRO MAIS INFORMATIVA
-      let errorMessage = '⚠️ **Erro de comunicação**\n\nNão foi possível processar sua solicitação. ';
+      // ✅ MENSAGEM DE ERRO SIMPLES
+      let errorMessage = 'Desculpe, ocorreu um erro. Tente novamente.';
       
       if (error instanceof Error) {
         if (error.message.includes('Failed to fetch')) {
-          errorMessage += 'Verifique sua conexão com a internet.';
+          errorMessage = 'Erro de conexão. Verifique sua internet.';
         } else if (error.message.includes('404')) {
-          errorMessage += 'Serviço temporariamente indisponível.';
-        } else {
-          errorMessage += 'Tente novamente em alguns instantes.';
+          errorMessage = 'Serviço temporariamente indisponível.';
         }
       }
       
@@ -474,11 +457,7 @@ export const OnBotChat: React.FC<OnBotChatProps> = ({ onClose }) => {
               value={inputMessage}
               onChange={(e) => setInputMessage(e.target.value)}
               onKeyDown={handleKeyPress}
-              placeholder={
-                connectionStatus === 'error' 
-                  ? "Modo offline - funcionalidades limitadas..."
-                  : "Digite sua mensagem... (Shift+Enter para nova linha)"
-              }
+              placeholder="Digite sua mensagem... (Shift+Enter para nova linha)"
               className="w-full bg-gray-700/80 border border-cyan-500/30 rounded-xl px-4 py-3 text-sm text-white placeholder-cyan-200/50 focus:outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-500/30 transition-all duration-200 backdrop-blur-sm resize-none disabled:opacity-50"
               disabled={loading}
               rows={3}
