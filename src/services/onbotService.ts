@@ -1,24 +1,12 @@
-// src/services/onbotService.ts - VERSÃO COM DOIS WEBHOOKS
+// src/services/onbotService.ts - VERSÃO COM FORMDATA
 
 // ✅ WEBHOOK PARA MENSAGENS
 const CHAT_WEBHOOK_URL = 'https://consentient-bridger-pyroclastic.ngrok-free.dev/webhook/bc410b9e-0c7e-4625-b4aa-06f42b413ddc/chat';
 
-// ✅ WEBHOOK PARA DADOS/ARQUIVOS
+// ✅ WEBHOOK PARA DADOS/ARQUIVOS  
 const DATA_WEBHOOK_URL = 'https://consentient-bridger-pyroclastic.ngrok-free.dev/webhook/dados_recebidos';
 
 const JWT_TOKEN = import.meta.env.VITE_JWT_TOKEN;
-
-/**
- * Lê o conteúdo do arquivo como texto
- */
-const readFileAsText = (file: File): Promise<string> => {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = (e) => resolve(e.target?.result as string || '');
-    reader.onerror = (e) => reject(new Error('Falha ao ler arquivo'));
-    reader.readAsText(file);
-  });
-};
 
 /**
  * Envia MENSAGENS para o webhook de chat
@@ -29,30 +17,22 @@ export const sendMessageToOnbot = async (
   file?: File
 ): Promise<string> => {
   try {
-    let finalMessage = message;
-    let fileContent = '';
-
-    // ✅ SE TEM ARQUIVO: Envia para webhook de DADOS
+    // ✅ SE TEM ARQUIVO: Envia para webhook de DADOS como FormData
     if (file) {
-      console.log('📁 Arquivo detectado - enviando para webhook de DADOS');
+      console.log('📁 Arquivo detectado - enviando para webhook de DADOS como FormData');
       return await sendFileToDataWebhook(file, sessionId, message);
     }
 
-    // ✅ SE É MENSAGEM: Envia para webhook de CHAT
+    // ✅ SE É MENSAGEM: Envia para webhook de CHAT como JSON
     console.log('💬 Mensagem de texto - enviando para webhook de CHAT');
     
     const payload = {
       sessionId: sessionId,
-      chatInput: finalMessage,
+      chatInput: message,
       action: 'chat_message',
       timestamp: new Date().toISOString(),
       token: 'bf18117f82dfafb9354109b4b4b4f8cc1804d8cecca2e8dad5'
     };
-
-    console.log('🚀 Enviando para CHAT:', {
-      messageLength: finalMessage.length,
-      sessionId: sessionId
-    });
 
     const response = await fetch(CHAT_WEBHOOK_URL, {
       method: 'POST',
@@ -70,8 +50,6 @@ export const sendMessageToOnbot = async (
     }
 
     const data = await response.json();
-    console.log('✅ Resposta do CHAT:', data);
-
     return data.output || data.response || data.message || 'Mensagem processada!';
 
   } catch (error) {
@@ -81,7 +59,7 @@ export const sendMessageToOnbot = async (
 };
 
 /**
- * ✅ ENVIA ARQUIVOS para o webhook de DADOS
+ * ✅ ENVIA ARQUIVOS para o webhook de DADOS como FORMDATA
  */
 const sendFileToDataWebhook = async (
   file: File, 
@@ -89,46 +67,49 @@ const sendFileToDataWebhook = async (
   message: string = ''
 ): Promise<string> => {
   try {
-    console.log('📖 Lendo arquivo para webhook de DADOS:', file.name);
-    const fileContent = await readFileAsText(file);
+    console.log('📁 Enviando arquivo como FormData:', file.name);
 
-    // ✅ EXTRAI TOKEN DA MENSAGEM (se o usuário enviou token junto)
+    // ✅ EXTRAI TOKEN DA MENSAGEM
     const userToken = extractTokenFromMessage(message);
 
-    const payload = {
-      sessionId: sessionId,
-      chatInput: message || `Upload de CSV: ${file.name}`,
-      action: 'process_csv',
-      timestamp: new Date().toISOString(),
-      token: userToken || 'bf18117f82dfafb9354109b4b4b4f8cc1804d8cecca2e8dad5', // Token dinâmico
-      // ✅ DADOS DO ARQUIVO
-      fileContent: fileContent,
-      fileName: file.name,
-      fileType: file.type,
-      fileSize: file.size,
-      hasFile: true,
-      // ✅ DADOS ADICIONAIS
-      empresa: 'Onboarding | Olha o Mistério',
-      processType: 'csv_upload'
-    };
+    // ✅ CRIA FORMDATA (formato que o n8n espera para arquivos)
+    const formData = new FormData();
+    
+    // ✅ CAMPOS DE METADADOS
+    formData.append('sessionId', sessionId);
+    formData.append('chatInput', message || `Upload de CSV: ${file.name}`);
+    formData.append('action', 'process_csv');
+    formData.append('timestamp', new Date().toISOString());
+    formData.append('token', userToken || 'bf18117f82dfafb9354109b4b4b4f8cc1804d8cecca2e8dad5');
+    formData.append('empresa', 'Onboarding | Olha o Mistério');
+    formData.append('processType', 'csv_upload');
+    
+    // ✅ ARQUIVO COMO BINÁRIO (campo que seu decodificador busca)
+    formData.append('file', file); // ⚠️ Campo "file" que o n8n espera
+    // formData.append('csvFile', file); // ⚠️ Alternativa se "file" não funcionar
 
-    console.log('🚀 Enviando para DADOS:', {
+    console.log('🚀 Enviando FormData para DADOS:', {
       fileName: file.name,
-      contentLength: fileContent.length,
-      tokenLength: payload.token.length,
-      sessionId: sessionId
+      fileSize: file.size,
+      sessionId: sessionId,
+      fields: ['sessionId', 'chatInput', 'action', 'token', 'file']
     });
+
+    // ✅ DEBUG: Mostra todos os campos do FormData
+    for (const pair of formData.entries()) {
+      console.log('📋 FormData:', pair[0], pair[1]);
+    }
 
     const response = await fetch(DATA_WEBHOOK_URL, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
         'Authorization': `Bearer ${JWT_TOKEN}`,
+        // ✅ NÃO envia Content-Type - o browser define automaticamente com boundary
       },
-      body: JSON.stringify(payload),
+      body: formData, // ✅ ENVIA COMO FORMDATA
     });
 
-    console.log('📨 Status DADOS:', response.status);
+    console.log('📨 Status DADOS:', response.status, response.statusText);
 
     if (!response.ok) {
       const errorText = await response.text();
@@ -157,7 +138,7 @@ const extractTokenFromMessage = (message: string): string | undefined => {
 };
 
 /**
- * Processa arquivo CSV via webhook de DADOS
+ * Processa arquivo CSV via webhook de DADOS (FormData)
  */
 export const processCSVFile = async (
   file: File, 
@@ -165,30 +146,24 @@ export const processCSVFile = async (
   sessionId: string
 ): Promise<any> => {
   try {
-    const fileContent = await readFileAsText(file);
+    const formData = new FormData();
+    formData.append('sessionId', sessionId);
+    formData.append('chatInput', `Upload de CSV: ${file.name}`);
+    formData.append('action', 'process_csv');
+    formData.append('token', token);
+    formData.append('timestamp', new Date().toISOString());
+    formData.append('empresa', 'Onboarding | Olha o Mistério');
+    formData.append('processType', 'csv_upload');
+    formData.append('file', file); // ✅ ARQUIVO COMO BINÁRIO
 
-    const payload = {
-      sessionId: sessionId,
-      chatInput: `Upload de CSV: ${file.name}`,
-      action: 'process_csv',
-      token: token,
-      timestamp: new Date().toISOString(),
-      fileContent: fileContent,
-      fileName: file.name,
-      hasFile: true,
-      empresa: 'Onboarding | Olha o Mistério',
-      processType: 'csv_upload'
-    };
-
-    console.log('📁 Processando CSV via DADOS:', file.name);
+    console.log('📁 Processando CSV via FormData:', file.name);
 
     const response = await fetch(DATA_WEBHOOK_URL, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
         'Authorization': `Bearer ${JWT_TOKEN}`,
       },
-      body: JSON.stringify(payload),
+      body: formData,
     });
 
     console.log('📨 Resposta CSV:', response.status);
@@ -210,49 +185,30 @@ export const processCSVFile = async (
 };
 
 /**
- * Testa a conexão com AMBOS webhooks
+ * Testa a conexão
  */
 export const testOnbotConnection = async (): Promise<{ status: 'success' | 'error'; message: string }> => {
   try {
-    // ✅ TESTA WEBHOOK DE CHAT
-    const chatPayload = {
+    const payload = {
       sessionId: 'health_check',
       chatInput: 'health_check',
       action: 'health_check',
       timestamp: new Date().toISOString()
     };
 
-    const chatResponse = await fetch(CHAT_WEBHOOK_URL, {
+    const response = await fetch(CHAT_WEBHOOK_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${JWT_TOKEN}`,
       },
-      body: JSON.stringify(chatPayload),
+      body: JSON.stringify(payload),
     });
 
-    // ✅ TESTA WEBHOOK DE DADOS
-    const dataPayload = {
-      sessionId: 'health_check',
-      chatInput: 'health_check',
-      action: 'health_check',
-      timestamp: new Date().toISOString(),
-      token: 'health_check_token'
-    };
-
-    const dataResponse = await fetch(DATA_WEBHOOK_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${JWT_TOKEN}`,
-      },
-      body: JSON.stringify(dataPayload),
-    });
-
-    if (chatResponse.ok && dataResponse.ok) {
-      return { status: 'success', message: 'Conectado a ambos webhooks' };
+    if (response.ok) {
+      return { status: 'success', message: 'Conectado' };
     } else {
-      return { status: 'error', message: 'Erro em um ou ambos webhooks' };
+      return { status: 'error', message: 'Erro de conexão' };
     }
 
   } catch (error) {
