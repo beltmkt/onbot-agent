@@ -1,11 +1,7 @@
-// src/services/onbotService.ts - VERSÃO COM FORMDATA
+// src/services/onbotService.ts - VERSÃO COM DADOS COMPLETOS
 
-// ✅ WEBHOOK PARA MENSAGENS
 const CHAT_WEBHOOK_URL = 'https://consentient-bridger-pyroclastic.ngrok-free.dev/webhook/bc410b9e-0c7e-4625-b4aa-06f42b413ddc/chat';
-
-// ✅ WEBHOOK PARA DADOS/ARQUIVOS  
 const DATA_WEBHOOK_URL = 'https://consentient-bridger-pyroclastic.ngrok-free.dev/webhook/dados_recebidos';
-
 const JWT_TOKEN = import.meta.env.VITE_JWT_TOKEN;
 
 /**
@@ -19,13 +15,18 @@ export const sendMessageToOnbot = async (
   try {
     // ✅ SE TEM ARQUIVO: Envia para webhook de DADOS como FormData
     if (file) {
-      console.log('📁 Arquivo detectado - enviando para webhook de DADOS como FormData');
+      console.log('📁 Arquivo detectado - enviando para webhook de DADOS');
       return await sendFileToDataWebhook(file, sessionId, message);
     }
 
-    // ✅ SE É MENSAGEM: Envia para webhook de CHAT como JSON
-    console.log('💬 Mensagem de texto - enviando para webhook de CHAT');
-    
+    // ✅ DETECTA SELEÇÃO DE EMPRESA (número 1, 2, ou 3)
+    const empresaSelection = detectEmpresaSelection(message);
+    if (empresaSelection) {
+      console.log('🏢 Seleção de empresa detectada:', empresaSelection);
+      return await sendEmpresaSelection(empresaSelection, sessionId);
+    }
+
+    // ✅ MENSAGEM NORMAL: Envia para webhook de CHAT
     const payload = {
       sessionId: sessionId,
       chatInput: message,
@@ -43,23 +44,87 @@ export const sendMessageToOnbot = async (
       body: JSON.stringify(payload),
     });
 
-    console.log('📨 Status CHAT:', response.status);
+    if (!response.ok) {
+      throw new Error(`Erro ${response.status}`);
+    }
+
+    const data = await response.json();
+    return data.output || data.response || data.message || 'Processado!';
+
+  } catch (error) {
+    console.error('❌ Erro:', error);
+    return 'Erro ao processar. Tente novamente.';
+  }
+};
+
+/**
+ * Detecta seleção de empresa (1, 2, ou 3)
+ */
+const detectEmpresaSelection = (message: string): { numero: number; nome: string } | null => {
+  const cleanMessage = message.trim();
+  
+  if (cleanMessage === '1') {
+    return { numero: 1, nome: 'Onboarding' };
+  } else if (cleanMessage === '2') {
+    return { numero: 2, nome: 'Onboarding | Joinville' };
+  } else if (cleanMessage === '3') {
+    return { numero: 3, nome: 'Onboarding | Olha o Mistério' };
+  }
+  
+  return null;
+};
+
+/**
+ * Envia seleção de empresa com dados completos
+ */
+const sendEmpresaSelection = async (
+  empresa: { numero: number; nome: string },
+  sessionId: string
+): Promise<string> => {
+  try {
+    const payload = {
+      sessionId: sessionId,
+      chatInput: `Selecionar empresa: ${empresa.numero} - ${empresa.nome}`,
+      action: 'select_empresa',
+      timestamp: new Date().toISOString(),
+      token: 'bf18117f82dfafb9354109b4b4b4f8cc1804d8cecca2e8dad5',
+      // ✅ DADOS COMPLETOS DA EMPRESA
+      empresa: {
+        numero: empresa.numero,
+        nome: empresa.nome,
+        id: empresa.nome.toLowerCase().replace(/\s+\|\s+/g, '-').replace(/\s+/g, '-')
+      },
+      // ✅ INFORMA QUE É UMA SELEÇÃO
+      isEmpresaSelection: true,
+      selectedEmpresa: empresa.nome
+    };
+
+    console.log('🏢 Enviando seleção de empresa:', empresa);
+
+    const response = await fetch(CHAT_WEBHOOK_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${JWT_TOKEN}`,
+      },
+      body: JSON.stringify(payload),
+    });
 
     if (!response.ok) {
       throw new Error(`Erro ${response.status}`);
     }
 
     const data = await response.json();
-    return data.output || data.response || data.message || 'Mensagem processada!';
+    return data.output || data.response || data.message || `Empresa ${empresa.nome} selecionada!`;
 
   } catch (error) {
-    console.error('❌ Erro no chat:', error);
-    return 'Erro ao processar mensagem. Tente novamente.';
+    console.error('❌ Erro ao selecionar empresa:', error);
+    return 'Erro ao selecionar empresa. Tente novamente.';
   }
 };
 
 /**
- * ✅ ENVIA ARQUIVOS para o webhook de DADOS como FORMDATA
+ * ENVIA ARQUIVOS para o webhook de DADOS como FormData
  */
 const sendFileToDataWebhook = async (
   file: File, 
@@ -69,10 +134,6 @@ const sendFileToDataWebhook = async (
   try {
     console.log('📁 Enviando arquivo como FormData:', file.name);
 
-    // ✅ EXTRAI TOKEN DA MENSAGEM
-    const userToken = extractTokenFromMessage(message);
-
-    // ✅ CRIA FORMDATA (formato que o n8n espera para arquivos)
     const formData = new FormData();
     
     // ✅ CAMPOS DE METADADOS
@@ -80,36 +141,24 @@ const sendFileToDataWebhook = async (
     formData.append('chatInput', message || `Upload de CSV: ${file.name}`);
     formData.append('action', 'process_csv');
     formData.append('timestamp', new Date().toISOString());
-    formData.append('token', userToken || 'bf18117f82dfafb9354109b4b4b4f8cc1804d8cecca2e8dad5');
+    formData.append('token', 'bf18117f82dfafb9354109b4b4b4f8cc1804d8cecca2e8dad5');
     formData.append('empresa', 'Onboarding | Olha o Mistério');
     formData.append('processType', 'csv_upload');
     
-    // ✅ ARQUIVO COMO BINÁRIO (campo que seu decodificador busca)
-    formData.append('file', file); // ⚠️ Campo "file" que o n8n espera
-    // formData.append('csvFile', file); // ⚠️ Alternativa se "file" não funcionar
+    // ✅ ARQUIVO COMO BINÁRIO
+    formData.append('file', file);
 
-    console.log('🚀 Enviando FormData para DADOS:', {
-      fileName: file.name,
-      fileSize: file.size,
-      sessionId: sessionId,
-      fields: ['sessionId', 'chatInput', 'action', 'token', 'file']
-    });
-
-    // ✅ DEBUG: Mostra todos os campos do FormData
-    for (const pair of formData.entries()) {
-      console.log('📋 FormData:', pair[0], pair[1]);
-    }
+    console.log('🚀 Enviando FormData para DADOS:', file.name);
 
     const response = await fetch(DATA_WEBHOOK_URL, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${JWT_TOKEN}`,
-        // ✅ NÃO envia Content-Type - o browser define automaticamente com boundary
       },
-      body: formData, // ✅ ENVIA COMO FORMDATA
+      body: formData,
     });
 
-    console.log('📨 Status DADOS:', response.status, response.statusText);
+    console.log('📨 Status DADOS:', response.status);
 
     if (!response.ok) {
       const errorText = await response.text();
@@ -138,7 +187,7 @@ const extractTokenFromMessage = (message: string): string | undefined => {
 };
 
 /**
- * Processa arquivo CSV via webhook de DADOS (FormData)
+ * Processa arquivo CSV via webhook de DADOS
  */
 export const processCSVFile = async (
   file: File, 
@@ -154,9 +203,7 @@ export const processCSVFile = async (
     formData.append('timestamp', new Date().toISOString());
     formData.append('empresa', 'Onboarding | Olha o Mistério');
     formData.append('processType', 'csv_upload');
-    formData.append('file', file); // ✅ ARQUIVO COMO BINÁRIO
-
-    console.log('📁 Processando CSV via FormData:', file.name);
+    formData.append('file', file);
 
     const response = await fetch(DATA_WEBHOOK_URL, {
       method: 'POST',
@@ -165,8 +212,6 @@ export const processCSVFile = async (
       },
       body: formData,
     });
-
-    console.log('📨 Resposta CSV:', response.status);
 
     if (!response.ok) {
       throw new Error(`Erro HTTP: ${response.status}`);
