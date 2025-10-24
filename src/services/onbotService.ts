@@ -3,7 +3,7 @@
 
 // ==================== CONFIGURAÇÕES ====================
 const CONFIG = {
-  CHAT_WEBHOOK_URL: 'https://consentient-bridger-pyroclastic.ngrok-free.dev/webhook/4678ab47-cab4-4d6f-98cc-96ee92ed7ff6/chat',
+  CHAT_WEBHOOK_URL: 'https://https://consentient-bridger-pyroclastic.ngrok-free.dev/webhook/bc410b9e-0c7e-4625-b4aa-06f42b413ddc/chat',
   DATA_WEBHOOK_URL: 'https://consentient-bridger-pyroclastic.ngrok-free.dev/webhook/dados_recebidos',
   JWT_TOKEN: import.meta.env.VITE_JWT_TOKEN,
   MAX_FILE_SIZE: 10 * 1024 * 1024, // 10MB
