@@ -1,9 +1,9 @@
-// src/App.tsx - VERSÃO PRODUÇÃO (APENAS HTTP)
+// src/App.tsx - VERSÃO CORRIGIDA COM EXPORT DEFAULT
 import React, { useState } from 'react';
 import { TokenInput } from './components/TokenInput';
 import { CSVUpload } from './components/CSVUpload';
 import { uploadCSVToN8N } from './services/csvService';
-import { UploadCloud, CheckCircle, MessageCircle } from 'lucide-react';
+import { UploadCloud, CheckCircle } from 'lucide-react';
 import { OnBotChat } from './components/OnBotChat';
 
 const App: React.FC = () => {
@@ -35,10 +35,6 @@ const App: React.FC = () => {
 
   const handleCloseChat = () => {
     setShowChat(false);
-  };
-
-  const handleOpenChat = () => {
-    setShowChat(true);
   };
 
   if (showChat) {
@@ -92,12 +88,16 @@ const App: React.FC = () => {
         )}
       </div>
 
-      {/* 🔥 BOTÃO FLUTUANTE DO CHAT */}
+      {/* 🔥 BOTÃO FLUTUANTE NA LATERAL ESQUERDA */}
       <button
-        onClick={handleOpenChat}
+        onClick={() => setShowChat(true)}
         className="fixed left-6 bottom-6 bg-blue-600 hover:bg-blue-700 text-white rounded-full p-3 shadow-lg transition-all z-50 flex items-center gap-2 group hover:scale-105"
       >
-        <MessageCircle className="w-8 h-8 text-white" />
+        <img 
+          src="/onbot-avatar.png" 
+          alt="Falar com OnBot" 
+          className="w-8 h-8 rounded-full object-cover border-2 border-white"
+        />
         <span className="max-w-0 overflow-hidden group-hover:max-w-xs group-hover:ml-2 transition-all duration-300 whitespace-nowrap">
           OnBot Chat
         </span>
@@ -107,11 +107,12 @@ const App: React.FC = () => {
       <div className="fixed right-6 bottom-6 bg-gray-800 border border-gray-700 rounded-lg p-3 text-xs text-gray-300 z-40">
         <div className="flex items-center gap-2">
           <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-          <span>Sistema Online</span>
+          <span>Sistema em tempo real</span>
         </div>
       </div>
     </div>
   );
 };
 
+// ✅ ADICIONE ESTA LINHA PARA CORRIGIR O ERRO:
 export default App;

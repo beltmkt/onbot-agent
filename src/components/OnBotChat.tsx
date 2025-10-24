@@ -1,4 +1,4 @@
-// src/components/OnBotChat.tsx - VERSÃO PRODUÇÃO (APENAS HTTP)
+// src/components/OnBotChat.tsx - VERSÃO CORRIGIDA E SIMPLIFICADA
 import React, { useState, useEffect, useRef } from 'react';
 import { X, Send, RefreshCw, Paperclip, FileText, Image, Bot, User, Maximize2, Minimize2 } from 'lucide-react';
 import { sendMessageToOnbot, testOnbotConnection } from '../services/onbotService';
@@ -43,7 +43,7 @@ export const OnBotChat: React.FC<OnBotChatProps> = ({ onClose }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<'checking' | 'connected' | 'error'>('checking');
 
-  // ✅ VERIFICAR CONEXÃO APENAS HTTP
+  // ✅ Verificar conexão ao inicializar
   useEffect(() => {
     const checkConnection = async () => {
       setConnectionStatus('checking');
@@ -55,7 +55,6 @@ export const OnBotChat: React.FC<OnBotChatProps> = ({ onClose }) => {
           setConnectionStatus('error');
         }
       } catch (error) {
-        console.error('❌ Erro na conexão:', error);
         setConnectionStatus('error');
       }
     };
@@ -174,7 +173,7 @@ export const OnBotChat: React.FC<OnBotChatProps> = ({ onClose }) => {
     }
   };
 
-  // ✅ TRATAMENTO DE ENVIO APENAS HTTP
+  // ✅ Tratamento de envio com melhor feedback
   const handleSendMessage = async () => {
     if ((!inputMessage.trim() && attachments.length === 0) || loading) return;
 
@@ -194,7 +193,7 @@ export const OnBotChat: React.FC<OnBotChatProps> = ({ onClose }) => {
     setMessages(prev => [...prev, userMessage]);
 
     try {
-      console.log('🚀 Enviando mensagem via HTTP...', { 
+      console.log('🚀 Enviando mensagem...', { 
         message: userMessageText, 
         sessionId,
         fileCount: attachments.length
@@ -203,8 +202,11 @@ export const OnBotChat: React.FC<OnBotChatProps> = ({ onClose }) => {
       // ✅ ENVIA PRIMEIRO ARQUIVO SE EXISTIR
       const fileToSend = attachments.length > 0 ? attachments[0].file : undefined;
       
-      // ✅ SEMPRE USAR HTTP (funciona em produção)
-      const botResponse = await sendMessageToOnbot(userMessageText, sessionId, fileToSend);
+      const botResponse = await sendMessageToOnbot(
+        userMessageText, 
+        sessionId, 
+        fileToSend
+      );
       
       console.log('✅ Resposta recebida:', botResponse);
       
@@ -217,16 +219,14 @@ export const OnBotChat: React.FC<OnBotChatProps> = ({ onClose }) => {
     } catch (error) {
       console.error('❌ Erro na comunicação:', error);
       
-      // ✅ MENSAGEM DE ERRO DETALHADA
+      // ✅ MENSAGEM DE ERRO SIMPLES
       let errorMessage = 'Desculpe, ocorreu um erro. Tente novamente.';
       
       if (error instanceof Error) {
         if (error.message.includes('Failed to fetch')) {
-          errorMessage = '🌐 Erro de conexão. Verifique sua internet.';
+          errorMessage = 'Erro de conexão. Verifique sua internet.';
         } else if (error.message.includes('404')) {
-          errorMessage = '🔧 Serviço temporariamente indisponível.';
-        } else if (error.message.includes('timeout')) {
-          errorMessage = '⏰ Tempo esgotado. Tente novamente.';
+          errorMessage = 'Serviço temporariamente indisponível.';
         }
       }
       
@@ -258,7 +258,7 @@ export const OnBotChat: React.FC<OnBotChatProps> = ({ onClose }) => {
     ));
   };
 
-  // ✅ Indicador de status de conexão (APENAS HTTP)
+  // ✅ Indicador de status de conexão
   const renderConnectionStatus = () => {
     switch (connectionStatus) {
       case 'checking':
@@ -272,7 +272,7 @@ export const OnBotChat: React.FC<OnBotChatProps> = ({ onClose }) => {
         return (
           <div className="flex items-center gap-1">
             <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-            <span className="text-xs text-green-300">HTTP Conectado</span>
+            <span className="text-xs text-green-300">Conectado</span>
           </div>
         );
       case 'error':
