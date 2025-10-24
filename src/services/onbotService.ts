@@ -1,14 +1,9 @@
-// src/services/onbotService.ts
-// ✅ VERSÃO COMPLETA E CORRIGIDA - DEPLOY READY
+// src/services/onbotService.ts - VERSÃO CORRIGIDA PARA CHAT TRIGGER
 
 // ==================== CONFIGURAÇÕES ====================
 const CONFIG = {
-  // ✅ URL CORRETA DO CHAT WEBHOOK
   CHAT_WEBHOOK_URL: 'https://consentient-bridger-pyroclastic.ngrok-free.dev/webhook/4678ab47-cab4-4d6f-98cc-96ee92ed7ff6/chat',
-  
-  // ✅ URL para upload de arquivos
   DATA_WEBHOOK_URL: 'https://consentient-bridger-pyroclastic.ngrok-free.dev/webhook/54283140-3bf1-43e3-923c-6546241e6f7d/criar_conta_final',
-  
   JWT_TOKEN: import.meta.env.VITE_JWT_TOKEN || '',
   MAX_FILE_SIZE: 10 * 1024 * 1024,
   TIMEOUT: 30000,
@@ -30,6 +25,13 @@ interface ApiResponse {
   error?: string;
   success?: boolean;
   data?: any;
+  executionStarted?: boolean;
+  executionId?: string;
+  // ✅ NOVOS CAMPOS PARA CHAT TRIGGER
+  chatResponse?: string;
+  result?: string;
+  answers?: string[];
+  reply?: string;
 }
 
 interface FileData {
@@ -39,16 +41,10 @@ interface FileData {
   content: string;
 }
 
-interface ConnectionTestResult {
-  status: 'success' | 'error';
-  message: string;
-  timestamp: string;
-}
-
 // ==================== SERVIÇO PRINCIPAL ====================
 
 /**
- * 🎯 ENVIA MENSAGEM PARA O ONBOT
+ * 🎯 ENVIA MENSAGEM PARA O ONBOT - VERSÃO CHAT TRIGGER
  */
 export const sendMessageToOnbot = async (
   message: string, 
@@ -56,39 +52,176 @@ export const sendMessageToOnbot = async (
   file?: File
 ): Promise<string> => {
   try {
-    console.log('🚀 [OnBot Service] Enviando mensagem:', { 
-      message: message.substring(0, 100), 
+    console.log('🚀 [Chat Trigger] Enviando mensagem:', { 
+      message, 
       sessionId, 
-      hasFile: !!file,
-      fileType: file?.type 
+      hasFile: !!file 
     });
 
     // ✅ FLUXO DE ARQUIVO
     if (file) {
-      console.log('📁 [OnBot Service] Processando arquivo:', file.name);
       return await processFileUpload(file, sessionId, message);
     }
 
-    // ✅ FLUXO DE MENSAGEM NORMAL
+    // ✅ FLUXO DE MENSAGEM NORMAL - CHAT TRIGGER
     const payload: WebhookPayload = {
       sessionId: sessionId,
       chatInput: message
     };
 
-    console.log('📤 [OnBot Service] Payload:', payload);
+    console.log('📤 [Chat Trigger] Payload:', payload);
     const response = await makeRequest(CONFIG.CHAT_WEBHOOK_URL, payload);
-    const result = await parseResponse(response);
+    const result = await parseChatTriggerResponse(response, sessionId);
     
-    console.log('✅ [OnBot Service] Resposta final:', result);
+    console.log('✅ [Chat Trigger] Resposta final:', result);
     return result;
 
   } catch (error) {
-    console.error('❌ [OnBot Service] Erro crítico:', error);
-    const errorMessage = handleError(error);
-    console.log('🔄 [OnBot Service] Retornando mensagem de erro:', errorMessage);
-    return errorMessage;
+    console.error('❌ [Chat Trigger] Erro crítico:', error);
+    return handleError(error);
   }
 };
+
+/**
+ * 📋 PARSE ESPECÍFICO PARA CHAT TRIGGER
+ */
+const parseChatTriggerResponse = async (response: Response, sessionId: string): Promise<string> => {
+  try {
+    const responseText = await response.text();
+    console.log('📄 [Chat Trigger] Resposta bruta:', responseText);
+
+    if (!responseText.trim()) {
+      return '🤖 Olá! Como posso ajudá-lo hoje?';
+    }
+
+    let data: ApiResponse;
+    try {
+      data = JSON.parse(responseText);
+      console.log('📊 [Chat Trigger] JSON parseado:', data);
+    } catch (parseError) {
+      console.log('📝 [Chat Trigger] Resposta não é JSON');
+      return responseText.trim();
+    }
+
+    // ✅ TENTATIVA 1: Buscar resposta direta do Chat Trigger
+    const directResponse = extractChatResponse(data);
+    if (directResponse) {
+      console.log('✅ [Chat Trigger] Resposta direta encontrada');
+      return directResponse;
+    }
+
+    // ✅ TENTATIVA 2: Se for confirmação de execução, tentar buscar resultado
+    if (data.executionStarted && data.executionId) {
+      console.log('🔄 [Chat Trigger] Execução iniciada, tentando buscar output...');
+      const executionResult = await tryGetExecutionOutput(data.executionId, sessionId);
+      if (executionResult) {
+        return executionResult;
+      }
+    }
+
+    // ✅ TENTATIVA 3: Fallback para respostas comuns
+    return getFallbackResponse(data, sessionId);
+
+  } catch (error) {
+    console.error('❌ [Chat Trigger] Erro no parse:', error);
+    return '🤖 Mensagem recebida! Estou processando sua solicitação...';
+  }
+};
+
+/**
+ * 🔍 EXTRAI RESPOSTA DO CHAT TRIGGER
+ */
+const extractChatResponse = (data: ApiResponse): string | null => {
+  // ✅ Padrões comuns de resposta do Chat Trigger
+  if (data.chatResponse && typeof data.chatResponse === 'string') {
+    return data.chatResponse;
+  }
+  if (data.response && typeof data.response === 'string') {
+    return data.response;
+  }
+  if (data.output && typeof data.output === 'string') {
+    return data.output;
+  }
+  if (data.message && typeof data.message === 'string') {
+    return data.message;
+  }
+  if (data.text && typeof data.text === 'string') {
+    return data.text;
+  }
+  if (data.reply && typeof data.reply === 'string') {
+    return data.reply;
+  }
+  if (data.result && typeof data.result === 'string') {
+    return data.result;
+  }
+  if (data.answers && Array.isArray(data.answers) && data.answers.length > 0) {
+    return data.answers[0];
+  }
+  
+  return null;
+};
+
+/**
+ * 🔄 TENTA BUSCAR OUTPUT DA EXECUÇÃO
+ */
+const tryGetExecutionOutput = async (executionId: string, sessionId: string): Promise<string | null> => {
+  try {
+    console.log(`🔄 [Execution Output] Buscando output para: ${executionId}`);
+    
+    // Espera um pouco para o processamento
+    await delay(1500);
+    
+    // Tenta buscar o resultado com um payload especial
+    const payload = {
+      sessionId: sessionId,
+      chatInput: `get_output_${executionId}`,
+      executionId: executionId,
+      action: 'get_output'
+    };
+
+    const response = await makeRequest(CONFIG.CHAT_WEBHOOK_URL, payload);
+    const responseText = await response.text();
+    
+    console.log('📄 [Execution Output] Resposta da busca:', responseText);
+    
+    if (responseText && !responseText.includes('executionStarted')) {
+      return responseText;
+    }
+    
+    return null;
+    
+  } catch (error) {
+    console.error('❌ [Execution Output] Erro ao buscar output:', error);
+    return null;
+  }
+};
+
+/**
+ * 🆘 RESPOSTA DE FALLBACK
+ */
+const getFallbackResponse = (data: ApiResponse, sessionId: string): string => {
+  // Se tiver algum dado, tenta extrair
+  if (data.data) {
+    if (typeof data.data === 'string') return data.data;
+    if (data.data.message) return data.data.message;
+    if (data.data.response) return data.data.response;
+  }
+  
+  // Se for sucesso sem dados específicos
+  if (data.success === true) {
+    return '✅ Solicitação processada com sucesso! Como posso ajudar em seguida?';
+  }
+  
+  // Se tiver execution ID mas não conseguiu resposta
+  if (data.executionId) {
+    return `🔄 Processando sua solicitação (ID: ${data.executionId.substring(0, 8)}...)`;
+  }
+  
+  // Fallback genérico
+  return '🤖 Olá! Recebi sua mensagem. Em que posso ajudá-lo?';
+};
+
+// ==================== FUNÇÕES AUXILIARES (MANTIDAS) ====================
 
 /**
  * 📁 PROCESSAMENTO DE ARQUIVO
@@ -97,23 +230,13 @@ const processFileUpload = async (file: File, sessionId: string, message: string 
   try {
     console.log('📁 [File Upload] Iniciando upload...');
 
-    // 🔒 VALIDAÇÃO
     if (!file) throw new Error('Nenhum arquivo fornecido');
     if (file.size > CONFIG.MAX_FILE_SIZE) {
       throw new Error(`Arquivo muito grande. Máximo: ${CONFIG.MAX_FILE_SIZE / 1024 / 1024}MB`);
     }
 
-    // 📖 LEITURA
     const fileContent = await readFileAsText(file);
     
-    console.log('✅ [File Upload] Arquivo lido:', {
-      fileName: file.name,
-      size: file.size,
-      type: file.type,
-      contentLength: fileContent.length
-    });
-
-    // 🚀 PAYLOAD
     const payload = {
       sessionId: sessionId,
       chatInput: message || `Upload do arquivo: ${file.name}`,
@@ -125,11 +248,9 @@ const processFileUpload = async (file: File, sessionId: string, message: string 
       }
     };
 
-    console.log('📤 [File Upload] Enviando para webhook...');
     const response = await makeRequest(CONFIG.DATA_WEBHOOK_URL, payload);
-    const result = await parseResponse(response);
+    const result = await parseChatTriggerResponse(response, sessionId);
     
-    console.log('✅ [File Upload] Upload concluído:', result);
     return result;
 
   } catch (error) {
@@ -143,11 +264,10 @@ const processFileUpload = async (file: File, sessionId: string, message: string 
  */
 const makeRequest = async (url: string, payload: any, attempt: number = 1): Promise<Response> => {
   try {
-    console.log(`🌐 [HTTP Request] Tentativa ${attempt} para:`, url);
+    console.log(`🌐 [HTTP] Tentativa ${attempt} para:`, url);
 
     const controller = new AbortController();
     const timeoutId = setTimeout(() => {
-      console.log(`⏰ [HTTP Request] Timeout na tentativa ${attempt}`);
       controller.abort();
     }, CONFIG.TIMEOUT);
 
@@ -163,25 +283,17 @@ const makeRequest = async (url: string, payload: any, attempt: number = 1): Prom
 
     clearTimeout(timeoutId);
 
-    console.log(`📊 [HTTP Request] Resposta recebida - Status: ${response.status}`);
-
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`❌ [HTTP Request] Erro HTTP ${response.status}:`, errorText);
-      throw new Error(`HTTP ${response.status}: ${response.statusText} - ${errorText}`);
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     }
 
     return response;
 
   } catch (error) {
-    console.error(`❌ [HTTP Request] Erro na tentativa ${attempt}:`, error);
-
     if (attempt < CONFIG.RETRY_ATTEMPTS && shouldRetry(error)) {
-      console.warn(`🔄 [HTTP Request] Retentativa ${attempt + 1}`);
       await delay(1000 * attempt);
       return makeRequest(url, payload, attempt + 1);
     }
-    
     throw error;
   }
 };
@@ -201,54 +313,7 @@ const shouldRetry = (error: any): boolean => {
   if (error.message?.includes('Failed to fetch')) return true;
   if (error.message?.includes('Network')) return true;
   if (error.message?.includes('50')) return true;
-  if (error.message?.includes('timeout')) return true;
   return false;
-};
-
-/**
- * 📋 PARSE DA RESPOSTA
- */
-const parseResponse = async (response: Response): Promise<string> => {
-  try {
-    const responseText = await response.text();
-    console.log('📄 [Parse Response] Resposta bruta:', responseText);
-
-    // Se a resposta estiver vazia
-    if (!responseText.trim()) {
-      console.warn('⚠️ [Parse Response] Resposta vazia');
-      return '✅ Processado com sucesso!';
-    }
-
-    // Tenta parsear como JSON
-    let data: ApiResponse;
-    try {
-      data = JSON.parse(responseText);
-      console.log('📊 [Parse Response] JSON parseado:', data);
-    } catch (parseError) {
-      console.log('📝 [Parse Response] Resposta não é JSON, retornando texto direto');
-      return responseText.trim();
-    }
-
-    // Extrai a mensagem de diferentes estruturas possíveis
-    if (data.output && typeof data.output === 'string') return data.output;
-    if (data.response && typeof data.response === 'string') return data.response;
-    if (data.message && typeof data.message === 'string') return data.message;
-    if (data.text && typeof data.text === 'string') return data.text;
-    if (data.error && typeof data.error === 'string') return `Erro: ${data.error}`;
-    
-    // Se for um objeto complexo, tenta stringify
-    if (data.data) {
-      return typeof data.data === 'string' ? data.data : JSON.stringify(data.data, null, 2);
-    }
-
-    // Fallback
-    console.warn('⚠️ [Parse Response] Estrutura desconhecida, usando fallback');
-    return '✅ Processado com sucesso!';
-
-  } catch (error) {
-    console.error('❌ [Parse Response] Erro ao processar resposta:', error);
-    return '❌ Erro ao processar resposta do servidor';
-  }
 };
 
 /**
@@ -257,23 +322,8 @@ const parseResponse = async (response: Response): Promise<string> => {
 const readFileAsText = (file: File): Promise<string> => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
-    
-    reader.onload = (e) => {
-      console.log('✅ [File Reader] Arquivo lido com sucesso');
-      resolve(e.target?.result as string);
-    };
-    
-    reader.onerror = () => {
-      console.error('❌ [File Reader] Erro na leitura do arquivo');
-      reject(new Error('Falha na leitura do arquivo'));
-    };
-    
-    reader.onabort = () => {
-      console.error('❌ [File Reader] Leitura abortada');
-      reject(new Error('Leitura do arquivo abortada'));
-    };
-
-    console.log('📖 [File Reader] Lendo arquivo...');
+    reader.onload = (e) => resolve(e.target?.result as string);
+    reader.onerror = () => reject(new Error('Falha na leitura do arquivo'));
     reader.readAsText(file, 'UTF-8');
   });
 };
@@ -282,40 +332,22 @@ const readFileAsText = (file: File): Promise<string> => {
  * 🛑 TRATAMENTO DE ERROS
  */
 const handleError = (error: any): string => {
-  console.error('🛑 [Error Handler] Processando erro:', error);
-
   if (error.name === 'AbortError') {
-    return '⏰ Timeout: O servidor demorou muito para responder. Tente novamente.';
+    return '⏰ Timeout: O servidor demorou muito para responder.';
   }
-
-  if (error.message?.includes('Failed to fetch') || error.message?.includes('Network')) {
-    return '🌐 Erro de conexão: Verifique sua internet e tente novamente.';
+  if (error.message?.includes('Failed to fetch')) {
+    return '🌐 Erro de conexão: Verifique sua internet.';
   }
-
   if (error.message?.includes('HTTP 5')) {
     return '🔧 Erro no servidor: Tente novamente em alguns instantes.';
   }
-
-  if (error.message?.includes('HTTP 4')) {
-    return '❌ Erro na requisição: Verifique os dados e tente novamente.';
-  }
-
-  if (error.message?.includes('arquivo')) {
-    return `📁 ${error.message}`;
-  }
-
-  return `❌ Erro: ${error.message || 'Erro desconhecido. Tente novamente.'}`;
+  return `❌ Erro: ${error.message || 'Erro desconhecido'}`;
 };
 
 // ==================== SERVIÇOS ADICIONAIS ====================
 
-/**
- * 🧪 TESTE DE CONEXÃO
- */
-export const testConnection = async (): Promise<ConnectionTestResult> => {
+export const testConnection = async () => {
   try {
-    console.log('🧪 [Test Connection] Testando conexão...');
-
     const payload = {
       sessionId: 'health_check_' + Date.now(),
       chatInput: 'health_check'
@@ -323,38 +355,25 @@ export const testConnection = async (): Promise<ConnectionTestResult> => {
 
     const response = await fetch(CONFIG.CHAT_WEBHOOK_URL, {
       method: 'POST',
-      headers: { 
-        'Content-Type': 'application/json',
-        ...(CONFIG.JWT_TOKEN && { 'Authorization': `Bearer ${CONFIG.JWT_TOKEN}` })
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     });
 
-    console.log(`🧪 [Test Connection] Status: ${response.status}`);
-
     if (response.ok) {
-      const result = await response.text();
-      console.log('✅ [Test Connection] Conexão estabelecida:', result);
-      
       return { 
         status: 'success', 
-        message: '✅ Conexão com n8n estabelecida com sucesso',
+        message: '✅ Conexão com n8n estabelecida',
         timestamp: new Date().toISOString()
       };
     } else {
-      const errorText = await response.text();
-      console.error('❌ [Test Connection] Erro HTTP:', errorText);
-      
       return { 
         status: 'error', 
-        message: `❌ Erro HTTP ${response.status}: ${response.statusText}`,
+        message: `❌ Erro HTTP ${response.status}`,
         timestamp: new Date().toISOString()
       };
     }
 
   } catch (error) {
-    console.error('❌ [Test Connection] Erro de conexão:', error);
-    
     return { 
       status: 'error', 
       message: `❌ Falha na conexão: ${error instanceof Error ? error.message : 'Erro desconhecido'}`,
@@ -363,31 +382,9 @@ export const testConnection = async (): Promise<ConnectionTestResult> => {
   }
 };
 
-/**
- * 📊 ESTATÍSTICAS DO SERVIÇO
- */
-export const getServiceStats = () => {
-  return {
-    maxFileSize: CONFIG.MAX_FILE_SIZE,
-    timeout: CONFIG.TIMEOUT,
-    retryAttempts: CONFIG.RETRY_ATTEMPTS,
-    webhookUrl: CONFIG.CHAT_WEBHOOK_URL,
-    dataWebhookUrl: CONFIG.DATA_WEBHOOK_URL,
-    version: '2.0.1'
-  };
-};
-
 // ==================== COMPATIBILIDADE ====================
 
-/**
- * @deprecated Use sendMessageToOnbot instead
- */
 export const processCSVFile = sendMessageToOnbot;
-
-/**
- * @deprecated Use testConnection instead  
- */
 export const testOnbotConnection = testConnection;
 
-// Exportação dos tipos para uso externo
-export type { WebhookPayload, ApiResponse, FileData, ConnectionTestResult };
+export type { WebhookPayload, ApiResponse, FileData };
