@@ -1,9 +1,8 @@
-// src/components/OnBotChat.tsx - VERSÃO CORRIGIDA
+// src/components/OnBotChat.tsx - VERSÃO PRODUÇÃO (APENAS HTTP)
 import React, { useState, useEffect, useRef } from 'react';
 import { X, Send, RefreshCw, Paperclip, FileText, Image, Bot, User, Maximize2, Minimize2 } from 'lucide-react';
 import { sendMessageToOnbot, testOnbotConnection } from '../services/onbotService';
 import onbotAvatar from '/onbot-avatar.png';
-import WebSocketChatClient from '../services/websocket-client';
 
 interface OnBotChatProps {
   onClose: () => void;
@@ -43,60 +42,26 @@ export const OnBotChat: React.FC<OnBotChatProps> = ({ onClose }) => {
   const chatEndRef = useRef<HTMLDivElement>(null);
   const [isExpanded, setIsExpanded] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<'checking' | 'connected' | 'error'>('checking');
-  const [wsClient, setWsClient] = useState<WebSocketChatClient | null>(null);
-  const [isWsConnected, setIsWsConnected] = useState(false);
 
-  // ✅ INICIALIZAR WEBSOCKET E VERIFICAR CONEXÃO
+  // ✅ VERIFICAR CONEXÃO APENAS HTTP
   useEffect(() => {
-    const initializeConnection = async () => {
+    const checkConnection = async () => {
       setConnectionStatus('checking');
-      
       try {
-        // 1. Inicializar WebSocket
-        const client = new WebSocketChatClient(sessionId);
-        await client.connect();
-        setWsClient(client);
-        setIsWsConnected(true);
-
-        // 2. Configurar handler de mensagens WebSocket
-        client.onMessage((message) => {
-          console.log('📨 Mensagem recebida via WebSocket:', message);
-          
-          if (message.type === 'bot_response') {
-            setMessages(prev => [...prev, {
-              id: `msg_${Date.now()}_bot`,
-              sender: 'bot',
-              text: message.content,
-              timestamp: new Date(message.timestamp)
-            }]);
-            setLoading(false);
-          }
-        });
-
-        // 3. Testar conexão com n8n
         const result = await testOnbotConnection();
         if (result.status === 'success') {
           setConnectionStatus('connected');
         } else {
           setConnectionStatus('error');
         }
-
       } catch (error) {
-        console.error('❌ Erro na inicialização:', error);
+        console.error('❌ Erro na conexão:', error);
         setConnectionStatus('error');
-        setIsWsConnected(false);
       }
     };
 
-    initializeConnection();
-
-    // Cleanup
-    return () => {
-      if (wsClient) {
-        wsClient.disconnect();
-      }
-    };
-  }, [sessionId]);
+    checkConnection();
+  }, []);
 
   // Scroll automático para novas mensagens
   useEffect(() => {
@@ -209,7 +174,7 @@ export const OnBotChat: React.FC<OnBotChatProps> = ({ onClose }) => {
     }
   };
 
-  // ✅ TRATAMENTO DE ENVIO COM WEBSOCKET + FALLBACK HTTP
+  // ✅ TRATAMENTO DE ENVIO APENAS HTTP
   const handleSendMessage = async () => {
     if ((!inputMessage.trim() && attachments.length === 0) || loading) return;
 
@@ -229,36 +194,30 @@ export const OnBotChat: React.FC<OnBotChatProps> = ({ onClose }) => {
     setMessages(prev => [...prev, userMessage]);
 
     try {
-      console.log('🚀 Enviando mensagem...', { 
+      console.log('🚀 Enviando mensagem via HTTP...', { 
         message: userMessageText, 
         sessionId,
-        fileCount: attachments.length,
-        usingWebSocket: isWsConnected
+        fileCount: attachments.length
       });
       
       // ✅ ENVIA PRIMEIRO ARQUIVO SE EXISTIR
       const fileToSend = attachments.length > 0 ? attachments[0].file : undefined;
       
-      // ✅ TENTAR WEBSOCKET PRIMEIRO
-      if (isWsConnected && wsClient && !fileToSend) {
-        console.log('📡 Enviando via WebSocket...');
-        wsClient.sendMessage(userMessageText);
-        // Aguardar resposta via WebSocket handler
-      } else {
-        // ✅ FALLBACK PARA HTTP (arquivos ou WebSocket offline)
-        console.log('🌐 Enviando via HTTP...');
-        const botResponse = await sendMessageToOnbot(userMessageText, sessionId, fileToSend);
-        await addTypingEffect(botResponse);
-        
-        // Limpar anexos após envio bem-sucedido
-        if (fileToSend) {
-          setAttachments([]);
-        }
-      }
+      // ✅ SEMPRE USAR HTTP (funciona em produção)
+      const botResponse = await sendMessageToOnbot(userMessageText, sessionId, fileToSend);
+      
+      console.log('✅ Resposta recebida:', botResponse);
+      
+      // ✅ ADICIONA RESPOSTA COM EFEITO DE DIGITAÇÃO
+      await addTypingEffect(botResponse);
+      
+      // Limpar anexos após envio bem-sucedido
+      setAttachments([]);
       
     } catch (error) {
       console.error('❌ Erro na comunicação:', error);
       
+      // ✅ MENSAGEM DE ERRO DETALHADA
       let errorMessage = 'Desculpe, ocorreu um erro. Tente novamente.';
       
       if (error instanceof Error) {
@@ -266,12 +225,14 @@ export const OnBotChat: React.FC<OnBotChatProps> = ({ onClose }) => {
           errorMessage = '🌐 Erro de conexão. Verifique sua internet.';
         } else if (error.message.includes('404')) {
           errorMessage = '🔧 Serviço temporariamente indisponível.';
-        } else if (error.message.includes('WebSocket')) {
-          errorMessage = '📡 Conexão WebSocket perdida.';
+        } else if (error.message.includes('timeout')) {
+          errorMessage = '⏰ Tempo esgotado. Tente novamente.';
         }
       }
       
       await addTypingEffect(errorMessage);
+      
+    } finally {
       setLoading(false);
     }
   };
@@ -297,28 +258,33 @@ export const OnBotChat: React.FC<OnBotChatProps> = ({ onClose }) => {
     ));
   };
 
-  // ✅ Indicador de status de conexão
+  // ✅ Indicador de status de conexão (APENAS HTTP)
   const renderConnectionStatus = () => {
-    const statusConfig = {
-      checking: { color: 'yellow', text: 'Conectando...', icon: '🔄' },
-      connected: { 
-        color: 'green', 
-        text: isWsConnected ? 'WebSocket Conectado' : 'HTTP Conectado', 
-        icon: isWsConnected ? '📡' : '🌐' 
-      },
-      error: { color: 'red', text: 'Conexão Offline', icon: '❌' }
-    };
-
-    const config = statusConfig[connectionStatus];
-
-    return (
-      <div className={`flex items-center gap-1 text-${config.color}-300`}>
-        <div className={`w-2 h-2 bg-${config.color}-400 rounded-full animate-pulse`}></div>
-        <span className="text-xs">
-          {config.icon} {config.text}
-        </span>
-      </div>
-    );
+    switch (connectionStatus) {
+      case 'checking':
+        return (
+          <div className="flex items-center gap-1">
+            <RefreshCw className="w-3 h-3 text-yellow-400 animate-spin" />
+            <span className="text-xs text-yellow-300">Conectando...</span>
+          </div>
+        );
+      case 'connected':
+        return (
+          <div className="flex items-center gap-1">
+            <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+            <span className="text-xs text-green-300">HTTP Conectado</span>
+          </div>
+        );
+      case 'error':
+        return (
+          <div className="flex items-center gap-1">
+            <div className="w-2 h-2 bg-red-400 rounded-full"></div>
+            <span className="text-xs text-red-300">Offline</span>
+          </div>
+        );
+      default:
+        return null;
+    }
   };
 
   const chatDimensions = isExpanded 
