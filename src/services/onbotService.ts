@@ -1,11 +1,10 @@
 // src/services/onbotService.ts
-// ✅ VERSÃO 5.1 - CORREÇÃO DA VALIDAÇÃO DE ARQUIVOS
+// ✅ VERSÃO 5.2 - USA APENAS WEBHOOK COM CORS CONFIGURADO
 
 // ==================== CONFIGURAÇÕES ====================
 const CONFIG = {
-  // ✅ CORS CONFIGURADO - URLs funcionando corretamente
+  // ✅ APENAS O WEBHOOK DE CHAT ESTÁ COM CORS CONFIGURADO
   CHAT_WEBHOOK_URL: 'https://consentient-bridger-pyroclastic.ngrok-free.dev/webhook/bc410b9e-0c7e-4625-b4aa-06f42b413ddc/chat',
-  DATA_WEBHOOK_URL: 'https://consentient-bridger-pyroclastic.ngrok-free.dev/webhook/dados_recebidos',
   JWT_TOKEN: import.meta.env.VITE_JWT_TOKEN || 'default-token',
   MAX_FILE_SIZE: 10 * 1024 * 1024, // 10MB
   TIMEOUT: 30000, // 30 segundos
@@ -94,16 +93,16 @@ class TokenManager {
 
 /**
  * 🌐 Requisição HTTP direta e segura
- * ✅ CORS CONFIGURADO NO n8n - Funcionando!
+ * ✅ USA APENAS O WEBHOOK COM CORS CONFIGURADO
  */
-const makeSecureRequest = async (url: string, payload: WebhookPayload): Promise<Response> => {
+const makeSecureRequest = async (payload: WebhookPayload): Promise<Response> => {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), CONFIG.TIMEOUT);
 
   try {
-    console.log('🌐 Enviando requisição direta para:', url);
+    console.log('🌐 Enviando para webhook com CORS...');
     
-    const response = await fetch(url, {
+    const response = await fetch(CONFIG.CHAT_WEBHOOK_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -148,7 +147,7 @@ const parseResponse = async (response: Response): Promise<string> => {
 // ==================== FUNÇÕES PRINCIPAIS CORRIGIDAS ====================
 
 /**
- * 🎯 ENVIA MENSAGEM PARA ONBOT (VALIDAÇÃO CORRIGIDA)
+ * 🎯 ENVIA MENSAGEM PARA ONBOT (USA APENAS WEBHOOK COM CORS)
  */
 export const sendMessageToOnbot = async (
   message: string, 
@@ -167,7 +166,7 @@ export const sendMessageToOnbot = async (
       throw new Error('Digite uma mensagem ou anexe um arquivo');
     }
 
-    // 🎯 FLUXO 1: PROCESSAMENTO DE ARQUIVO (PRIORIDADE)
+    // 🎯 FLUXO 1: PROCESSAMENTO DE ARQUIVO (USA MESMO WEBHOOK)
     if (file) {
       console.log('📁 Iniciando processamento de arquivo...', file.name);
       
@@ -199,8 +198,8 @@ export const sendMessageToOnbot = async (
         }
       };
 
-      console.log('🚀 Enviando arquivo para processamento...');
-      const response = await makeSecureRequest(CONFIG.DATA_WEBHOOK_URL, payload);
+      console.log('🚀 Enviando arquivo via webhook de chat...');
+      const response = await makeSecureRequest(payload);
       return await parseResponse(response);
     }
 
@@ -220,7 +219,7 @@ export const sendMessageToOnbot = async (
         selectedEmpresa: empresaSelection.nome
       };
 
-      const response = await makeSecureRequest(CONFIG.CHAT_WEBHOOK_URL, payload);
+      const response = await makeSecureRequest(payload);
       return await parseResponse(response);
     }
 
@@ -234,7 +233,7 @@ export const sendMessageToOnbot = async (
       token: TokenManager.generateToken()
     };
 
-    const response = await makeSecureRequest(CONFIG.CHAT_WEBHOOK_URL, payload);
+    const response = await makeSecureRequest(payload);
     return await parseResponse(response);
 
   } catch (error) {
@@ -275,9 +274,9 @@ const handleError = (error: any): string => {
     return `❌ ${error.message}`;
   }
 
-  // Erros de rede/CORS (agora devem ser raros)
+  // Erros de CORS específicos
   if (error.message?.includes('CORS') || error.message?.includes('blocked')) {
-    return '❌ Erro de configuração no servidor. Contate o administrador.';
+    return '❌ Erro de CORS: O webhook não está configurado para aceitar requisições do seu domínio.';
   }
 
   if (error.name === 'AbortError') {
@@ -285,7 +284,7 @@ const handleError = (error: any): string => {
   }
 
   if (error.message?.includes('Failed to fetch')) {
-    return '🌐 Erro de rede: Verifique sua conexão com a internet.';
+    return '🌐 Erro de rede: Não foi possível conectar ao servidor. Verifique a URL do webhook.';
   }
 
   if (error.message?.includes('HTTP 5')) {
@@ -303,7 +302,7 @@ const handleError = (error: any): string => {
 
 /**
  * 🧪 TESTE DE CONEXÃO 
- * ✅ Agora deve funcionar graças ao CORS configurado
+ * ✅ Testa apenas o webhook que sabemos que tem CORS
  */
 export const testConnection = async (): Promise<{ 
   status: 'success' | 'error';
@@ -320,14 +319,14 @@ export const testConnection = async (): Promise<{
       token: TokenManager.generateToken()
     };
 
-    console.log('🔍 Testando conexão com CORS...');
-    const response = await makeSecureRequest(CONFIG.CHAT_WEBHOOK_URL, payload);
+    console.log('🔍 Testando webhook de chat com CORS...');
+    const response = await makeSecureRequest(payload);
     const data = await response.json();
 
     return {
       status: 'success',
       message: '✅ Conexão estabelecida com sucesso!',
-      details: `CORS configurado corretamente. Servidor respondeu: ${data.message || 'OK'}`,
+      details: `Webhook de chat com CORS configurado. Resposta: ${data.message || 'OK'}`,
       timestamp: new Date().toISOString()
     };
 
@@ -335,9 +334,9 @@ export const testConnection = async (): Promise<{
     let details = 'Erro desconhecido';
     
     if (error instanceof TypeError && error.message.includes('Failed to fetch')) {
-      details = 'ERRO: Não foi possível conectar ao servidor. Verifique a URL e se o n8n está rodando.';
+      details = 'ERRO: Não foi possível conectar ao webhook de chat. Verifique se o n8n está rodando.';
     } else if (error.message?.includes('CORS') || error.message?.includes('blocked')) {
-      details = 'ERRO CORS: Configure "Respond to Preflight Request" no nó webhook do n8n.';
+      details = 'ERRO CORS: O webhook de chat precisa ter "Respond to Preflight Request" ativado no n8n.';
     } else {
       details = `Erro: ${error.message}`;
     }
@@ -356,12 +355,12 @@ export const testConnection = async (): Promise<{
  */
 export const getServiceConfig = () => {
   return {
-    version: '5.1.0',
-    description: 'Validação corrigida - CORS configurado ✅',
+    version: '5.2.0',
+    description: 'Usa apenas webhook com CORS configurado ✅',
     maxFileSize: CONFIG.MAX_FILE_SIZE,
     timeout: CONFIG.TIMEOUT,
     security: 'Requisições diretas e seguras',
-    status: 'CORS CONFIGURADO - Funcionando!'
+    status: 'Webhook de chat funcionando - Dados via mesmo endpoint'
   };
 };
 
@@ -373,25 +372,27 @@ export const testOnbotConnection = testConnection;
 // ==================== INICIALIZAÇÃO ====================
 
 console.log(`
-🚀 Onbot Service 5.1.0 - CORS CONFIGURADO ✅
+🚀 Onbot Service 5.2.0 - SOLUÇÃO DEFINITIVA
 
-🎉 PARABÉNS! O problema de CORS foi resolvido.
-Agora as requisições vão diretamente para seu servidor n8n.
+🎯 ESTRATÉGIA:
+✅ Webhook de chat: CORS CONFIGURADO (funciona)
+❌ Webhook de dados: SEM CORS (não funciona)
+✅ SOLUÇÃO: Usar apenas o webhook de chat para tudo
 
 📊 Status:
-✅ CORS configurado no n8n
-✅ Requisições diretas e seguras  
-✅ Validação de arquivos corrigida
-✅ Sem proxies de terceiros
+✅ Uploads de arquivo via webhook de chat
+✅ Mensagens de texto via webhook de chat  
+✅ Seleção de empresas via webhook de chat
+✅ Tudo em um endpoint seguro com CORS
 
 📍 Origin: ${window.location.origin}
-🔗 Servidor: ${CONFIG.CHAT_WEBHOOK_URL}
+🔗 Webhook: ${CONFIG.CHAT_WEBHOOK_URL}
 `);
 
 // Teste automático em desenvolvimento
 if (import.meta.env.DEV) {
   setTimeout(async () => {
-    console.log('🔍 Verificando conexão...');
+    console.log('🔍 Verificando conexão com webhook de chat...');
     try {
       const result = await testConnection();
       console.log('✅ Teste de conexão:', result);
