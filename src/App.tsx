@@ -1,16 +1,54 @@
-// src/App.tsx - VERSÃO CORRIGIDA COM EXPORT DEFAULT
-import React, { useState } from 'react';
+// src/App.tsx - VERSÃO COMPLETA COM WEBSOCKET INTEGRADO
+import React, { useState, useEffect } from 'react';
 import { TokenInput } from './components/TokenInput';
 import { CSVUpload } from './components/CSVUpload';
 import { uploadCSVToN8N } from './services/csvService';
-import { UploadCloud, CheckCircle } from 'lucide-react';
+import { UploadCloud, CheckCircle, MessageCircle } from 'lucide-react';
 import { OnBotChat } from './components/OnBotChat';
+import WebSocketChatClient from './services/websocket-client';
 
 const App: React.FC = () => {
   const [token, setToken] = useState('');
   const [companyId] = useState('C2S');
   const [uploadStatus, setUploadStatus] = useState<string | null>(null);
   const [showChat, setShowChat] = useState(false);
+  const [wsClient, setWsClient] = useState<WebSocketChatClient | null>(null);
+  const [isWsConnected, setIsWsConnected] = useState(false);
+
+  // ✅ INICIALIZAR WEBSOCKET QUANDO O APP CARREGAR
+  useEffect(() => {
+    const initializeWebSocket = async () => {
+      try {
+        const sessionId = 'session_' + Date.now();
+        const client = new WebSocketChatClient(sessionId);
+        
+        await client.connect();
+        setWsClient(client);
+        setIsWsConnected(true);
+        
+        console.log('✅ WebSocket conectado com sucesso!');
+        
+        // Configurar handler de mensagens
+        client.onMessage((message) => {
+          console.log('📨 Mensagem recebida via WebSocket:', message);
+          // Aqui você pode processar mensagens do n8n se necessário
+        });
+
+      } catch (error) {
+        console.error('❌ Erro ao conectar WebSocket:', error);
+        setIsWsConnected(false);
+      }
+    };
+
+    initializeWebSocket();
+
+    // Cleanup na desmontagem
+    return () => {
+      if (wsClient) {
+        wsClient.disconnect();
+      }
+    };
+  }, []);
 
   const handleFileUpload = async (file: File) => {
     if (!token) {
@@ -24,6 +62,11 @@ const App: React.FC = () => {
 
       if (result.success) {
         setUploadStatus(`✅ ${result.mensagem || 'Arquivo processado com sucesso!'}`);
+        
+        // ✅ OPÇÃO: Enviar notificação via WebSocket se quiser
+        if (wsClient && isWsConnected) {
+          wsClient.sendMessage(`CSV enviado: ${file.name}`);
+        }
       } else {
         setUploadStatus(`❌ ${result.mensagem || 'Falha no envio do arquivo'}`);
       }
@@ -37,10 +80,19 @@ const App: React.FC = () => {
     setShowChat(false);
   };
 
+  const handleOpenChat = () => {
+    setShowChat(true);
+    
+    // ✅ Notificar via WebSocket que o chat foi aberto
+    if (wsClient && isWsConnected) {
+      wsClient.sendMessage('Usuário abriu o chat OnBot');
+    }
+  };
+
   if (showChat) {
     return (
       <div className="h-screen w-full bg-black text-white">
-        <OnBotChat onClose={handleCloseChat} />
+        <OnBotChat onClose={handleCloseChat} wsClient={wsClient} />
       </div>
     );
   }
@@ -88,31 +140,43 @@ const App: React.FC = () => {
         )}
       </div>
 
-      {/* 🔥 BOTÃO FLUTUANTE NA LATERAL ESQUERDA */}
+      {/* 🔥 BOTÃO FLUTUANTE DO CHAT - ATUALIZADO */}
       <button
-        onClick={() => setShowChat(true)}
-        className="fixed left-6 bottom-6 bg-blue-600 hover:bg-blue-700 text-white rounded-full p-3 shadow-lg transition-all z-50 flex items-center gap-2 group hover:scale-105"
+        onClick={handleOpenChat}
+        className={`fixed left-6 bottom-6 rounded-full p-3 shadow-lg transition-all z-50 flex items-center gap-2 group hover:scale-105 ${
+          isWsConnected 
+            ? 'bg-green-600 hover:bg-green-700' 
+            : 'bg-gray-600 hover:bg-gray-700'
+        }`}
       >
-        <img 
-          src="/onbot-avatar.png" 
-          alt="Falar com OnBot" 
-          className="w-8 h-8 rounded-full object-cover border-2 border-white"
-        />
-        <span className="max-w-0 overflow-hidden group-hover:max-w-xs group-hover:ml-2 transition-all duration-300 whitespace-nowrap">
-          OnBot Chat
+        {isWsConnected ? (
+          <MessageCircle className="w-8 h-8 text-white" />
+        ) : (
+          <div className="w-8 h-8 bg-gray-400 rounded-full flex items-center justify-center">
+            <span className="text-xs">⚡</span>
+          </div>
+        )}
+        <span className="max-w-0 overflow-hidden group-hover:max-w-xs group-hover:ml-2 transition-all duration-300 whitespace-nowrap text-white">
+          {isWsConnected ? 'OnBot Chat' : 'Conectando...'}
         </span>
+        
+        {/* Indicador de status */}
+        <div className={`absolute -top-1 -right-1 w-3 h-3 rounded-full border-2 border-white ${
+          isWsConnected ? 'bg-green-500' : 'bg-gray-500'
+        }`}></div>
       </button>
 
-      {/* 🔥 STATUS DO SISTEMA EM TEMPO REAL */}
+      {/* 🔥 STATUS DO SISTEMA EM TEMPO REAL - ATUALIZADO */}
       <div className="fixed right-6 bottom-6 bg-gray-800 border border-gray-700 rounded-lg p-3 text-xs text-gray-300 z-40">
         <div className="flex items-center gap-2">
-          <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-          <span>Sistema em tempo real</span>
+          <div className={`w-2 h-2 rounded-full animate-pulse ${
+            isWsConnected ? 'bg-green-500' : 'bg-yellow-500'
+          }`}></div>
+          <span>{isWsConnected ? 'WebSocket Conectado' : 'Conectando WebSocket...'}</span>
         </div>
       </div>
     </div>
   );
 };
 
-// ✅ ADICIONE ESTA LINHA PARA CORRIGIR O ERRO:
 export default App;
