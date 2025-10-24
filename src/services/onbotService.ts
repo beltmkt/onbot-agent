@@ -1,11 +1,11 @@
 // src/services/onbotService.ts
-// ✅ VERSÃO CORRIGIDA - CONTEXTO PRESERVADO
+// ✅ VERSÃO COMPLETA E CORRIGIDA - ONBOT SERVICE
 
 // ==================== CONFIGURAÇÕES ====================
 const CONFIG = {
-  CHAT_WEBHOOK_URL: 'https://https://consentient-bridger-pyroclastic.ngrok-free.dev/webhook/bc410b9e-0c7e-4625-b4aa-06f42b413ddc/chat',
+  CHAT_WEBHOOK_URL: 'https://consentient-bridger-pyroclastic.ngrok-free.dev/webhook/bc410b9e-0c7e-4625-b4aa-06f42b413ddc/chat',
   DATA_WEBHOOK_URL: 'https://consentient-bridger-pyroclastic.ngrok-free.dev/webhook/dados_recebidos',
-  JWT_TOKEN: import.meta.env.VITE_JWT_TOKEN,
+  JWT_TOKEN: import.meta.env.VITE_JWT_TOKEN || 'default-token',
   MAX_FILE_SIZE: 10 * 1024 * 1024, // 10MB
   TIMEOUT: 30000, // 30 segundos
   RETRY_ATTEMPTS: 3
@@ -46,6 +46,134 @@ interface ApiResponse {
   response?: string;
   message?: string;
   error?: string;
+}
+
+interface ConnectionDiagnostic {
+  dnsResolution: boolean;
+  serverReachable: boolean;
+  corsEnabled: boolean;
+  details: string;
+}
+
+// ==================== DIAGNÓSTICO DE CONEXÃO ====================
+class ConnectionDiagnostic {
+  static async testDomainResolution(domain: string): Promise<boolean> {
+    try {
+      // Cria um teste de DNS usando Image object como fallback
+      return await new Promise((resolve) => {
+        const img = new Image();
+        img.onload = () => resolve(true);
+        img.onerror = () => resolve(false);
+        img.src = `https://${domain}/favicon.ico?t=${Date.now()}`;
+        
+        // Timeout fallback
+        setTimeout(() => resolve(false), 5000);
+      });
+    } catch (error) {
+      console.error(`❌ DNS Resolution failed for: ${domain}`, error);
+      return false;
+    }
+  }
+
+  static async testWebhookConnectivity(): Promise<{
+    dnsResolution: boolean;
+    serverReachable: boolean;
+    corsEnabled: boolean;
+    details: string;
+  }> {
+    const domain = 'consentient-bridger-pyroclastic.ngrok-free.dev';
+    
+    try {
+      // Teste básico de DNS
+      const dnsOk = await this.testDomainResolution(domain);
+      
+      if (!dnsOk) {
+        return {
+          dnsResolution: false,
+          serverReachable: false,
+          corsEnabled: false,
+          details: 'DNS não conseguiu resolver o domínio - túnel ngrok pode estar inativo'
+        };
+      }
+
+      // Teste de conectividade com o servidor
+      try {
+        const testResponse = await fetch(CONFIG.CHAT_WEBHOOK_URL, {
+          method: 'OPTIONS',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          signal: AbortSignal.timeout(10000)
+        });
+
+        return {
+          dnsResolution: true,
+          serverReachable: testResponse.ok,
+          corsEnabled: testResponse.headers.has('access-control-allow-origin'),
+          details: `Servidor ${testResponse.ok ? 'acessível' : 'inacessível'} - Status: ${testResponse.status}`
+        };
+      } catch (fetchError) {
+        return {
+          dnsResolution: true,
+          serverReachable: false,
+          corsEnabled: false,
+          details: `DNS funciona mas servidor não responde: ${fetchError instanceof Error ? fetchError.message : 'Erro desconhecido'}`
+        };
+      }
+
+    } catch (error) {
+      return {
+        dnsResolution: false,
+        serverReachable: false,
+        corsEnabled: false,
+        details: `Erro de conexão: ${error instanceof Error ? error.message : 'Erro desconhecido'}`
+      };
+    }
+  }
+}
+
+// ==================== SISTEMA DE FALLBACK ====================
+class FallbackManager {
+  private static fallbackUrls = [
+    'https://consentient-bridger-pyroclastic.ngrok-free.dev',
+    // Adicione URLs alternativas aqui se disponíveis
+  ];
+
+  private static currentUrlIndex = 0;
+
+  static getCurrentBaseUrl(): string {
+    return this.fallbackUrls[this.currentUrlIndex];
+  }
+
+  static rotateToNextUrl(): boolean {
+    if (this.currentUrlIndex < this.fallbackUrls.length - 1) {
+      this.currentUrlIndex++;
+      console.log(`🔄 Alternando para URL de fallback: ${this.getCurrentBaseUrl()}`);
+      return true;
+    }
+    return false;
+  }
+
+  static async findWorkingEndpoint(): Promise<string | null> {
+    for (const baseUrl of this.fallbackUrls) {
+      try {
+        const testUrl = `${baseUrl}/webhook/health`;
+        const response = await fetch(testUrl, { 
+          method: 'GET',
+          signal: AbortSignal.timeout(5000)
+        });
+        
+        if (response.ok) {
+          console.log(`✅ Endpoint funcionando: ${baseUrl}`);
+          return baseUrl;
+        }
+      } catch (error) {
+        console.log(`❌ Endpoint falhou: ${baseUrl}`, error);
+        continue;
+      }
+    }
+    return null;
+  }
 }
 
 // ==================== UTILITÁRIOS ====================
@@ -137,6 +265,12 @@ export const sendMessageToOnbot = async (
     
     // Validações básicas
     validateInput(message, sessionId);
+
+    // Verificação de conectividade antes de processar
+    const diagnostic = await ConnectionDiagnostic.testWebhookConnectivity();
+    if (!diagnostic.dnsResolution) {
+      throw new Error('Servidor não está acessível. Verifique se o túnel ngrok está ativo.');
+    }
 
     // 🎯 FLUXO 1: PROCESSAMENTO DE ARQUIVO
     if (file) {
@@ -273,11 +407,28 @@ const detectEmpresaSelection = (message: string): EmpresaSelection | null => {
 };
 
 /**
- * 🌐 REQUISIÇÃO HTTP ROBUSTA COM RETRY
+ * 🌐 REQUISIÇÃO HTTP ROBUSTA COM RETRY E DIAGNÓSTICO
  */
 const makeRequest = async (url: string, payload: WebhookPayload, attempt: number = 1): Promise<Response> => {
   try {
     console.log(`🌐 Tentativa ${attempt} para:`, url);
+
+    // Teste de diagnóstico antes da requisição principal (apenas na primeira tentativa)
+    if (attempt === 1) {
+      const diagnostic = await ConnectionDiagnostic.testWebhookConnectivity();
+      console.log('🔍 Diagnóstico de conexão:', diagnostic);
+      
+      if (!diagnostic.dnsResolution) {
+        console.warn('⚠️ Problema de DNS detectado, tentando fallback...');
+        if (FallbackManager.rotateToNextUrl()) {
+          const newBaseUrl = FallbackManager.getCurrentBaseUrl();
+          const newUrl = url.replace(/https:\/\/[^/]+/, newBaseUrl);
+          console.log(`🔄 Tentando com URL alternativa: ${newUrl}`);
+          await delay(2000);
+          return makeRequest(newUrl, payload, attempt);
+        }
+      }
+    }
 
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), CONFIG.TIMEOUT);
@@ -288,10 +439,12 @@ const makeRequest = async (url: string, payload: WebhookPayload, attempt: number
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${CONFIG.JWT_TOKEN}`,
         'X-Request-ID': generateRequestId(),
-        'User-Agent': 'OnbotService/2.0.0'
+        'User-Agent': 'OnbotService/2.0.0',
+        'Accept': 'application/json',
       },
       body: JSON.stringify(payload),
-      signal: controller.signal
+      signal: controller.signal,
+      mode: 'cors'
     });
 
     clearTimeout(timeoutId);
@@ -300,14 +453,29 @@ const makeRequest = async (url: string, payload: WebhookPayload, attempt: number
       throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     }
 
+    console.log(`✅ Requisição ${attempt} bem-sucedida`);
     return response;
 
   } catch (error) {
+    console.error(`❌ Erro na tentativa ${attempt}:`, error);
+    
+    // Rotação de URL em caso de erro de DNS
+    if ((error instanceof TypeError || error.message?.includes('Failed to fetch') || error.message?.includes('ERR_NAME_NOT_RESOLVED')) && attempt === 1) {
+      if (FallbackManager.rotateToNextUrl()) {
+        const newBaseUrl = FallbackManager.getCurrentBaseUrl();
+        const newUrl = url.replace(/https:\/\/[^/]+/, newBaseUrl);
+        console.log(`🔄 Tentando com nova URL devido a erro de rede: ${newUrl}`);
+        await delay(2000);
+        return makeRequest(newUrl, payload, attempt + 1);
+      }
+    }
+
     if (attempt < CONFIG.RETRY_ATTEMPTS && shouldRetry(error)) {
       console.warn(`🔄 Retentativa ${attempt + 1} após erro:`, error);
       await delay(1000 * attempt);
       return makeRequest(url, payload, attempt + 1);
     }
+    
     throw error;
   }
 };
@@ -324,7 +492,9 @@ const delay = (ms: number): Promise<void> => {
  */
 const shouldRetry = (error: any): boolean => {
   if (error.name === 'AbortError') return true;
+  if (error instanceof TypeError) return true;
   if (error.message?.includes('Failed to fetch')) return true;
+  if (error.message?.includes('NetworkError')) return true;
   if (error.message?.includes('50')) return true;
   return false;
 };
@@ -340,11 +510,17 @@ const generateRequestId = (): string => {
  * 📋 PARSE DA RESPOSTA
  */
 const parseResponse = async (response: Response): Promise<string> => {
-  const data: ApiResponse = await response.json();
-  if (data.output) return data.output;
-  if (data.response) return data.response;
-  if (data.message) return data.message;
-  return 'Processado com sucesso!';
+  try {
+    const data: ApiResponse = await response.json();
+    if (data.output) return data.output;
+    if (data.response) return data.response;
+    if (data.message) return data.message;
+    if (data.success) return 'Processado com sucesso!';
+    return 'Resposta recebida sem conteúdo específico.';
+  } catch (error) {
+    console.error('❌ Erro ao parsear resposta:', error);
+    return 'Resposta recebida mas não pôde ser processada.';
+  }
 };
 
 /**
@@ -364,12 +540,18 @@ const validateInput = (message: string, sessionId: string): void => {
  * 🛑 TRATAMENTO DE ERROS
  */
 const handleError = (error: any): string => {
+  console.error('🛑 Tratamento de erro:', error);
+
   if (error.name === 'AbortError') {
     return '⏰ Timeout: O servidor demorou muito para responder. Tente novamente.';
   }
 
-  if (error.message?.includes('Failed to fetch')) {
-    return '🌐 Erro de conexão: Verifique sua internet e tente novamente.';
+  if (error instanceof TypeError || error.message?.includes('Failed to fetch')) {
+    return '🌐 Erro de conexão: Não foi possível conectar ao servidor. Verifique sua internet e se o túnel ngrok está ativo.';
+  }
+
+  if (error.message?.includes('ERR_NAME_NOT_RESOLVED')) {
+    return '🔗 Erro de DNS: O servidor não está acessível. O túnel ngrok pode ter expirado.';
   }
 
   if (error.message?.includes('HTTP 5')) {
@@ -384,14 +566,49 @@ const handleError = (error: any): string => {
 };
 
 /**
- * 🧪 TESTE DE CONEXÃO
+ * 🧪 TESTE DE CONEXÃO COMPLETO
  */
 export const testConnection = async (): Promise<{ 
-  status: 'success' | 'error'; 
-  message: string; 
-  timestamp: string 
+  status: 'success' | 'error' | 'warning';
+  message: string;
+  timestamp: string;
+  diagnostic?: any;
+  suggestions?: string[];
 }> => {
   try {
+    // Diagnóstico completo
+    const diagnostic = await ConnectionDiagnostic.testWebhookConnectivity();
+    
+    if (!diagnostic.dnsResolution) {
+      return {
+        status: 'error',
+        message: '❌ DNS não conseguiu resolver o domínio',
+        timestamp: new Date().toISOString(),
+        diagnostic,
+        suggestions: [
+          'Verifique se o túnel ngrok está ativo',
+          'Teste a URL diretamente no navegador',
+          'Verifique sua conexão com a internet',
+          'O domínio ngrok pode ter expirado - reinicie o ngrok'
+        ]
+      };
+    }
+
+    if (!diagnostic.serverReachable) {
+      return {
+        status: 'warning',
+        message: '⚠️ Domínio resolve mas servidor não responde',
+        timestamp: new Date().toISOString(),
+        diagnostic,
+        suggestions: [
+          'O servidor ngrok pode estar offline',
+          'Verifique as credenciais do webhook',
+          'O endpoint pode ter mudado'
+        ]
+      };
+    }
+
+    // Teste de requisição real
     const payload: WebhookPayload = {
       sessionId: SessionManager.generateSessionId(),
       chatInput: 'health_check',
@@ -413,13 +630,16 @@ export const testConnection = async (): Promise<{
       return { 
         status: 'success', 
         message: '✅ Conexão estabelecida com sucesso',
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        diagnostic
       };
     } else {
       return { 
         status: 'error', 
-        message: `❌ Erro HTTP ${response.status}`,
-        timestamp: new Date().toISOString()
+        message: `❌ Erro HTTP ${response.status}: ${response.statusText}`,
+        timestamp: new Date().toISOString(),
+        diagnostic,
+        suggestions: ['Verifique o token JWT', 'O webhook pode estar mal configurado']
       };
     }
 
@@ -427,7 +647,12 @@ export const testConnection = async (): Promise<{
     return { 
       status: 'error', 
       message: `❌ Falha na conexão: ${error instanceof Error ? error.message : 'Erro desconhecido'}`,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      suggestions: [
+        'Execute o diagnóstico no console: runDiagnostic()',
+        'Verifique se o ngrok está rodando localmente',
+        'Teste com curl: curl -X GET https://consentient-bridger-pyroclastic.ngrok-free.dev'
+      ]
     };
   }
 };
@@ -440,9 +665,38 @@ export const getServiceStats = () => {
     maxFileSize: CONFIG.MAX_FILE_SIZE,
     timeout: CONFIG.TIMEOUT,
     retryAttempts: CONFIG.RETRY_ATTEMPTS,
-    version: '2.0.0',
-    currentRetryCount: retryCount
+    version: '2.1.0',
+    currentRetryCount: retryCount,
+    currentBaseUrl: FallbackManager.getCurrentBaseUrl()
   };
+};
+
+// ==================== MÉTODOS DE DIAGNÓSTICO ====================
+
+/**
+ * 🔧 EXECUTA DIAGNÓSTICO COMPLETO
+ */
+export const runDiagnostic = async (): Promise<any> => {
+  console.log('🔍 Iniciando diagnóstico completo do Onbot Service...');
+  
+  const connectionTest = await testConnection();
+  const webhookDiagnostic = await ConnectionDiagnostic.testWebhookConnectivity();
+  const stats = getServiceStats();
+  
+  const diagnosticResult = {
+    timestamp: new Date().toISOString(),
+    connectionTest,
+    webhookDiagnostic,
+    stats,
+    environment: {
+      hasJwtToken: !!CONFIG.JWT_TOKEN && CONFIG.JWT_TOKEN !== 'default-token',
+      userAgent: navigator.userAgent,
+      online: navigator.onLine
+    }
+  };
+  
+  console.log('📊 Diagnóstico completo:', diagnosticResult);
+  return diagnosticResult;
 };
 
 // ==================== MÉTODOS DE COMPATIBILIDADE ====================
@@ -457,6 +711,17 @@ export const processCSVFile = sendMessageToOnbot;
  */
 export const testOnbotConnection = testConnection;
 
+// ==================== INICIALIZAÇÃO ====================
+
+// Teste automático de conexão ao carregar o módulo (apenas em desenvolvimento)
+if (import.meta.env.DEV) {
+  console.log('🚀 Onbot Service inicializado - versão 2.1.0');
+  // Executa diagnóstico silencioso
+  setTimeout(() => {
+    runDiagnostic().catch(console.error);
+  }, 1000);
+}
+
 // Exportações para uso avançado
-export { FileProcessor, SessionManager, TokenManager };
+export { FileProcessor, SessionManager, TokenManager, ConnectionDiagnostic };
 export type { EmpresaSelection, FileData, WebhookPayload, ApiResponse };
