@@ -1,5 +1,5 @@
 // src/services/onbotService.ts
-// ✅ VERSÃO COMPLETA E CORRIGIDA - ONBOT SERVICE
+// ✅ VERSÃO COMPLETA COM SOLUÇÃO CORS
 
 // ==================== CONFIGURAÇÕES ====================
 const CONFIG = {
@@ -48,30 +48,130 @@ interface ApiResponse {
   error?: string;
 }
 
-interface ConnectionDiagnostic {
-  dnsResolution: boolean;
-  serverReachable: boolean;
-  corsEnabled: boolean;
-  details: string;
+// ==================== SOLUÇÃO CORS ====================
+class CORSManager {
+  private static proxyUrls = [
+    'https://cors-anywhere.herokuapp.com/',
+    'https://api.codetabs.com/v1/proxy?quest=',
+    'https://corsproxy.io/?',
+  ];
+
+  private static currentProxyIndex = 0;
+
+  /**
+   * 🛡️ Resolve problemas CORS usando proxies
+   */
+  static async makeCORSRequest(url: string, options: RequestInit): Promise<Response> {
+    // Primeiro tenta requisição direta
+    try {
+      console.log('🔧 Tentando requisição direta...');
+      const response = await fetch(url, {
+        ...options,
+        mode: 'cors',
+        credentials: 'omit'
+      });
+      
+      if (response.ok) {
+        console.log('✅ Requisição direta bem-sucedida');
+        return response;
+      }
+    } catch (directError) {
+      console.log('❌ Requisição direta falhou, usando proxy...', directError);
+    }
+
+    // Se falhar, tenta com proxies
+    for (let i = 0; i < this.proxyUrls.length; i++) {
+      try {
+        const proxyUrl = this.proxyUrls[this.currentProxyIndex] + encodeURIComponent(url);
+        console.log(`🔧 Tentando com proxy ${this.currentProxyIndex + 1}: ${this.proxyUrls[this.currentProxyIndex]}`);
+        
+        const response = await fetch(proxyUrl, {
+          ...options,
+          mode: 'cors',
+          credentials: 'omit'
+        });
+
+        if (response.ok) {
+          console.log(`✅ Proxy ${this.currentProxyIndex + 1} funcionou`);
+          return response;
+        }
+      } catch (proxyError) {
+        console.warn(`❌ Proxy ${this.currentProxyIndex + 1} falhou:`, proxyError);
+        this.rotateProxy();
+      }
+    }
+
+    throw new Error('Todos os métodos CORS falharam');
+  }
+
+  private static rotateProxy(): void {
+    this.currentProxyIndex = (this.currentProxyIndex + 1) % this.proxyUrls.length;
+  }
+
+  /**
+   * 🎯 Método alternativo: JSONP para contornar CORS
+   */
+  static jsonpRequest(url: string): Promise<any> {
+    return new Promise((resolve, reject) => {
+      const callbackName = 'jsonp_callback_' + Math.round(100000 * Math.random());
+      
+      // @ts-ignore
+      window[callbackName] = (data: any) => {
+        resolve(data);
+        // Cleanup
+        document.head.removeChild(script);
+        // @ts-ignore
+        delete window[callbackName];
+      };
+
+      const script = document.createElement('script');
+      script.src = url + (url.indexOf('?') >= 0 ? '&' : '?') + 'callback=' + callbackName;
+      script.onerror = reject;
+      
+      document.head.appendChild(script);
+    });
+  }
 }
 
 // ==================== DIAGNÓSTICO DE CONEXÃO ====================
 class ConnectionDiagnostic {
-  static async testDomainResolution(domain: string): Promise<boolean> {
+  static async testCORSCompatibility(url: string): Promise<{
+    corsEnabled: boolean;
+    preflightSuccess: boolean;
+    details: string;
+  }> {
     try {
-      // Cria um teste de DNS usando Image object como fallback
-      return await new Promise((resolve) => {
-        const img = new Image();
-        img.onload = () => resolve(true);
-        img.onerror = () => resolve(false);
-        img.src = `https://${domain}/favicon.ico?t=${Date.now()}`;
-        
-        // Timeout fallback
-        setTimeout(() => resolve(false), 5000);
+      // Teste de preflight OPTIONS
+      const preflightResponse = await fetch(url, {
+        method: 'OPTIONS',
+        headers: {
+          'Content-Type': 'application/json',
+          'Origin': window.location.origin
+        }
       });
+
+      const corsHeaders = {
+        allowOrigin: preflightResponse.headers.get('access-control-allow-origin'),
+        allowMethods: preflightResponse.headers.get('access-control-allow-methods'),
+        allowHeaders: preflightResponse.headers.get('access-control-allow-headers')
+      };
+
+      console.log('🔍 CORS Headers:', corsHeaders);
+
+      return {
+        corsEnabled: !!corsHeaders.allowOrigin,
+        preflightSuccess: preflightResponse.ok,
+        details: corsHeaders.allowOrigin 
+          ? `CORS habilitado para: ${corsHeaders.allowOrigin}`
+          : 'CORS não habilitado no servidor'
+      };
+
     } catch (error) {
-      console.error(`❌ DNS Resolution failed for: ${domain}`, error);
-      return false;
+      return {
+        corsEnabled: false,
+        preflightSuccess: false,
+        details: `Erro no preflight CORS: ${error instanceof Error ? error.message : 'Erro desconhecido'}`
+      };
     }
   }
 
@@ -85,41 +185,32 @@ class ConnectionDiagnostic {
     
     try {
       // Teste básico de DNS
-      const dnsOk = await this.testDomainResolution(domain);
-      
+      const dnsOk = await new Promise((resolve) => {
+        const img = new Image();
+        img.onload = () => resolve(true);
+        img.onerror = () => resolve(false);
+        img.src = `https://${domain}/favicon.ico?t=${Date.now()}`;
+        setTimeout(() => resolve(false), 5000);
+      });
+
       if (!dnsOk) {
         return {
           dnsResolution: false,
           serverReachable: false,
           corsEnabled: false,
-          details: 'DNS não conseguiu resolver o domínio - túnel ngrok pode estar inativo'
+          details: 'DNS não conseguiu resolver o domínio'
         };
       }
 
-      // Teste de conectividade com o servidor
-      try {
-        const testResponse = await fetch(CONFIG.CHAT_WEBHOOK_URL, {
-          method: 'OPTIONS',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          signal: AbortSignal.timeout(10000)
-        });
+      // Teste CORS
+      const corsTest = await this.testCORSCompatibility(CONFIG.CHAT_WEBHOOK_URL);
 
-        return {
-          dnsResolution: true,
-          serverReachable: testResponse.ok,
-          corsEnabled: testResponse.headers.has('access-control-allow-origin'),
-          details: `Servidor ${testResponse.ok ? 'acessível' : 'inacessível'} - Status: ${testResponse.status}`
-        };
-      } catch (fetchError) {
-        return {
-          dnsResolution: true,
-          serverReachable: false,
-          corsEnabled: false,
-          details: `DNS funciona mas servidor não responde: ${fetchError instanceof Error ? fetchError.message : 'Erro desconhecido'}`
-        };
-      }
+      return {
+        dnsResolution: true,
+        serverReachable: corsTest.preflightSuccess,
+        corsEnabled: corsTest.corsEnabled,
+        details: corsTest.details
+      };
 
     } catch (error) {
       return {
@@ -129,50 +220,6 @@ class ConnectionDiagnostic {
         details: `Erro de conexão: ${error instanceof Error ? error.message : 'Erro desconhecido'}`
       };
     }
-  }
-}
-
-// ==================== SISTEMA DE FALLBACK ====================
-class FallbackManager {
-  private static fallbackUrls = [
-    'https://consentient-bridger-pyroclastic.ngrok-free.dev',
-    // Adicione URLs alternativas aqui se disponíveis
-  ];
-
-  private static currentUrlIndex = 0;
-
-  static getCurrentBaseUrl(): string {
-    return this.fallbackUrls[this.currentUrlIndex];
-  }
-
-  static rotateToNextUrl(): boolean {
-    if (this.currentUrlIndex < this.fallbackUrls.length - 1) {
-      this.currentUrlIndex++;
-      console.log(`🔄 Alternando para URL de fallback: ${this.getCurrentBaseUrl()}`);
-      return true;
-    }
-    return false;
-  }
-
-  static async findWorkingEndpoint(): Promise<string | null> {
-    for (const baseUrl of this.fallbackUrls) {
-      try {
-        const testUrl = `${baseUrl}/webhook/health`;
-        const response = await fetch(testUrl, { 
-          method: 'GET',
-          signal: AbortSignal.timeout(5000)
-        });
-        
-        if (response.ok) {
-          console.log(`✅ Endpoint funcionando: ${baseUrl}`);
-          return baseUrl;
-        }
-      } catch (error) {
-        console.log(`❌ Endpoint falhou: ${baseUrl}`, error);
-        continue;
-      }
-    }
-    return null;
   }
 }
 
@@ -272,6 +319,8 @@ export const sendMessageToOnbot = async (
       throw new Error('Servidor não está acessível. Verifique se o túnel ngrok está ativo.');
     }
 
+    console.log('🔍 Diagnóstico CORS:', diagnostic);
+
     // 🎯 FLUXO 1: PROCESSAMENTO DE ARQUIVO
     if (file) {
       console.log('📁 Arquivo detectado - iniciando processamento...', {
@@ -347,7 +396,7 @@ const processFileUpload = async (file: File, sessionId: string, message: string 
         fileName: file.name,
         fileSize: file.size,
         mimeType: file.type,
-        content: fileContent, // ✅ CONTEÚDO REAL DO CSV
+        content: fileContent,
         lastModified: file.lastModified,
         encoding: 'utf-8'
       }
@@ -407,45 +456,48 @@ const detectEmpresaSelection = (message: string): EmpresaSelection | null => {
 };
 
 /**
- * 🌐 REQUISIÇÃO HTTP ROBUSTA COM RETRY E DIAGNÓSTICO
+ * 🌐 REQUISIÇÃO HTTP COM SOLUÇÃO CORS
  */
 const makeRequest = async (url: string, payload: WebhookPayload, attempt: number = 1): Promise<Response> => {
   try {
-    console.log(`🌐 Tentativa ${attempt} para:`, url);
-
-    // Teste de diagnóstico antes da requisição principal (apenas na primeira tentativa)
-    if (attempt === 1) {
-      const diagnostic = await ConnectionDiagnostic.testWebhookConnectivity();
-      console.log('🔍 Diagnóstico de conexão:', diagnostic);
-      
-      if (!diagnostic.dnsResolution) {
-        console.warn('⚠️ Problema de DNS detectado, tentando fallback...');
-        if (FallbackManager.rotateToNextUrl()) {
-          const newBaseUrl = FallbackManager.getCurrentBaseUrl();
-          const newUrl = url.replace(/https:\/\/[^/]+/, newBaseUrl);
-          console.log(`🔄 Tentando com URL alternativa: ${newUrl}`);
-          await delay(2000);
-          return makeRequest(newUrl, payload, attempt);
-        }
-      }
-    }
+    console.log(`🌐 Tentativa ${attempt} - URL:`, url);
 
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), CONFIG.TIMEOUT);
 
-    const response = await fetch(url, {
+    const requestOptions: RequestInit = {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${CONFIG.JWT_TOKEN}`,
         'X-Request-ID': generateRequestId(),
-        'User-Agent': 'OnbotService/2.0.0',
+        'User-Agent': 'OnbotService/2.2.0',
         'Accept': 'application/json',
+        // Headers CORS-friendly
+        'X-Requested-With': 'XMLHttpRequest'
       },
       body: JSON.stringify(payload),
-      signal: controller.signal,
-      mode: 'cors'
-    });
+      signal: controller.signal
+    };
+
+    let response: Response;
+
+    // Na primeira tentativa, verifica CORS
+    if (attempt === 1) {
+      const corsTest = await ConnectionDiagnostic.testCORSCompatibility(url);
+      console.log('🔍 Status CORS:', corsTest);
+
+      if (!corsTest.corsEnabled) {
+        console.log('🛡️ CORS não habilitado, usando proxy...');
+        response = await CORSManager.makeCORSRequest(url, requestOptions);
+      } else {
+        console.log('✅ CORS habilitado, requisição direta...');
+        response = await fetch(url, { ...requestOptions, mode: 'cors' });
+      }
+    } else {
+      // Tentativas seguintes usam proxy diretamente
+      response = await CORSManager.makeCORSRequest(url, requestOptions);
+    }
 
     clearTimeout(timeoutId);
 
@@ -458,17 +510,6 @@ const makeRequest = async (url: string, payload: WebhookPayload, attempt: number
 
   } catch (error) {
     console.error(`❌ Erro na tentativa ${attempt}:`, error);
-    
-    // Rotação de URL em caso de erro de DNS
-    if ((error instanceof TypeError || error.message?.includes('Failed to fetch') || error.message?.includes('ERR_NAME_NOT_RESOLVED')) && attempt === 1) {
-      if (FallbackManager.rotateToNextUrl()) {
-        const newBaseUrl = FallbackManager.getCurrentBaseUrl();
-        const newUrl = url.replace(/https:\/\/[^/]+/, newBaseUrl);
-        console.log(`🔄 Tentando com nova URL devido a erro de rede: ${newUrl}`);
-        await delay(2000);
-        return makeRequest(newUrl, payload, attempt + 1);
-      }
-    }
 
     if (attempt < CONFIG.RETRY_ATTEMPTS && shouldRetry(error)) {
       console.warn(`🔄 Retentativa ${attempt + 1} após erro:`, error);
@@ -495,6 +536,7 @@ const shouldRetry = (error: any): boolean => {
   if (error instanceof TypeError) return true;
   if (error.message?.includes('Failed to fetch')) return true;
   if (error.message?.includes('NetworkError')) return true;
+  if (error.message?.includes('CORS')) return true;
   if (error.message?.includes('50')) return true;
   return false;
 };
@@ -547,7 +589,11 @@ const handleError = (error: any): string => {
   }
 
   if (error instanceof TypeError || error.message?.includes('Failed to fetch')) {
-    return '🌐 Erro de conexão: Não foi possível conectar ao servidor. Verifique sua internet e se o túnel ngrok está ativo.';
+    return '🌐 Erro de conexão: Não foi possível conectar ao servidor.';
+  }
+
+  if (error.message?.includes('CORS')) {
+    return '🛡️ Erro CORS: O servidor não permite requisições do seu domínio. Usando método alternativo...';
   }
 
   if (error.message?.includes('ERR_NAME_NOT_RESOLVED')) {
@@ -578,32 +624,32 @@ export const testConnection = async (): Promise<{
   try {
     // Diagnóstico completo
     const diagnostic = await ConnectionDiagnostic.testWebhookConnectivity();
+    const corsTest = await ConnectionDiagnostic.testCORSCompatibility(CONFIG.CHAT_WEBHOOK_URL);
     
+    const fullDiagnostic = { ...diagnostic, corsTest };
+
     if (!diagnostic.dnsResolution) {
       return {
         status: 'error',
         message: '❌ DNS não conseguiu resolver o domínio',
         timestamp: new Date().toISOString(),
-        diagnostic,
+        diagnostic: fullDiagnostic,
         suggestions: [
           'Verifique se o túnel ngrok está ativo',
-          'Teste a URL diretamente no navegador',
-          'Verifique sua conexão com a internet',
           'O domínio ngrok pode ter expirado - reinicie o ngrok'
         ]
       };
     }
 
-    if (!diagnostic.serverReachable) {
+    if (!diagnostic.corsEnabled) {
       return {
         status: 'warning',
-        message: '⚠️ Domínio resolve mas servidor não responde',
+        message: '⚠️ Servidor acessível mas CORS não habilitado - usando proxies',
         timestamp: new Date().toISOString(),
-        diagnostic,
+        diagnostic: fullDiagnostic,
         suggestions: [
-          'O servidor ngrok pode estar offline',
-          'Verifique as credenciais do webhook',
-          'O endpoint pode ter mudado'
+          'O servidor precisa configurar CORS para seu domínio',
+          'Sistema usando proxies CORS como fallback'
         ]
       };
     }
@@ -617,28 +663,21 @@ export const testConnection = async (): Promise<{
       token: TokenManager.generateToken()
     };
 
-    const response = await fetch(CONFIG.CHAT_WEBHOOK_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${CONFIG.JWT_TOKEN}`,
-      },
-      body: JSON.stringify(payload),
-    });
+    const response = await makeRequest(CONFIG.CHAT_WEBHOOK_URL, payload);
 
     if (response.ok) {
       return { 
         status: 'success', 
         message: '✅ Conexão estabelecida com sucesso',
         timestamp: new Date().toISOString(),
-        diagnostic
+        diagnostic: fullDiagnostic
       };
     } else {
       return { 
         status: 'error', 
         message: `❌ Erro HTTP ${response.status}: ${response.statusText}`,
         timestamp: new Date().toISOString(),
-        diagnostic,
+        diagnostic: fullDiagnostic,
         suggestions: ['Verifique o token JWT', 'O webhook pode estar mal configurado']
       };
     }
@@ -649,9 +688,8 @@ export const testConnection = async (): Promise<{
       message: `❌ Falha na conexão: ${error instanceof Error ? error.message : 'Erro desconhecido'}`,
       timestamp: new Date().toISOString(),
       suggestions: [
-        'Execute o diagnóstico no console: runDiagnostic()',
-        'Verifique se o ngrok está rodando localmente',
-        'Teste com curl: curl -X GET https://consentient-bridger-pyroclastic.ngrok-free.dev'
+        'Execute o diagnóstico completo: runDiagnostic()',
+        'Verifique se o ngrok está rodando com CORS habilitado'
       ]
     };
   }
@@ -665,9 +703,9 @@ export const getServiceStats = () => {
     maxFileSize: CONFIG.MAX_FILE_SIZE,
     timeout: CONFIG.TIMEOUT,
     retryAttempts: CONFIG.RETRY_ATTEMPTS,
-    version: '2.1.0',
+    version: '2.2.0',
     currentRetryCount: retryCount,
-    currentBaseUrl: FallbackManager.getCurrentBaseUrl()
+    corsProxies: CORSManager['proxyUrls'].length
   };
 };
 
@@ -681,17 +719,20 @@ export const runDiagnostic = async (): Promise<any> => {
   
   const connectionTest = await testConnection();
   const webhookDiagnostic = await ConnectionDiagnostic.testWebhookConnectivity();
+  const corsTest = await ConnectionDiagnostic.testCORSCompatibility(CONFIG.CHAT_WEBHOOK_URL);
   const stats = getServiceStats();
   
   const diagnosticResult = {
     timestamp: new Date().toISOString(),
     connectionTest,
     webhookDiagnostic,
+    corsTest,
     stats,
     environment: {
       hasJwtToken: !!CONFIG.JWT_TOKEN && CONFIG.JWT_TOKEN !== 'default-token',
       userAgent: navigator.userAgent,
-      online: navigator.onLine
+      online: navigator.onLine,
+      origin: window.location.origin
     }
   };
   
@@ -713,15 +754,16 @@ export const testOnbotConnection = testConnection;
 
 // ==================== INICIALIZAÇÃO ====================
 
-// Teste automático de conexão ao carregar o módulo (apenas em desenvolvimento)
-if (import.meta.env.DEV) {
-  console.log('🚀 Onbot Service inicializado - versão 2.1.0');
-  // Executa diagnóstico silencioso
-  setTimeout(() => {
+// Teste automático de conexão ao carregar o módulo
+console.log('🚀 Onbot Service inicializado - versão 2.2.0 com suporte CORS');
+
+// Executa diagnóstico silencioso após 2 segundos
+setTimeout(() => {
+  if (import.meta.env.DEV) {
     runDiagnostic().catch(console.error);
-  }, 1000);
-}
+  }
+}, 2000);
 
 // Exportações para uso avançado
-export { FileProcessor, SessionManager, TokenManager, ConnectionDiagnostic };
+export { FileProcessor, SessionManager, TokenManager, ConnectionDiagnostic, CORSManager };
 export type { EmpresaSelection, FileData, WebhookPayload, ApiResponse };
