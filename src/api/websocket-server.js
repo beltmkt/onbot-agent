@@ -1,71 +1,111 @@
-// src/services/websocket-client.js - VERSÃO COMPLETA
-export class WebSocketChatClient {
-  constructor(sessionId) {
-    this.sessionId = sessionId;
-    this.ws = null;
-    this.messageHandlers = [];
-  }
+import { WebSocketServer } from 'ws';
+import { v4 as uuidv4 } from 'uuid';
 
-  connect() {
-    return new Promise((resolve, reject) => {
-      try {
-        this.ws = new WebSocket('ws://localhost:8081');
+// ✅ MANTER O SERVIDOR ATIVO
+const wss = new WebSocketServer({ port: 8081 });
 
-        this.ws.onopen = () => {
-          console.log('✅ Connected to WebSocket server');
-          resolve();
-        };
+// ✅ VARIÁVEIS GLOBAIS
+const clients = new Map();
+const sessions = new Map();
 
-        this.ws.onmessage = (event) => {
-          try {
-            const message = JSON.parse(event.data);
-            this.messageHandlers.forEach(handler => handler(message));
-          } catch (error) {
-            console.error('❌ Error parsing message:', error);
-          }
-        };
+console.log('🚀 WebSocket Chat Server running on port 8081');
 
-        this.ws.onclose = () => {
-          console.log('❌ WebSocket connection closed');
-        };
+wss.on('connection', (ws) => {
+  const clientId = uuidv4();
+  clients.set(clientId, ws);
+  
+  console.log(`✅ Client connected: ${clientId}`);
+  console.log(`📊 Total clients: ${clients.size}`);
 
-        this.ws.onerror = (error) => {
-          console.error('❌ WebSocket error:', error);
-          reject(error);
-        };
+  ws.on('message', (data) => {
+    try {
+      const message = JSON.parse(data.toString());
+      console.log('📨 Received:', message);
 
-      } catch (error) {
-        reject(error);
+      if (message.sessionId && message.type === 'user_message') {
+        sessions.set(message.sessionId, clientId);
+        console.log(`📝 Session registered: ${message.sessionId} -> ${clientId}`);
       }
-    });
-  }
 
-  sendMessage(content) {
-    if (this.ws && this.ws.readyState === 1) { // 1 = OPEN
-      const message = {
-        type: 'user_message',
-        sessionId: this.sessionId,
-        content: content,
-        timestamp: new Date().toISOString()
+      // ✅ RESPOSTA SIMPLES PARA TESTE
+      const response = {
+        type: 'bot_response',
+        sessionId: message.sessionId || 'unknown',
+        content: `OnBot: Recebi "${message.content}". WebSocket funcionando! 🚀`,
+        timestamp: new Date().toISOString(),
+        messageId: uuidv4()
       };
       
-      this.ws.send(JSON.stringify(message));
-      console.log('📨 Sent message:', content);
-    } else {
-      console.error('❌ WebSocket not connected');
+      ws.send(JSON.stringify(response));
+      console.log(`📤 Sent response to ${clientId}`);
+
+    } catch (error) {
+      console.error('❌ Error parsing message:', error);
+    }
+  });
+
+  ws.on('close', () => {
+    console.log(`❌ Client disconnected: ${clientId}`);
+    clients.delete(clientId);
+    
+    for (const [sessionId, cId] of sessions.entries()) {
+      if (cId === clientId) {
+        sessions.delete(sessionId);
+        console.log(`🗑️ Session removed: ${sessionId}`);
+        break;
+      }
+    }
+    
+    console.log(`📊 Remaining clients: ${clients.size}`);
+  });
+
+  // ✅ MENSAGEM DE BOAS-VINDAS
+  const welcomeMessage = {
+    type: 'system',
+    content: 'Conectado ao OnBot Chat - WebSocket funcionando! 🚀',
+    timestamp: new Date().toISOString(),
+    sessionId: 'system',
+    messageId: uuidv4()
+  };
+  
+  ws.send(JSON.stringify(welcomeMessage));
+});
+
+// ✅ FUNÇÃO PARA O N8N ENVIAR MENSAGENS
+function sendToSession(sessionId, response) {
+  const clientId = sessions.get(sessionId);
+  if (clientId) {
+    const ws = clients.get(clientId);
+    if (ws && ws.readyState === 1) {
+      const message = {
+        type: 'bot_response',
+        sessionId,
+        content: response,
+        timestamp: new Date().toISOString(),
+        messageId: uuidv4()
+      };
+      ws.send(JSON.stringify(message));
+      console.log(`📤 Sent to session ${sessionId}:`, response.substring(0, 50));
+      return true;
     }
   }
-
-  onMessage(handler) {
-    this.messageHandlers.push(handler);
-  }
-
-  disconnect() {
-    if (this.ws) {
-      this.ws.close();
-      this.ws = null;
-    }
-  }
+  console.log(`❌ No client found for session: ${sessionId}`);
+  return false;
 }
 
-export default WebSocketChatClient;
+// ✅ EXPORTAR FUNÇÕES
+export { sendToSession, clients, sessions };
+
+// ✅ MANTER O PROCESSO ATIVO
+process.on('uncaughtException', (error) => {
+  console.error('❌ Uncaught Exception:', error);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('❌ Unhandled Rejection at:', promise, 'reason:', reason);
+});
+
+// ✅ LOG PARA CONFIRMAR QUE ESTÁ RODANDO
+setInterval(() => {
+  console.log(`💓 WebSocket Server heartbeat - Clients: ${clients.size}, Sessions: ${sessions.size}`);
+}, 30000);
