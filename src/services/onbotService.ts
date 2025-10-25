@@ -1,12 +1,13 @@
 // src/services/onbotService.ts
-// ✅ VERSÃO 10.0 - CONEXÃO DINÂMICA CORRIGIDA COM n8n
+// ✅ VERSÃO 11.0 - COMPLETA E CORRIGIDA
 
 // ==================== CONFIGURAÇÕES ====================
 const CONFIG = {
   CHAT_WEBHOOK_URL: 'https://consentient-bridger-pyroclastic.ngrok-free.dev/webhook/a3edf1eb-7b77-4835-a685-1c937fc2957b/chat',
   JWT_TOKEN: import.meta.env.VITE_JWT_TOKEN || 'default-token',
   TIMEOUT: 45000, // Aumentado para 45 segundos
-  RETRY_ATTEMPTS: 2
+  RETRY_ATTEMPTS: 3,
+  MAX_RETRY_DELAY: 30000 // 30 segundos máximo
 } as const;
 
 // ==================== TIPOS ====================
@@ -117,21 +118,26 @@ export const sendMessageToOnbot = async (
 };
 
 /**
- * 🎯 CRIAR PAYLOAD POR TIPO DE MENSAGEM
+ * 🎯 CRIAR PAYLOAD POR TIPO DE MENSAGEM - SCHEMA CORRIGIDO
  */
 const createPayloadByMessageType = (message: string, sessionId: string): WebhookPayload => {
   const cleanMessage = message.trim();
   
+  // 🎯 FORMATO SIMPLIFICADO E PADRONIZADO
+  const basePayload = {
+    sessionId,
+    chatInput: cleanMessage,
+    timestamp: new Date().toISOString(),
+    token: generateToken()
+  };
+
   // 🏢 DETECTAR SELEÇÃO DE EMPRESA (1, 2, 3...)
   const empresaMatch = cleanMessage.match(/^\d+$/);
   if (empresaMatch) {
     console.log('🏢 Número de empresa detectado:', cleanMessage);
     return {
-      sessionId,
-      chatInput: cleanMessage,
+      ...basePayload,
       action: 'selecionar_empresa',
-      timestamp: new Date().toISOString(),
-      token: generateToken(),
       empresa: cleanMessage
     };
   }
@@ -141,11 +147,8 @@ const createPayloadByMessageType = (message: string, sessionId: string): Webhook
   if (tokenMatch) {
     console.log('🔑 Token detectado:', cleanMessage.substring(0, 20) + '...');
     return {
-      sessionId,
-      chatInput: cleanMessage,
-      action: 'validar_token',
-      timestamp: new Date().toISOString(),
-      token: generateToken()
+      ...basePayload,
+      action: 'validar_token'
     };
   }
 
@@ -154,22 +157,29 @@ const createPayloadByMessageType = (message: string, sessionId: string): Webhook
   if (hasUserData) {
     console.log('👤 Dados de usuários detectados');
     return {
-      sessionId,
-      chatInput: cleanMessage,
+      ...basePayload,
       action: 'processar_usuarios',
-      timestamp: new Date().toISOString(),
-      token: generateToken(),
       dadosUsuarios: cleanMessage,
       processType: 'dados_usuarios'
     };
   }
 
-  // 💬 MENSAGEM GENÉRICA
+  // 💬 MENSAGEM GENÉRICA - SCHEMA SIMPLIFICADO
   console.log('💬 Mensagem genérica detectada');
   return {
+    ...basePayload,
+    action: 'processar_mensagem'
+  };
+};
+
+/**
+ * 🧪 PAYLOAD MÍNIMO PARA TESTE DE SCHEMA
+ */
+const createMinimalPayload = (message: string, sessionId: string): WebhookPayload => {
+  return {
     sessionId,
-    chatInput: cleanMessage,
-    action: 'processar_mensagem',
+    chatInput: message.trim(),
+    action: 'chat',
     timestamp: new Date().toISOString(),
     token: generateToken()
   };
@@ -261,7 +271,7 @@ const generateSessionId = (): string => {
 };
 
 /**
- * 🌐 REQUISIÇÃO SEGURA - VERSÃO CORRIGIDA
+ * 🌐 REQUISIÇÃO SEGURA - COM MELHOR DIAGNÓSTICO DE ERRO
  */
 const makeSecureRequest = async (payload: WebhookPayload): Promise<Response> => {
   const controller = new AbortController();
@@ -289,8 +299,19 @@ const makeSecureRequest = async (payload: WebhookPayload): Promise<Response> => 
 
     clearTimeout(timeoutId);
 
+    // 🎯 CAPTURAR DETALHES DO ERRO 500
     if (!response.ok) {
-      throw new Error(`n8n retornou HTTP ${response.status}: ${response.statusText}`);
+      let errorDetails = '';
+      
+      try {
+        const errorText = await response.text();
+        errorDetails = errorText.substring(0, 500); // Limitar tamanho
+        console.error('🔧 Detalhes do erro n8n:', errorDetails);
+      } catch (textError) {
+        errorDetails = 'Não foi possível ler resposta de erro';
+      }
+      
+      throw new Error(`n8n retornou HTTP ${response.status}: ${response.statusText}. Detalhes: ${errorDetails}`);
     }
 
     return response;
@@ -315,7 +336,7 @@ const makeSecureRequest = async (payload: WebhookPayload): Promise<Response> => 
 };
 
 /**
- * 🔄 REQUISIÇÃO COM RETRY AUTOMÁTICO
+ * 🔄 REQUISIÇÃO COM RETRY INTELIGENTE PARA QUOTA LIMITS
  */
 const makeSecureRequestWithRetry = async (
   payload: WebhookPayload, 
@@ -324,17 +345,45 @@ const makeSecureRequestWithRetry = async (
   try {
     return await makeSecureRequest(payload);
   } catch (error) {
-    // ✅ SÓ FAZ RETRY PARA ERROS DE TIMEOUT/REDE
-    const shouldRetry = 
-      error instanceof Error && 
+    // 🎯 DETECTAR ERRO DE QUOTA EXCEDIDA
+    const isQuotaError = error instanceof Error && 
+      (error.message.includes('quota') || 
+       error.message.includes('rate limit') ||
+       error.message.includes('429') ||
+       error.message.includes('too many requests'));
+
+    // 🎯 DETECTAR ERROS TEMPORÁRIOS
+    const isTemporaryError = error instanceof Error && 
       (error.message.includes('timeout') || 
        error.message.includes('conexão') ||
        error.message.includes('rede'));
-    
-    if (shouldRetry && attempt < CONFIG.RETRY_ATTEMPTS) {
-      console.log(`🔄 Tentativa ${attempt + 1} de ${CONFIG.RETRY_ATTEMPTS}`);
-      await new Promise(resolve => setTimeout(resolve, 1000 * attempt)); // Backoff
+
+    // 🎯 DETECTAR ERRO DE SCHEMA
+    const isSchemaError = error instanceof Error && 
+      (error.message.includes('tool input') || 
+       error.message.includes('schema') ||
+       error.message.includes('did not match'));
+
+    // ⏰ BACKOFF EXPONENCIAL PARA QUOTA ERRORS
+    if (isQuotaError && attempt < CONFIG.RETRY_ATTEMPTS) {
+      const backoffTime = Math.min(1000 * Math.pow(2, attempt), CONFIG.MAX_RETRY_DELAY);
+      console.log(`🔄 Quota excedida - Retry ${attempt} em ${backoffTime}ms`);
+      await new Promise(resolve => setTimeout(resolve, backoffTime));
       return makeSecureRequestWithRetry(payload, attempt + 1);
+    }
+
+    // 🔄 RETRY PARA ERROS TEMPORÁRIOS
+    if (isTemporaryError && attempt < CONFIG.RETRY_ATTEMPTS) {
+      console.log(`🔄 Tentativa ${attempt + 1} de ${CONFIG.RETRY_ATTEMPTS}`);
+      await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+      return makeSecureRequestWithRetry(payload, attempt + 1);
+    }
+
+    // 🔧 TENTAR PAYLOAD SIMPLIFICADO PARA ERROS DE SCHEMA
+    if (isSchemaError && attempt === 1) {
+      console.log('🔄 Tentando com payload simplificado...');
+      const minimalPayload = createMinimalPayload(payload.chatInput, payload.sessionId);
+      return makeSecureRequestWithRetry(minimalPayload, attempt + 1);
     }
     
     throw error;
@@ -383,6 +432,10 @@ const parseN8nResponse = async (response: Response): Promise<string> => {
       return `✅ Processados ${data.usuarios_processados} usuários`;
     }
     
+    if (data.usuarios_criados !== undefined) {
+      return `✅ Criados ${data.usuarios_criados} usuários`;
+    }
+    
     if (data.success) return '✅ Processamento concluído';
     
     throw new Error('n8n retornou resposta sem dados processáveis');
@@ -414,25 +467,35 @@ const isJsonString = (str: string): boolean => {
 };
 
 /**
- * 🛑 TRATAMENTO DE ERROS
+ * 🛑 TRATAMENTO DE ERROS - VERSÃO COMPLETA
  */
 const handleDynamicError = (error: any): string => {
   console.error('❌ Erro detalhado:', error);
 
   if (error instanceof Error) {
+    // 🎯 ERRO DE SCHEMA - TOOL INPUT
+    if (error.message.includes('tool input') || error.message.includes('schema') || error.message.includes('did not match')) {
+      return `🔧 Problema de configuração no n8n: Schema das ferramentas não corresponde.\n\nSoluções:\n• Verifique os "Tools" no agente LangChain\n• Valide os schemas de input\n• Teste com payload simplificado`;
+    }
+    
+    // 🎯 ERRO 500 - PROBLEMA INTERNO DO n8n
+    if (error.message.includes('HTTP 500')) {
+      return `🔧 Erro interno no n8n (500). Verifique:\n\n• ✅ Workflow está ativado?\n• ✅ Credenciais da API configuradas?\n• ✅ Modelo LLM disponível?\n• ✅ Logs do n8n para detalhes`;
+    }
+    
+    // 🎯 ERRO DE QUOTA EXCEDIDA
+    if (error.message.includes('quota') || error.message.includes('rate limit') || error.message.includes('429') || error.message.includes('too many requests')) {
+      return `📊 Cota da API excedida. Aguarde alguns minutos ou altere para outro modelo no n8n.`;
+    }
+    
     // 🎯 ERROS DE TIMEOUT
     if (error.name === 'AbortError' || error.message.includes('timeout')) {
       return `⏰ n8n não respondeu após ${CONFIG.TIMEOUT}ms. Tente novamente.`;
     }
     
     // 🌐 ERROS DE CONEXÃO
-    if (error.message.includes('Failed to fetch') || error.message.includes('conexão')) {
-      return '🌐 Não foi possível conectar ao n8n. Verifique sua conexão.';
-    }
-    
-    // 🔧 ERROS DO n8n
-    if (error.message.includes('n8n')) {
-      return `🔧 ${error.message}`;
+    if (error.message.includes('Failed to fetch') || error.message.includes('conexão') || error.message.includes('rede')) {
+      return '🌐 Não foi possível conectar ao n8n. Verifique sua conexão de rede.';
     }
     
     // 📋 ERROS DE JSON
@@ -440,9 +503,9 @@ const handleDynamicError = (error: any): string => {
       return '🔧 n8n configurado incorretamente - deve retornar JSON válido';
     }
     
-    // 🌐 ERROS HTTP
-    if (error.message.includes('HTTP')) {
-      return `🌐 Erro n8n: ${error.message}`;
+    // 🔧 ERROS DO n8n
+    if (error.message.includes('n8n')) {
+      return `🔧 ${error.message}`;
     }
     
     return `❌ ${error.message}`;
@@ -452,6 +515,45 @@ const handleDynamicError = (error: any): string => {
 };
 
 // ==================== SERVIÇOS ADICIONAIS ====================
+
+/**
+ * 🧪 TESTE DE SCHEMA DO n8n
+ */
+export const testN8nSchema = async (): Promise<string> => {
+  const testPayloads = [
+    // Payload mínimo
+    {
+      sessionId: "test-schema",
+      chatInput: "hello",
+      action: "test",
+      timestamp: new Date().toISOString(),
+      token: "test-token"
+    },
+    // Payload com dados extras
+    {
+      sessionId: "test-schema-2", 
+      chatInput: "test message",
+      action: "chat",
+      timestamp: new Date().toISOString(),
+      token: "test-token-2",
+      additionalData: "should be ignored if not in schema"
+    }
+  ];
+
+  for (const payload of testPayloads) {
+    try {
+      console.log('🧪 Testando payload:', JSON.stringify(payload));
+      const response = await makeSecureRequest(payload as WebhookPayload);
+      const result = await response.text();
+      console.log('✅ Payload funcionou:', payload.action);
+      return `✅ Schema testado com sucesso: ${payload.action}`;
+    } catch (error) {
+      console.log('❌ Payload falhou:', payload.action, error);
+    }
+  }
+
+  return '❌ Todos os testes de schema falharam';
+};
 
 export const testConnection = async (): Promise<{ 
   status: 'success' | 'error';
@@ -478,8 +580,8 @@ export const testConnection = async (): Promise<{
 
 export const getServiceConfig = () => {
   return {
-    version: '10.0.0',
-    description: 'Conexão dinâmica corrigida com n8n',
+    version: '11.0.0',
+    description: 'Versão completa e corrigida com tratamento de schema',
     capabilities: [
       '🔗 Conexão direta com n8n',
       '🔑 Detecção automática de token',
@@ -488,7 +590,10 @@ export const getServiceConfig = () => {
       '📊 Processamento de planilhas',
       '💬 Mensagens genéricas',
       '🔍 Validação estrita de JSON',
-      '🔄 Sistema de retry automático'
+      '🔄 Sistema de retry inteligente',
+      '🎯 Tratamento de erros de schema',
+      '📊 Monitoramento de quota',
+      '🧪 Teste de schema automático'
     ]
   };
 };
@@ -501,7 +606,7 @@ export const testOnbotConnection = testConnection;
 // ==================== INICIALIZAÇÃO ====================
 
 console.log(`
-🚀 Onbot Service 10.0.0 - CONEXÃO CORRIGIDA
+🚀 Onbot Service 11.0.0 - VERSÃO COMPLETA E CORRIGIDA
 
 🎯 CAPACIDADES:
 🔗 Conexão direta com n8n
@@ -511,7 +616,10 @@ console.log(`
 📊 Processamento de planilhas
 💬 Mensagens genéricas
 🔍 Validação estrita de JSON
-🔄 Sistema de retry automático
+🔄 Sistema de retry inteligente
+🎯 Tratamento de erros de schema
+📊 Monitoramento de quota
+🧪 Teste de schema automático
 
 📍 URL: ${CONFIG.CHAT_WEBHOOK_URL}
 ⏰ Timeout: ${CONFIG.TIMEOUT}ms
