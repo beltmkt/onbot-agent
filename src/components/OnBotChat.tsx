@@ -1,7 +1,7 @@
-// src/components/OnBotChat.tsx - VERSÃO SEM UPLOAD
+// src/components/OnBotChat.tsx - VERSÃO COM PLANILHA INTEGRADA
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Send, RefreshCw, Bot, User, Maximize2, Minimize2 } from 'lucide-react';
-import { sendMessageToOnbot, testOnbotConnection } from '../services/onbotService';
+import { X, Send, RefreshCw, Bot, User, Maximize2, Minimize2, Upload, FileText } from 'lucide-react';
+import { sendMessageToOnbot, testOnbotConnection, processPlanilha } from '../services/onbotService';
 import onbotAvatar from '/onbot-avatar.png';
 
 interface OnBotChatProps {
@@ -14,6 +14,8 @@ interface ChatMessage {
   text: string;
   timestamp: Date;
   isTyping?: boolean;
+  hasPlanilha?: boolean;
+  planilhaData?: string[][];
 }
 
 export const OnBotChat: React.FC<OnBotChatProps> = ({ onClose }) => {
@@ -21,7 +23,7 @@ export const OnBotChat: React.FC<OnBotChatProps> = ({ onClose }) => {
     { 
       id: 'welcome',
       sender: 'bot', 
-      text: 'Olá! Sou o OnBot e vou te ajudar a criar novos usuários. Para começar, me envie o token de acesso da sua empresa.',
+      text: '👋 Olá! Sou o OnBot e vou te ajudar a criar novos usuários.\n\n📊 **Posso processar:**\n• Token de acesso\n• Dados de usuários em texto\n• Planilhas CSV/Excel\n• Múltiplos usuários de uma vez\n\n🔑 Para começar, me envie o token de acesso da sua empresa.',
       timestamp: new Date()
     }
   ]);
@@ -31,6 +33,7 @@ export const OnBotChat: React.FC<OnBotChatProps> = ({ onClose }) => {
   const chatEndRef = useRef<HTMLDivElement>(null);
   const [isExpanded, setIsExpanded] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<'checking' | 'connected' | 'error'>('checking');
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // ✅ Verificar conexão ao inicializar
   useEffect(() => {
@@ -96,6 +99,57 @@ export const OnBotChat: React.FC<OnBotChatProps> = ({ onClose }) => {
     });
   };
 
+  // ✅ Processar upload de planilha
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Validar tipo de arquivo
+    const validTypes = ['.csv', '.xlsx', '.xls', 'text/csv', 'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'];
+    const fileExtension = file.name.toLowerCase().split('.').pop();
+    
+    if (!validTypes.some(type => file.name.toLowerCase().includes(type) || file.type.includes(type))) {
+      await addTypingEffect('❌ Formato não suportado. Use CSV ou Excel.');
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      // Mensagem do usuário mostrando o arquivo
+      const userMessage: ChatMessage = { 
+        id: `file_${Date.now()}`,
+        sender: 'user', 
+        text: `📎 Enviando planilha: ${file.name}`,
+        timestamp: new Date(),
+        hasPlanilha: true
+      };
+      
+      setMessages(prev => [...prev, userMessage]);
+
+      // Ler arquivo como texto (simulação - em produção você processaria o CSV/Excel)
+      const text = await file.text();
+      const linhas = text.split('\n').filter(line => line.trim()).map(line => line.split(',').map(cell => cell.trim()));
+      
+      console.log('📊 Planilha processada:', { linhas: linhas.length, file: file.name });
+
+      // Enviar para processamento
+      const resultado = await processPlanilha(linhas, sessionId);
+      
+      await addTypingEffect(resultado);
+
+    } catch (error) {
+      console.error('❌ Erro ao processar planilha:', error);
+      await addTypingEffect('❌ Erro ao processar planilha. Tente novamente.');
+    } finally {
+      setLoading(false);
+      // Limpar input de arquivo
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
+
   // ✅ Tratamento de envio com melhor feedback
   const handleSendMessage = async () => {
     if (!inputMessage.trim() || loading) return;
@@ -134,13 +188,15 @@ export const OnBotChat: React.FC<OnBotChatProps> = ({ onClose }) => {
       console.error('❌ Erro na comunicação:', error);
       
       // ✅ MENSAGEM DE ERRO SIMPLES
-      let errorMessage = 'Desculpe, ocorreu um erro. Tente novamente.';
+      let errorMessage = '❌ Desculpe, ocorreu um erro. Tente novamente.';
       
       if (error instanceof Error) {
         if (error.message.includes('Failed to fetch')) {
-          errorMessage = 'Erro de conexão. Verifique sua internet.';
+          errorMessage = '🌐 Erro de conexão. Verifique sua internet.';
         } else if (error.message.includes('404')) {
-          errorMessage = 'Serviço temporariamente indisponível.';
+          errorMessage = '🔧 Serviço temporariamente indisponível.';
+        } else if (error.message.includes('timeout')) {
+          errorMessage = '⏰ Tempo esgotado. Tente novamente.';
         }
       }
       
@@ -252,7 +308,9 @@ export const OnBotChat: React.FC<OnBotChatProps> = ({ onClose }) => {
             <div
               className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm backdrop-blur-sm border ${
                 msg.sender === 'user'
-                  ? 'bg-gradient-to-r from-blue-500/90 to-cyan-500/90 text-white shadow-lg border-blue-400/30'
+                  ? msg.hasPlanilha
+                    ? 'bg-gradient-to-r from-purple-500/90 to-pink-500/90 text-white shadow-lg border-purple-400/30'
+                    : 'bg-gradient-to-r from-blue-500/90 to-cyan-500/90 text-white shadow-lg border-blue-400/30'
                   : msg.sender === 'system'
                   ? 'bg-gradient-to-r from-purple-500/20 to-pink-500/20 text-purple-200 border-purple-400/20'
                   : msg.isTyping
@@ -263,8 +321,10 @@ export const OnBotChat: React.FC<OnBotChatProps> = ({ onClose }) => {
               <div className="flex items-center gap-2 mb-2">
                 {msg.sender === 'user' ? (
                   <div className="flex items-center gap-2">
-                    <User className="w-4 h-4" />
-                    <span className="text-xs opacity-70 font-medium">Você</span>
+                    {msg.hasPlanilha ? <FileText className="w-4 h-4" /> : <User className="w-4 h-4" />}
+                    <span className="text-xs opacity-70 font-medium">
+                      {msg.hasPlanilha ? 'Planilha' : 'Você'}
+                    </span>
                   </div>
                 ) : msg.sender === 'system' ? (
                   <div className="flex items-center gap-2">
@@ -289,21 +349,58 @@ export const OnBotChat: React.FC<OnBotChatProps> = ({ onClose }) => {
               <div className="whitespace-pre-wrap leading-relaxed text-sm">
                 {formatMessageText(msg.text)}
               </div>
+
+              {/* Preview da planilha se existir */}
+              {msg.hasPlanilha && msg.planilhaData && (
+                <div className="mt-2 p-2 bg-black/20 rounded-lg text-xs">
+                  <div className="text-cyan-300 mb-1">📋 Preview (primeiras linhas):</div>
+                  {msg.planilhaData.slice(0, 3).map((linha, idx) => (
+                    <div key={idx} className="text-gray-300 font-mono">
+                      {linha.join(' | ')}
+                    </div>
+                  ))}
+                  {msg.planilhaData.length > 3 && (
+                    <div className="text-cyan-200 mt-1">... e mais {msg.planilhaData.length - 3} linhas</div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         ))}
         <div ref={chatEndRef} />
       </div>
 
-      {/* Área de Input - SIMPLIFICADA SEM UPLOAD */}
+      {/* Área de Input - COM UPLOAD DE PLANILHA */}
       <div className="p-4 border-t border-cyan-500/20 bg-gradient-to-t from-gray-800 to-gray-900/80 backdrop-blur-sm rounded-b-2xl">
+        {/* Botão de Upload */}
+        <div className="flex gap-2 mb-3">
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={handleFileUpload}
+            accept=".csv,.xlsx,.xls,text/csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            className="hidden"
+          />
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={loading}
+            className="flex items-center gap-2 bg-gradient-to-r from-purple-500 to-pink-600 hover:from-purple-600 hover:to-pink-700 disabled:from-gray-600 disabled:to-gray-700 disabled:cursor-not-allowed rounded-xl px-3 py-2 text-xs text-white transition-all duration-200 shadow-lg hover:shadow-xl group"
+          >
+            <Upload className="w-4 h-4 group-hover:scale-110 transition-transform" />
+            Upload Planilha
+          </button>
+          <div className="flex-1 text-xs text-cyan-300/70 flex items-center">
+            📊 Suporta CSV e Excel
+          </div>
+        </div>
+
         <div className="flex gap-3 items-end">
           <div className="flex-1 relative">
             <textarea
               value={inputMessage}
               onChange={(e) => setInputMessage(e.target.value)}
               onKeyDown={handleKeyPress}
-              placeholder="Digite sua mensagem... (Shift+Enter para nova linha)"
+              placeholder="Digite token, dados de usuários ou comandos... (Shift+Enter para nova linha)"
               className="w-full bg-gray-700/80 border border-cyan-500/30 rounded-xl px-4 py-3 text-sm text-white placeholder-cyan-200/50 focus:outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-500/30 transition-all duration-200 backdrop-blur-sm resize-none disabled:opacity-50"
               disabled={loading}
               rows={3}
