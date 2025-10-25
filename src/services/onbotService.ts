@@ -5,7 +5,7 @@
 const CONFIG = {
   CHAT_WEBHOOK_URL: 'https://consentient-bridger-pyroclastic.ngrok-free.dev/webhook/a3edf1eb-7b77-4835-a685-1c937fc2957b/chat',
   JWT_TOKEN: import.meta.env.VITE_JWT_TOKEN || 'default-token',
-  TIMEOUT: 30000,
+  TIMEOUT: 45000, // Aumentado para 45 segundos
   RETRY_ATTEMPTS: 2
 } as const;
 
@@ -107,54 +107,12 @@ export const sendMessageToOnbot = async (
     // 🐛 DEBUG DO PAYLOAD
     debugPayloadToN8n(payload);
     
-    const makeSecureRequest = async (payload: WebhookPayload): Promise<Response> => {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => {
-    console.warn('⏰ Timeout atingido - abortando requisição');
-    controller.abort();
-  }, CONFIG.TIMEOUT);
-
-  try {
-    console.log('🌐 Enviando para n8n...', { 
-      action: payload.action,
-      sessionId: payload.sessionId,
-      timeout: CONFIG.TIMEOUT
-    });
-    
-    const response = await fetch(CONFIG.CHAT_WEBHOOK_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${CONFIG.JWT_TOKEN}`,
-      },
-      body: JSON.stringify(payload),
-      signal: controller.signal
-    });
-
-    clearTimeout(timeoutId);
-
-    if (!response.ok) {
-      throw new Error(`n8n retornou HTTP ${response.status}: ${response.statusText}`);
-    }
-
-    return response;
+    const response = await makeSecureRequestWithRetry(payload);
+    return await parseN8nResponse(response);
 
   } catch (error) {
-    clearTimeout(timeoutId);
-    
-    // 🎯 TRATAMENTO ESPECÍFICO PARA ABORT ERROR
-    if (error instanceof DOMException && error.name === 'AbortError') {
-      console.error('⏰ Requisição abortada por timeout:', CONFIG.TIMEOUT);
-      throw new Error(`n8n não respondeu dentro do tempo limite (${CONFIG.TIMEOUT}ms)`);
-    }
-    
-    // 🔗 TRATAMENTO PARA ERROS DE REDE
-    if (error instanceof TypeError && error.message.includes('fetch')) {
-      console.error('🌐 Erro de conexão:', error);
-      throw new Error('Não foi possível conectar ao n8n - verifique a conexão de rede');
-    }
-    
-    throw error;
+    console.error('❌ Erro ao enviar mensagem:', error);
+    return handleDynamicError(error);
   }
 };
 
@@ -254,7 +212,7 @@ export const processPlanilha = async (
     // 🐛 DEBUG DO PAYLOAD
     debugPayloadToN8n(payload);
     
-    const response = await makeSecureRequest(payload);
+    const response = await makeSecureRequestWithRetry(payload);
     return await parseN8nResponse(response);
 
   } catch (error) {
@@ -303,16 +261,20 @@ const generateSessionId = (): string => {
 };
 
 /**
- * 🌐 REQUISIÇÃO SEGURA
+ * 🌐 REQUISIÇÃO SEGURA - VERSÃO CORRIGIDA
  */
 const makeSecureRequest = async (payload: WebhookPayload): Promise<Response> => {
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), CONFIG.TIMEOUT);
+  const timeoutId = setTimeout(() => {
+    console.warn('⏰ Timeout atingido - abortando requisição');
+    controller.abort();
+  }, CONFIG.TIMEOUT);
 
   try {
     console.log('🌐 Enviando para n8n...', { 
       action: payload.action,
-      sessionId: payload.sessionId
+      sessionId: payload.sessionId,
+      timeout: CONFIG.TIMEOUT
     });
     
     const response = await fetch(CONFIG.CHAT_WEBHOOK_URL, {
@@ -332,8 +294,49 @@ const makeSecureRequest = async (payload: WebhookPayload): Promise<Response> => 
     }
 
     return response;
+
   } catch (error) {
     clearTimeout(timeoutId);
+    
+    // 🎯 TRATAMENTO ESPECÍFICO PARA ABORT ERROR
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      console.error('⏰ Requisição abortada por timeout:', CONFIG.TIMEOUT);
+      throw new Error(`n8n não respondeu dentro do tempo limite (${CONFIG.TIMEOUT}ms)`);
+    }
+    
+    // 🔗 TRATAMENTO PARA ERROS DE REDE
+    if (error instanceof TypeError && error.message.includes('fetch')) {
+      console.error('🌐 Erro de conexão:', error);
+      throw new Error('Não foi possível conectar ao n8n - verifique a conexão de rede');
+    }
+    
+    throw error;
+  }
+};
+
+/**
+ * 🔄 REQUISIÇÃO COM RETRY AUTOMÁTICO
+ */
+const makeSecureRequestWithRetry = async (
+  payload: WebhookPayload, 
+  attempt = 1
+): Promise<Response> => {
+  try {
+    return await makeSecureRequest(payload);
+  } catch (error) {
+    // ✅ SÓ FAZ RETRY PARA ERROS DE TIMEOUT/REDE
+    const shouldRetry = 
+      error instanceof Error && 
+      (error.message.includes('timeout') || 
+       error.message.includes('conexão') ||
+       error.message.includes('rede'));
+    
+    if (shouldRetry && attempt < CONFIG.RETRY_ATTEMPTS) {
+      console.log(`🔄 Tentativa ${attempt + 1} de ${CONFIG.RETRY_ATTEMPTS}`);
+      await new Promise(resolve => setTimeout(resolve, 1000 * attempt)); // Backoff
+      return makeSecureRequestWithRetry(payload, attempt + 1);
+    }
+    
     throw error;
   }
 };
@@ -417,24 +420,29 @@ const handleDynamicError = (error: any): string => {
   console.error('❌ Erro detalhado:', error);
 
   if (error instanceof Error) {
+    // 🎯 ERROS DE TIMEOUT
+    if (error.name === 'AbortError' || error.message.includes('timeout')) {
+      return `⏰ n8n não respondeu após ${CONFIG.TIMEOUT}ms. Tente novamente.`;
+    }
+    
+    // 🌐 ERROS DE CONEXÃO
+    if (error.message.includes('Failed to fetch') || error.message.includes('conexão')) {
+      return '🌐 Não foi possível conectar ao n8n. Verifique sua conexão.';
+    }
+    
+    // 🔧 ERROS DO n8n
     if (error.message.includes('n8n')) {
       return `🔧 ${error.message}`;
     }
     
+    // 📋 ERROS DE JSON
     if (error.message.includes('JSON') || error.message.includes('parse')) {
       return '🔧 n8n configurado incorretamente - deve retornar JSON válido';
     }
     
+    // 🌐 ERROS HTTP
     if (error.message.includes('HTTP')) {
       return `🌐 Erro n8n: ${error.message}`;
-    }
-    
-    if (error.name === 'AbortError') {
-      return '⏰ n8n não respondeu a tempo';
-    }
-    
-    if (error.message.includes('Failed to fetch')) {
-      return '🌐 n8n indisponível - verifique a conexão';
     }
     
     return `❌ ${error.message}`;
@@ -479,7 +487,8 @@ export const getServiceConfig = () => {
       '👤 Processamento de dados de usuários',
       '📊 Processamento de planilhas',
       '💬 Mensagens genéricas',
-      '🔍 Validação estrita de JSON'
+      '🔍 Validação estrita de JSON',
+      '🔄 Sistema de retry automático'
     ]
   };
 };
@@ -502,8 +511,11 @@ console.log(`
 📊 Processamento de planilhas
 💬 Mensagens genéricas
 🔍 Validação estrita de JSON
+🔄 Sistema de retry automático
 
 📍 URL: ${CONFIG.CHAT_WEBHOOK_URL}
+⏰ Timeout: ${CONFIG.TIMEOUT}ms
+🔄 Retry: ${CONFIG.RETRY_ATTEMPTS} tentativas
 ✅ Pronto para processamento direto!
 `);
 
