@@ -1,6 +1,6 @@
-// src/components/OnBotChat.tsx - VERSÃO CORRIGIDA E SIMPLIFICADA
+// src/components/OnBotChat.tsx - VERSÃO SEM UPLOAD
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Send, RefreshCw, Paperclip, FileText, Image, Bot, User, Maximize2, Minimize2 } from 'lucide-react';
+import { X, Send, RefreshCw, Bot, User, Maximize2, Minimize2 } from 'lucide-react';
 import { sendMessageToOnbot, testOnbotConnection } from '../services/onbotService';
 import onbotAvatar from '/onbot-avatar.png';
 
@@ -8,20 +8,11 @@ interface OnBotChatProps {
   onClose: () => void;
 }
 
-interface FileAttachment {
-  id: string;
-  file: File;
-  name: string;
-  size: string;
-  type: string;
-}
-
 interface ChatMessage {
   id: string;
   sender: 'user' | 'bot' | 'system';
   text: string;
   timestamp: Date;
-  attachments?: { name: string }[];
   isTyping?: boolean;
 }
 
@@ -36,8 +27,6 @@ export const OnBotChat: React.FC<OnBotChatProps> = ({ onClose }) => {
   ]);
   const [loading, setLoading] = useState(false);
   const [inputMessage, setInputMessage] = useState('');
-  const [attachments, setAttachments] = useState<FileAttachment[]>([]);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const [sessionId] = useState(() => `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const [isExpanded, setIsExpanded] = useState(false);
@@ -107,75 +96,9 @@ export const OnBotChat: React.FC<OnBotChatProps> = ({ onClose }) => {
     });
   };
 
-  const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const files = event.target.files;
-    if (!files) return;
-
-    const newAttachments: FileAttachment[] = [];
-    
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i];
-      
-      // ✅ VALIDAÇÃO DE TAMANHO DE ARQUIVO (10MB máximo)
-      if (file.size > 10 * 1024 * 1024) {
-        setMessages(prev => [...prev, {
-          id: `error_${Date.now()}`,
-          sender: 'system',
-          text: `❌ Arquivo muito grande: "${file.name}" excede 10MB.`,
-          timestamp: new Date()
-        }]);
-        continue;
-      }
-
-      const fileSize = file.size > 1024 * 1024 
-        ? `${(file.size / (1024 * 1024)).toFixed(1)} MB` 
-        : `${Math.round(file.size / 1024)} KB`;
-
-      newAttachments.push({
-        id: `file_${Date.now()}_${i}`,
-        file,
-        name: file.name,
-        size: fileSize,
-        type: file.type.split('/')[0]
-      });
-    }
-
-    if (newAttachments.length > 0) {
-      setAttachments(prev => [...prev, ...newAttachments]);
-      
-      // ✅ FEEDBACK VISUAL PARA ARQUIVOS ADICIONADOS
-      setMessages(prev => [...prev, {
-        id: `file_added_${Date.now()}`,
-        sender: 'system',
-        text: `📎 ${newAttachments.length} arquivo(s) preparado(s) para envio!`,
-        timestamp: new Date()
-      }]);
-    }
-    
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
-  };
-
-  const removeAttachment = (id: string) => {
-    setAttachments(prev => prev.filter(attachment => attachment.id !== id));
-  };
-
-  const getFileIcon = (type: string) => {
-    switch (type) {
-      case 'image':
-        return <Image className="w-4 h-4" />;
-      case 'text':
-      case 'application':
-        return <FileText className="w-4 h-4" />;
-      default:
-        return <FileText className="w-4 h-4" />;
-    }
-  };
-
   // ✅ Tratamento de envio com melhor feedback
   const handleSendMessage = async () => {
-    if ((!inputMessage.trim() && attachments.length === 0) || loading) return;
+    if (!inputMessage.trim() || loading) return;
 
     const userMessageText = inputMessage.trim();
     setInputMessage('');
@@ -186,8 +109,7 @@ export const OnBotChat: React.FC<OnBotChatProps> = ({ onClose }) => {
       id: `msg_${Date.now()}_user`,
       sender: 'user', 
       text: userMessageText,
-      timestamp: new Date(),
-      attachments: attachments.length > 0 ? attachments.map(a => ({ name: a.name })) : undefined
+      timestamp: new Date()
     };
     
     setMessages(prev => [...prev, userMessage]);
@@ -195,26 +117,18 @@ export const OnBotChat: React.FC<OnBotChatProps> = ({ onClose }) => {
     try {
       console.log('🚀 Enviando mensagem...', { 
         message: userMessageText, 
-        sessionId,
-        fileCount: attachments.length
+        sessionId
       });
-      
-      // ✅ ENVIA PRIMEIRO ARQUIVO SE EXISTIR
-      const fileToSend = attachments.length > 0 ? attachments[0].file : undefined;
       
       const botResponse = await sendMessageToOnbot(
         userMessageText, 
-        sessionId, 
-        fileToSend
+        sessionId
       );
       
       console.log('✅ Resposta recebida:', botResponse);
       
       // ✅ ADICIONA RESPOSTA COM EFEITO DE DIGITAÇÃO
       await addTypingEffect(botResponse);
-      
-      // Limpar anexos após envio bem-sucedido
-      setAttachments([]);
       
     } catch (error) {
       console.error('❌ Erro na comunicação:', error);
@@ -242,10 +156,6 @@ export const OnBotChat: React.FC<OnBotChatProps> = ({ onClose }) => {
       e.preventDefault();
       handleSendMessage();
     }
-  };
-
-  const triggerFileInput = () => {
-    fileInputRef.current?.click();
   };
 
   const formatMessageText = (text: string) => {
@@ -379,79 +289,15 @@ export const OnBotChat: React.FC<OnBotChatProps> = ({ onClose }) => {
               <div className="whitespace-pre-wrap leading-relaxed text-sm">
                 {formatMessageText(msg.text)}
               </div>
-              
-              {msg.attachments && msg.attachments.length > 0 && (
-                <div className="mt-3 pt-2 border-t border-white/20">
-                  <div className="text-xs opacity-80 flex items-center gap-2">
-                    <Paperclip className="w-3 h-3" />
-                    <span>{msg.attachments.length} arquivo(s) anexado(s)</span>
-                  </div>
-                </div>
-              )}
             </div>
           </div>
         ))}
         <div ref={chatEndRef} />
       </div>
 
-      {/* Área de Anexos */}
-      {attachments.length > 0 && (
-        <div className="px-4 py-3 border-t border-cyan-500/20 bg-gray-800/60 backdrop-blur-sm">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-xs text-cyan-300 flex items-center gap-2 font-medium">
-              <Paperclip className="w-3 h-3" />
-              Arquivos Prontos para Envio
-            </span>
-            <span className="text-xs bg-cyan-500/20 text-cyan-300 px-2 py-1 rounded-full">
-              {attachments.length}
-            </span>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {attachments.map((attachment) => (
-              <div
-                key={attachment.id}
-                className="flex items-center gap-2 bg-gray-700/60 rounded-xl px-3 py-2 text-xs text-white border border-cyan-500/20 backdrop-blur-sm hover:border-cyan-400/40 transition-all duration-200"
-              >
-                {getFileIcon(attachment.type)}
-                <span className="max-w-[120px] truncate font-medium">{attachment.name}</span>
-                <span className="text-cyan-300 text-xs">{attachment.size}</span>
-                <button
-                  onClick={() => removeAttachment(attachment.id)}
-                  className="text-gray-400 hover:text-red-400 ml-1 transition-colors"
-                >
-                  <X className="w-3 h-3" />
-                </button>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Área de Input */}
+      {/* Área de Input - SIMPLIFICADA SEM UPLOAD */}
       <div className="p-4 border-t border-cyan-500/20 bg-gradient-to-t from-gray-800 to-gray-900/80 backdrop-blur-sm rounded-b-2xl">
-        <input
-          type="file"
-          ref={fileInputRef}
-          onChange={handleFileSelect}
-          multiple
-          className="hidden"
-          accept=".csv,.xlsx,.xls,.txt,.pdf,.jpg,.jpeg,.png"
-        />
-        
         <div className="flex gap-3 items-end">
-          <button
-            onClick={triggerFileInput}
-            disabled={loading}
-            className={`rounded-xl p-3 transition-all duration-200 flex items-center justify-center shadow-lg border mb-1 ${
-              loading 
-                ? 'bg-gray-600 text-gray-400 border-gray-500 cursor-not-allowed' 
-                : 'bg-gradient-to-r from-gray-700 to-gray-600 hover:from-gray-600 hover:to-gray-500 text-cyan-300 border-cyan-500/20 hover:border-cyan-400/40 hover:shadow-cyan-500/20'
-            }`}
-            title="Anexar arquivo"
-          >
-            <Paperclip className="w-5 h-5" />
-          </button>
-
           <div className="flex-1 relative">
             <textarea
               value={inputMessage}
@@ -473,7 +319,7 @@ export const OnBotChat: React.FC<OnBotChatProps> = ({ onClose }) => {
           
           <button
             onClick={handleSendMessage}
-            disabled={(!inputMessage.trim() && attachments.length === 0) || loading}
+            disabled={!inputMessage.trim() || loading}
             className="bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 disabled:from-gray-600 disabled:to-gray-700 disabled:cursor-not-allowed rounded-xl p-3 transition-all duration-200 shadow-lg hover:shadow-xl flex items-center justify-center mb-1 group"
           >
             {loading ? (
