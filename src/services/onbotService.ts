@@ -3,7 +3,7 @@
 
 // ==================== CONFIGURAÇÕES ====================
 const CONFIG = {
-  CHAT_WEBHOOK_URL: 'https://consentient-bridger-pyroclastic.ngrok-free.dev/webhook/bc410b9e-0c7e-4625-b4aa-06f42b413ddc/chat',
+  CHAT_WEBHOOK_URL: 'https://consentient-bridger-pyroclastic.ngrok-free.dev/webhook/a3edf1eb-7b77-4835-a685-1c937fc2957b/chat',
   JWT_TOKEN: import.meta.env.VITE_JWT_TOKEN || 'default-token',
   TIMEOUT: 30000,
   RETRY_ATTEMPTS: 2
