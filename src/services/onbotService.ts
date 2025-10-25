@@ -107,12 +107,54 @@ export const sendMessageToOnbot = async (
     // 🐛 DEBUG DO PAYLOAD
     debugPayloadToN8n(payload);
     
-    const response = await makeSecureRequest(payload);
-    return await parseN8nResponse(response);
+    const makeSecureRequest = async (payload: WebhookPayload): Promise<Response> => {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => {
+    console.warn('⏰ Timeout atingido - abortando requisição');
+    controller.abort();
+  }, CONFIG.TIMEOUT);
+
+  try {
+    console.log('🌐 Enviando para n8n...', { 
+      action: payload.action,
+      sessionId: payload.sessionId,
+      timeout: CONFIG.TIMEOUT
+    });
+    
+    const response = await fetch(CONFIG.CHAT_WEBHOOK_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${CONFIG.JWT_TOKEN}`,
+      },
+      body: JSON.stringify(payload),
+      signal: controller.signal
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      throw new Error(`n8n retornou HTTP ${response.status}: ${response.statusText}`);
+    }
+
+    return response;
 
   } catch (error) {
-    console.error('❌ Erro ao enviar mensagem:', error);
-    return handleDynamicError(error);
+    clearTimeout(timeoutId);
+    
+    // 🎯 TRATAMENTO ESPECÍFICO PARA ABORT ERROR
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      console.error('⏰ Requisição abortada por timeout:', CONFIG.TIMEOUT);
+      throw new Error(`n8n não respondeu dentro do tempo limite (${CONFIG.TIMEOUT}ms)`);
+    }
+    
+    // 🔗 TRATAMENTO PARA ERROS DE REDE
+    if (error instanceof TypeError && error.message.includes('fetch')) {
+      console.error('🌐 Erro de conexão:', error);
+      throw new Error('Não foi possível conectar ao n8n - verifique a conexão de rede');
+    }
+    
+    throw error;
   }
 };
 
