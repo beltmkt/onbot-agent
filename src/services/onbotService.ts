@@ -5,9 +5,9 @@
 const CONFIG = {
   CHAT_WEBHOOK_URL: 'https://consentient-bridger-pyroclastic.ngrok-free.dev/webhook/a3edf1eb-7b77-4835-a685-1c937fc2957b/chat',
   JWT_TOKEN: import.meta.env.VITE_JWT_TOKEN || 'default-token',
-  TIMEOUT: 45000, // Aumentado para 45 segundos
+  TIMEOUT: 45000,
   RETRY_ATTEMPTS: 3,
-  MAX_RETRY_DELAY: 30000 // 30 segundos máximo
+  MAX_RETRY_DELAY: 30000
 } as const;
 
 // ==================== TIPOS ====================
@@ -305,7 +305,7 @@ const makeSecureRequest = async (payload: WebhookPayload): Promise<Response> => 
       
       try {
         const errorText = await response.text();
-        errorDetails = errorText.substring(0, 500); // Limitar tamanho
+        errorDetails = errorText.substring(0, 500);
         console.error('🔧 Detalhes do erro n8n:', errorDetails);
       } catch (textError) {
         errorDetails = 'Não foi possível ler resposta de erro';
@@ -336,7 +336,7 @@ const makeSecureRequest = async (payload: WebhookPayload): Promise<Response> => 
 };
 
 /**
- * 🔄 REQUISIÇÃO COM RETRY INTELIGENTE PARA QUOTA LIMITS
+ * 🔄 REQUISIÇÃO COM RETRY INTELIGENTE
  */
 const makeSecureRequestWithRetry = async (
   payload: WebhookPayload, 
