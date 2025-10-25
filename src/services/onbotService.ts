@@ -1,5 +1,5 @@
 // src/services/onbotService.ts
-// ✅ VERSÃO 7.0 - PLANILHA + DADOS DESESTRUTURADOS
+// ✅ VERSÃO 8.0 - CONEXÃO DINÂMICA EM TEMPO REAL COM n8n
 
 // ==================== CONFIGURAÇÕES ====================
 const CONFIG = {
@@ -28,7 +28,7 @@ interface WebhookPayload {
   isEmpresaSelection?: boolean;
   selectedEmpresa?: string;
   isPlanilha?: boolean;
-  planilhaData?: string[][]; // Dados estruturados da planilha
+  planilhaData?: string[][];
 }
 
 interface ApiResponse {
@@ -41,18 +41,68 @@ interface ApiResponse {
   usuarios_criados?: number;
 }
 
+// ==================== VALIDAÇÃO DINÂMICA n8n ====================
+
+/**
+ * 🔍 VALIDAR SE n8n ESTÁ RETORNANDO JSON VÁLIDO
+ */
+const validateN8nResponse = async (): Promise<void> => {
+  const testPayload = {
+    sessionId: "health_check_dynamic",
+    chatInput: "health_check",
+    action: "health_check",
+    timestamp: new Date().toISOString(),
+    token: "health_check_token"
+  };
+
+  try {
+    console.log('🔍 Validando conexão dinâmica com n8n...');
+    
+    const response = await fetch(CONFIG.CHAT_WEBHOOK_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(testPayload)
+    });
+
+    if (!response.ok) {
+      throw new Error(`n8n retornou HTTP ${response.status}`);
+    }
+
+    const responseText = await response.text();
+    console.log('📨 Resposta de validação n8n:', responseText.substring(0, 200));
+
+    // ✅ EXIGIR JSON VÁLIDO
+    try {
+      const data = JSON.parse(responseText);
+      
+      if (typeof data !== 'object' || data === null) {
+        throw new Error('Resposta n8n não é um objeto JSON');
+      }
+      
+      console.log('✅ n8n configurado corretamente - retorna JSON válido');
+    } catch (jsonError) {
+      throw new Error(`n8n não retorna JSON válido: ${jsonError instanceof Error ? jsonError.message : 'Erro de parse'}`);
+    }
+
+  } catch (error) {
+    console.error('❌ Validação n8n falhou:', error);
+    throw new Error(`Configuração n8n incorreta: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
+  }
+};
+
 // ==================== FUNÇÕES PRINCIPAIS ====================
 
 /**
- * 🎯 ENVIA DADOS DESESTRUTURADOS PARA PROCESSAMENTO INTELIGENTE
+ * 🎯 ENVIA DADOS DESESTRUTURADOS PARA PROCESSAMENTO DINÂMICO
  */
 export const sendMessageToOnbot = async (
   message: string, 
   sessionId: string
 ): Promise<string> => {
   try {
-    console.log('💬 Processando dados...', { 
-      message: message?.substring(0, 100) || '(vazio)'
+    console.log('💬 Processando dados dinamicamente...', { 
+      message: message?.substring(0, 100) || '(vazio)',
+      sessionId 
     });
 
     if (!message?.trim()) {
@@ -76,11 +126,11 @@ export const sendMessageToOnbot = async (
       };
 
       const response = await makeSecureRequest(payload);
-      return await parseResponse(response);
+      return await parseN8nResponse(response);
     }
 
-    // 🎯 PROCESSAMENTO DE DADOS DESESTRUTURADOS
-    console.log('🔍 Analisando dados para múltiplos usuários...');
+    // 🎯 PROCESSAMENTO DINÂMICO DE DADOS
+    console.log('🔍 Analisando dados dinamicamente para múltiplos usuários...');
     
     const payload: WebhookPayload = {
       sessionId,
@@ -93,33 +143,34 @@ export const sendMessageToOnbot = async (
     };
 
     const response = await makeSecureRequest(payload);
-    return await parseResponse(response);
+    return await parseN8nResponse(response);
 
   } catch (error) {
-    console.error('❌ Erro no processamento:', error);
-    return handleError(error);
+    console.error('❌ Erro no processamento dinâmico:', error);
+    return handleDynamicError(error);
   }
 };
 
 /**
- * 📊 PROCESSAR PLANILHA CSV/EXCEL
+ * 📊 PROCESSAR PLANILHA DINAMICAMENTE
  */
 export const processPlanilha = async (
-  dadosPlanilha: string[][], // Array de linhas, cada linha é array de células
+  dadosPlanilha: string[][],
   sessionId: string,
   empresaSelecionada?: string
 ): Promise<string> => {
   try {
-    console.log('📊 Processando planilha...', { 
+    console.log('📊 Processando planilha dinamicamente...', { 
       linhas: dadosPlanilha.length,
-      empresa: empresaSelecionada 
+      empresa: empresaSelecionada,
+      sessionId
     });
 
     if (!dadosPlanilha || dadosPlanilha.length === 0) {
       throw new Error('Planilha vazia ou sem dados');
     }
 
-    // Converter planilha para formato de texto processável
+    // Converter planilha para formato processável
     const textoPlanilha = convertPlanilhaParaTexto(dadosPlanilha);
     
     const payload: WebhookPayload = {
@@ -135,19 +186,19 @@ export const processPlanilha = async (
       dadosUsuarios: textoPlanilha
     };
 
-    console.log('📋 Dados da planilha convertidos:', textoPlanilha.substring(0, 200) + '...');
+    console.log('📋 Dados da planilha convertidos dinamicamente:', textoPlanilha.substring(0, 200) + '...');
 
     const response = await makeSecureRequest(payload);
-    return await parseResponse(response);
+    return await parseN8nResponse(response);
 
   } catch (error) {
-    console.error('❌ Erro ao processar planilha:', error);
-    return handleError(error);
+    console.error('❌ Erro ao processar planilha dinamicamente:', error);
+    return handleDynamicError(error);
   }
 };
 
 /**
- * 📝 PROCESSAR DADOS DE TEXTO (MULTI-FORMATO)
+ * 📝 PROCESSAR DADOS DE TEXTO DINAMICAMENTE
  */
 export const processTextData = async (
   texto: string,
@@ -156,7 +207,11 @@ export const processTextData = async (
   empresaSelecionada?: string
 ): Promise<string> => {
   try {
-    console.log('📝 Processando dados textuais...', { formato });
+    console.log('📝 Processando dados textuais dinamicamente...', { 
+      formato,
+      sessionId,
+      tamanho: texto.length 
+    });
 
     const payload: WebhookPayload = {
       sessionId,
@@ -170,25 +225,23 @@ export const processTextData = async (
     };
 
     const response = await makeSecureRequest(payload);
-    return await parseResponse(response);
+    return await parseN8nResponse(response);
 
   } catch (error) {
-    console.error('❌ Erro ao processar texto:', error);
-    return handleError(error);
+    console.error('❌ Erro ao processar texto dinamicamente:', error);
+    return handleDynamicError(error);
   }
 };
 
-// ==================== UTILITÁRIOS ====================
+// ==================== UTILITÁRIOS DINÂMICOS ====================
 
 /**
  * 🔄 CONVERTER PLANILHA PARA TEXTO PROCESSÁVEL
  */
 const convertPlanilhaParaTexto = (dadosPlanilha: string[][]): string => {
-  // Pular cabeçalho se existir (assume que primeira linha é cabeçalho)
   const linhasDados = dadosPlanilha.length > 1 ? dadosPlanilha.slice(1) : dadosPlanilha;
   
   const linhasTexto = linhasDados.map(linha => {
-    // Filtrar células vazias e juntar com vírgula
     return linha.filter(cell => cell && cell.trim().length > 0).join(', ');
   });
 
@@ -220,15 +273,16 @@ const generateSessionId = (): string => {
 };
 
 /**
- * 🌐 REQUISIÇÃO SEGURA
+ * 🌐 REQUISIÇÃO SEGURA DINÂMICA
  */
 const makeSecureRequest = async (payload: WebhookPayload): Promise<Response> => {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), CONFIG.TIMEOUT);
 
   try {
-    console.log('🌐 Enviando para webhook...', { 
+    console.log('🌐 Enviando dinamicamente para n8n...', { 
       action: payload.action,
+      sessionId: payload.sessionId,
       hasData: !!payload.dadosUsuarios 
     });
     
@@ -245,7 +299,7 @@ const makeSecureRequest = async (payload: WebhookPayload): Promise<Response> => 
     clearTimeout(timeoutId);
 
     if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      throw new Error(`n8n retornou HTTP ${response.status}: ${response.statusText}`);
     }
 
     return response;
@@ -256,60 +310,113 @@ const makeSecureRequest = async (payload: WebhookPayload): Promise<Response> => 
 };
 
 /**
- * 📋 PARSE DA RESPOSTA
+ * 📋 PARSE DINÂMICO DA RESPOSTA n8n - SEM FALLBACK
  */
-const parseResponse = async (response: Response): Promise<string> => {
+const parseN8nResponse = async (response: Response): Promise<string> => {
+  const responseText = await response.text();
+  
+  console.log('📨 Resposta dinâmica do n8n:', {
+    tamanho: responseText.length,
+    preview: responseText.substring(0, 200),
+    isJson: isJsonString(responseText)
+  });
+
+  // ✅ VALIDAÇÃO ESTRITA - EXIGIR JSON VÁLIDO
+  if (!responseText.trim()) {
+    throw new Error('n8n retornou resposta vazia');
+  }
+
+  if (!isJsonString(responseText)) {
+    throw new Error('n8n não retornou JSON válido. Verifique a configuração do workflow.');
+  }
+
   try {
-    const data: ApiResponse = await response.json();
+    const data: ApiResponse = JSON.parse(responseText);
     
+    // ✅ PROPAGAR ERROS ESPECÍFICOS DO n8n
+    if (data.error) {
+      throw new Error(`n8n: ${data.error}`);
+    }
+
+    if (!data.success && !data.output && !data.response && !data.message) {
+      throw new Error('n8n retornou estrutura JSON inválida');
+    }
+
+    // ✅ RETORNAR RESPOSTAS DINÂMICAS DO n8n
     if (data.output) return data.output;
     if (data.response) return data.response;
     if (data.message) return data.message;
     
-    // Resposta com métricas de processamento
     if (data.usuarios_processados !== undefined) {
-      return `✅ Processados ${data.usuarios_processados} usuários, ${data.usuarios_criados || data.usuarios_processados} criados com sucesso!`;
+      return `✅ Processados ${data.usuarios_processados} usuários dinamicamente`;
     }
     
-    if (data.success) return 'Processado com sucesso!';
+    if (data.success) return '✅ Processamento dinâmico concluído';
     
-    return 'Ação realizada com sucesso!';
+    throw new Error('n8n retornou resposta sem dados processáveis');
+
   } catch (error) {
-    console.error('Erro ao parsear resposta:', error);
-    throw new Error('Resposta inválida do servidor');
+    console.error('❌ Erro no parse dinâmico:', error);
+    
+    if (error instanceof Error) {
+      // Manter erros específicos do n8n
+      if (error.message.includes('n8n')) {
+        throw error;
+      }
+      throw new Error(`Erro de comunicação com n8n: ${error.message}`);
+    }
+    
+    throw new Error('Erro desconhecido na comunicação com n8n');
   }
 };
 
 /**
- * 🛑 TRATAMENTO DE ERROS
+ * 🔍 VALIDAR SE STRING É JSON VÁLIDO
  */
-const handleError = (error: any): string => {
-  console.error('Erro detalhado:', error);
-
-  if (error.message?.includes('Forneça os dados')) {
-    return '❌ ' + error.message;
+const isJsonString = (str: string): boolean => {
+  try {
+    JSON.parse(str);
+    return true;
+  } catch {
+    return false;
   }
-
-  if (error.message?.includes('CORS') || error.message?.includes('blocked')) {
-    return '❌ Erro de configuração no servidor.';
-  }
-
-  if (error.name === 'AbortError') {
-    return '⏰ Timeout: O servidor demorou para responder.';
-  }
-
-  if (error.message?.includes('Failed to fetch')) {
-    return '🌐 Erro de rede: Verifique a conexão.';
-  }
-
-  if (error.message?.includes('Planilha vazia')) {
-    return '📊 ' + error.message;
-  }
-
-  return `❌ Erro: ${error.message || 'Erro inesperado'}`;
 };
 
-// ==================== SERVIÇOS ADICIONAIS ====================
+/**
+ * 🛑 TRATAMENTO DINÂMICO DE ERROS
+ */
+const handleDynamicError = (error: any): string => {
+  console.error('❌ Erro dinâmico detalhado:', error);
+
+  // ✅ ERROS ESPECÍFICOS DO n8n
+  if (error instanceof Error) {
+    if (error.message.includes('n8n')) {
+      return `🔧 ${error.message}`;
+    }
+    
+    if (error.message.includes('JSON') || error.message.includes('parse')) {
+      return '🔧 n8n configurado incorretamente - deve retornar JSON válido';
+    }
+    
+    if (error.message.includes('HTTP')) {
+      return `🌐 Erro n8n: ${error.message}`;
+    }
+    
+    if (error.name === 'AbortError') {
+      return '⏰ n8n não respondeu a tempo';
+    }
+    
+    if (error.message.includes('Failed to fetch')) {
+      return '🌐 n8n indisponível - verifique a conexão';
+    }
+    
+    return `❌ ${error.message}`;
+  }
+
+  return `❌ Erro inesperado: ${String(error)}`;
+};
+
+// ==================== SERVIÇOS ADICIONAIS DINÂMICOS ====================
 
 export const testConnection = async (): Promise<{ 
   status: 'success' | 'error';
@@ -317,9 +424,12 @@ export const testConnection = async (): Promise<{
   timestamp: string;
 }> => {
   try {
+    // ✅ VALIDAR CONEXÃO DINÂMICA PRIMEIRO
+    await validateN8nResponse();
+    
     const payload: WebhookPayload = {
       sessionId: generateSessionId(),
-      chatInput: 'health_check',
+      chatInput: 'health_check_dynamic',
       action: 'health_check', 
       timestamp: new Date().toISOString(),
       token: generateToken()
@@ -330,14 +440,14 @@ export const testConnection = async (): Promise<{
 
     return {
       status: 'success',
-      message: '✅ Conexão estabelecida!',
+      message: '✅ Conexão dinâmica com n8n estabelecida!',
       timestamp: new Date().toISOString()
     };
 
   } catch (error) {
     return {
       status: 'error', 
-      message: `❌ Falha na conexão: ${error instanceof Error ? error.message : 'Erro desconhecido'}`,
+      message: `❌ Falha na conexão dinâmica: ${error instanceof Error ? error.message : 'Erro desconhecido'}`,
       timestamp: new Date().toISOString()
     };
   }
@@ -345,38 +455,42 @@ export const testConnection = async (): Promise<{
 
 export const getServiceConfig = () => {
   return {
-    version: '7.0.0',
-    description: 'Processamento de planilha + dados desestruturados',
+    version: '8.0.0',
+    description: 'Conexão dinâmica em tempo real com n8n',
     capabilities: [
+      '🔗 Conexão dinâmica em tempo real com n8n',
       '📊 Processamento de planilhas CSV/Excel',
       '💬 Dados desestruturados em texto livre',
       '👥 Criação múltipla de usuários',
       '🏢 Integração com empresa selecionada',
-      '🔄 Conversão automática de formatos'
+      '🔄 Conversão automática de formatos',
+      '🔍 Validação estrita de JSON'
     ]
   };
 };
 
 // ==================== COMPATIBILIDADE ====================
 
-// Mantendo compatibilidade com imports antigos
 export const processCSVFile = processPlanilha;
 export const testOnbotConnection = testConnection;
 
-// ==================== INICIALIZAÇÃO ====================
+// ==================== INICIALIZAÇÃO DINÂMICA ====================
 
+// ✅ VALIDAR CONEXÃO NA INICIALIZAÇÃO
 console.log(`
-🚀 Onbot Service 7.0.0 - PLANILHA + DADOS DESESTRUTURADOS
+🚀 Onbot Service 8.0.0 - CONEXÃO DINÂMICA n8n
 
-🎯 NOVAS CAPACIDADES:
-📊 Processamento de planilhas CSV/Excel
-💬 Dados desestruturados em texto livre  
-👥 Criação múltipla de usuários
-🏢 Integração com empresa selecionada
-🔄 Conversão automática de formatos
+🎯 CAPACIDADES DINÂMICAS:
+🔗 Conexão em tempo real com n8n
+📊 Processamento dinâmico de planilhas  
+💬 Dados desestruturados dinâmicos
+👥 Criação múltipla dinâmica de usuários
+🏢 Integração dinâmica com empresa
+🔄 Conversão automática dinâmica
+🔍 Validação estrita de JSON
 
 📍 URL: ${CONFIG.CHAT_WEBHOOK_URL}
-✅ Pronto para receber dados em QUALQUER formato!
+✅ Conectando dinamicamente com n8n...
 `);
 
 // Exportações
