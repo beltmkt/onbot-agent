@@ -1,5 +1,5 @@
 // src/services/onbotService.ts
-// ✅ VERSÃO 11.0 - COMPLETA E CORRIGIDA
+// ✅ VERSÃO 13.0 - SEGURA E COM RESPOSTAS FORMATADAS
 
 // ==================== CONFIGURAÇÕES ====================
 const CONFIG = {
@@ -25,14 +25,142 @@ interface WebhookPayload {
 }
 
 interface ApiResponse {
-  success: boolean;
+  success?: boolean;
   output?: string;
   response?: string;
   message?: string;
   error?: string;
   usuarios_processados?: number;
   usuarios_criados?: number;
+  intermediateSteps?: Array<{
+    action: any;
+    observation: string;
+  }>;
 }
+
+// ==================== UTILITÁRIOS DE SEGURANÇA ====================
+
+/**
+ * 🔒 MASCARAR DADOS SENSÍVEIS PARA LOGS
+ */
+const maskSensitiveData = (data: any): any => {
+  if (!data) return data;
+  
+  if (typeof data === 'string') {
+    // Mascarar tokens (40+ caracteres hex)
+    if (data.match(/^[a-fA-F0-9]{40,}$/)) {
+      return `token_${data.substring(0, 8)}...`;
+    }
+    
+    // Mascarar emails
+    if (data.includes('@')) {
+      const [user, domain] = data.split('@');
+      return `${user.substring(0, 3)}...@${domain}`;
+    }
+    
+    // Mascarar telefones
+    if (data.replace(/\D/g, '').length >= 10) {
+      const clean = data.replace(/\D/g, '');
+      return `...${clean.substring(clean.length - 4)}`;
+    }
+  }
+  
+  if (Array.isArray(data)) {
+    return data.map(item => maskSensitiveData(item));
+  }
+  
+  if (typeof data === 'object') {
+    const masked = { ...data };
+    const sensitiveFields = ['token', 'password', 'authorization', 'email', 'phone', 'telefone'];
+    
+    sensitiveFields.forEach(field => {
+      if (masked[field]) {
+        masked[field] = maskSensitiveData(masked[field]);
+      }
+    });
+    
+    return masked;
+  }
+  
+  return data;
+};
+
+/**
+ * 🏢 FORMATAR LISTA DE EMPRESAS
+ */
+const formatCompaniesList = (companiesData: any): string => {
+  try {
+    if (!companiesData) return '🏢 Nenhuma empresa encontrada';
+    
+    let companies = [];
+    
+    // Extrair empresas do formato do Agent
+    if (Array.isArray(companiesData)) {
+      companiesData.forEach(company => {
+        if (company.sub_companies && Array.isArray(company.sub_companies)) {
+          companies.push(...company.sub_companies);
+        } else if (company.company_name) {
+          companies.push(company);
+        }
+      });
+    } else if (companiesData.sub_companies) {
+      companies = companiesData.sub_companies;
+    }
+    
+    if (companies.length === 0) {
+      return '🏢 Nenhuma empresa disponível';
+    }
+    
+    let formatted = '🏢 **EMPRESAS DISPONÍVEIS:**\n\n';
+    
+    companies.forEach((company, index) => {
+      if (company.company_name) {
+        formatted += `${index + 1}. ${company.company_name}\n`;
+      }
+    });
+    
+    formatted += '\n🔢 **Digite o número da empresa desejada**';
+    
+    return formatted;
+  } catch (error) {
+    return '🏢 Empresas carregadas - digite o número da opção desejada';
+  }
+};
+
+/**
+ * 📊 FORMATAR RESPOSTA DO AGENT
+ */
+const formatAgentResponse = (response: any): string => {
+  if (!response) return '🤖 Resposta não disponível';
+  
+  // Se for string, retornar diretamente
+  if (typeof response === 'string') {
+    // Tentar parsear JSON se for estrutura de empresas
+    if (response.includes('company_name') || response.includes('company_id')) {
+      try {
+        const companiesData = JSON.parse(response);
+        return formatCompaniesList(companiesData);
+      } catch (e) {
+        // Não é JSON válido, retornar texto original
+        return response;
+      }
+    }
+    return response;
+  }
+  
+  // Se for objeto com empresas
+  if (response.company_name || response.sub_companies) {
+    return formatCompaniesList(response);
+  }
+  
+  // Se for array de empresas
+  if (Array.isArray(response) && response.some(item => item.company_name)) {
+    return formatCompaniesList(response);
+  }
+  
+  // Outros casos - converter para string
+  return String(response);
+};
 
 // ==================== VALIDAÇÃO DINÂMICA n8n ====================
 
@@ -62,23 +190,19 @@ const validateN8nResponse = async (): Promise<void> => {
     }
 
     const responseText = await response.text();
-    console.log('📨 Resposta de validação n8n:', responseText.substring(0, 200));
+    
+    // ✅ LOG SEGURO
+    console.log('📨 Resposta validação - tamanho:', responseText.length);
 
-    // ✅ EXIGIR JSON VÁLIDO
     try {
       const data = JSON.parse(responseText);
-      
-      if (typeof data !== 'object' || data === null) {
-        throw new Error('Resposta n8n não é um objeto JSON');
-      }
-      
-      console.log('✅ n8n configurado corretamente - retorna JSON válido');
+      console.log('✅ n8n configurado - JSON válido');
     } catch (jsonError) {
-      throw new Error(`n8n não retorna JSON válido: ${jsonError instanceof Error ? jsonError.message : 'Erro de parse'}`);
+      throw new Error(`n8n não retorna JSON válido`);
     }
 
   } catch (error) {
-    console.error('❌ Validação n8n falhou:', error);
+    console.error('❌ Validação n8n falhou');
     throw new Error(`Configuração n8n incorreta: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
   }
 };
@@ -93,37 +217,33 @@ export const sendMessageToOnbot = async (
   sessionId: string
 ): Promise<string> => {
   try {
-    console.log('💬 Enviando mensagem para n8n...', { 
-      message: message?.substring(0, 100) || '(vazio)',
-      sessionId 
-    });
+    // ✅ LOG SEGURO
+    console.log('💬 Enviando mensagem - tamanho:', message?.length || 0);
 
     if (!message?.trim()) {
       throw new Error('Digite uma mensagem para continuar');
     }
 
-    // 🎯 DETECTAR TIPO DE MENSAGEM E CRIAR PAYLOAD
     const payload = createPayloadByMessageType(message, sessionId);
     
-    // 🐛 DEBUG DO PAYLOAD
+    // ✅ DEBUG SEGURO
     debugPayloadToN8n(payload);
     
     const response = await makeSecureRequestWithRetry(payload);
     return await parseN8nResponse(response);
 
   } catch (error) {
-    console.error('❌ Erro ao enviar mensagem:', error);
+    console.error('❌ Erro ao enviar mensagem');
     return handleDynamicError(error);
   }
 };
 
 /**
- * 🎯 CRIAR PAYLOAD POR TIPO DE MENSAGEM - SCHEMA CORRIGIDO
+ * 🎯 CRIAR PAYLOAD POR TIPO DE MENSAGEM
  */
 const createPayloadByMessageType = (message: string, sessionId: string): WebhookPayload => {
   const cleanMessage = message.trim();
   
-  // 🎯 FORMATO SIMPLIFICADO E PADRONIZADO
   const basePayload = {
     sessionId,
     chatInput: cleanMessage,
@@ -131,10 +251,10 @@ const createPayloadByMessageType = (message: string, sessionId: string): Webhook
     token: generateToken()
   };
 
-  // 🏢 DETECTAR SELEÇÃO DE EMPRESA (1, 2, 3...)
+  // 🏢 DETECTAR SELEÇÃO DE EMPRESA
   const empresaMatch = cleanMessage.match(/^\d+$/);
   if (empresaMatch) {
-    console.log('🏢 Número de empresa detectado:', cleanMessage);
+    console.log('🏢 Número empresa detectado');
     return {
       ...basePayload,
       action: 'selecionar_empresa',
@@ -142,20 +262,20 @@ const createPayloadByMessageType = (message: string, sessionId: string): Webhook
     };
   }
 
-  // 🔑 DETECTAR TOKEN (40+ caracteres hex)
+  // 🔑 DETECTAR TOKEN
   const tokenMatch = cleanMessage.match(/^[a-fA-F0-9]{40,}$/);
   if (tokenMatch) {
-    console.log('🔑 Token detectado:', cleanMessage.substring(0, 20) + '...');
+    console.log('🔑 Token detectado');
     return {
       ...basePayload,
       action: 'validar_token'
     };
   }
 
-  // 📊 DETECTAR DADOS DE USUÁRIOS (contém email e/ou telefone)
+  // 📊 DETECTAR DADOS DE USUÁRIOS
   const hasUserData = cleanMessage.includes('@') || /\d{10,}/.test(cleanMessage);
   if (hasUserData) {
-    console.log('👤 Dados de usuários detectados');
+    console.log('👤 Dados usuários detectados');
     return {
       ...basePayload,
       action: 'processar_usuarios',
@@ -164,24 +284,11 @@ const createPayloadByMessageType = (message: string, sessionId: string): Webhook
     };
   }
 
-  // 💬 MENSAGEM GENÉRICA - SCHEMA SIMPLIFICADO
+  // 💬 MENSAGEM GENÉRICA
   console.log('💬 Mensagem genérica detectada');
   return {
     ...basePayload,
     action: 'processar_mensagem'
-  };
-};
-
-/**
- * 🧪 PAYLOAD MÍNIMO PARA TESTE DE SCHEMA
- */
-const createMinimalPayload = (message: string, sessionId: string): WebhookPayload => {
-  return {
-    sessionId,
-    chatInput: message.trim(),
-    action: 'chat',
-    timestamp: new Date().toISOString(),
-    token: generateToken()
   };
 };
 
@@ -194,16 +301,13 @@ export const processPlanilha = async (
   empresaSelecionada?: string
 ): Promise<string> => {
   try {
-    console.log('📊 Processando planilha...', { 
-      linhas: dadosPlanilha.length,
-      sessionId 
-    });
+    // ✅ LOG SEGURO
+    console.log('📊 Processando planilha - linhas:', dadosPlanilha.length);
 
     if (!dadosPlanilha || dadosPlanilha.length === 0) {
       throw new Error('Planilha vazia ou sem dados');
     }
 
-    // Converter planilha para texto
     const textoPlanilha = convertPlanilhaParaTexto(dadosPlanilha);
     
     const payload: WebhookPayload = {
@@ -219,14 +323,13 @@ export const processPlanilha = async (
       dadosUsuarios: textoPlanilha
     };
 
-    // 🐛 DEBUG DO PAYLOAD
     debugPayloadToN8n(payload);
     
     const response = await makeSecureRequestWithRetry(payload);
     return await parseN8nResponse(response);
 
   } catch (error) {
-    console.error('❌ Erro ao processar planilha:', error);
+    console.error('❌ Erro ao processar planilha');
     return handleDynamicError(error);
   }
 };
@@ -234,24 +337,13 @@ export const processPlanilha = async (
 // ==================== UTILITÁRIOS ====================
 
 /**
- * 🐛 DEBUG - VERIFICAR ENVIO PARA n8n
+ * 🐛 DEBUG SEGURO - VERIFICAR ENVIO PARA n8n
  */
 const debugPayloadToN8n = (payload: WebhookPayload): void => {
-  console.log('📤 DEBUG - ENVIANDO PARA n8n:', {
-    '✅ sessionId': payload.sessionId,
-    '✅ chatInput': payload.chatInput?.substring(0, 150) + '...',
-    '✅ action': payload.action,
-    '🏢 empresa': payload.empresa || 'Não enviada',
-    '📊 processType': payload.processType || 'Não especificado',
-    '🔑 token': payload.token?.substring(0, 20) + '...',
-    '📦 dadosUsuarios': payload.dadosUsuarios ? 'Presente' : 'Ausente',
-    '📋 planilhaData': payload.planilhaData ? `${payload.planilhaData.length} linhas` : 'Não'
-  });
+  const maskedPayload = maskSensitiveData(payload);
+  console.log('📤 DEBUG - Payload mascarado:', maskedPayload);
 };
 
-/**
- * 🔄 CONVERTER PLANILHA PARA TEXTO
- */
 const convertPlanilhaParaTexto = (dadosPlanilha: string[][]): string => {
   const linhasDados = dadosPlanilha.length > 1 ? dadosPlanilha.slice(1) : dadosPlanilha;
   
@@ -266,26 +358,22 @@ const generateToken = (): string => {
   return `token_${Date.now()}_${Math.random().toString(36).substr(2, 16)}`;
 };
 
-const generateSessionId = (): string => {
+export const generateSessionId = (): string => {
   return `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 };
 
 /**
- * 🌐 REQUISIÇÃO SEGURA - COM MELHOR DIAGNÓSTICO DE ERRO
+ * 🌐 REQUISIÇÃO SEGURA
  */
 const makeSecureRequest = async (payload: WebhookPayload): Promise<Response> => {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => {
-    console.warn('⏰ Timeout atingido - abortando requisição');
+    console.warn('⏰ Timeout atingido');
     controller.abort();
   }, CONFIG.TIMEOUT);
 
   try {
-    console.log('🌐 Enviando para n8n...', { 
-      action: payload.action,
-      sessionId: payload.sessionId,
-      timeout: CONFIG.TIMEOUT
-    });
+    console.log('🌐 Enviando n8n - action:', payload.action);
     
     const response = await fetch(CONFIG.CHAT_WEBHOOK_URL, {
       method: 'POST',
@@ -299,19 +387,10 @@ const makeSecureRequest = async (payload: WebhookPayload): Promise<Response> => 
 
     clearTimeout(timeoutId);
 
-    // 🎯 CAPTURAR DETALHES DO ERRO 500
     if (!response.ok) {
-      let errorDetails = '';
-      
-      try {
-        const errorText = await response.text();
-        errorDetails = errorText.substring(0, 500);
-        console.error('🔧 Detalhes do erro n8n:', errorDetails);
-      } catch (textError) {
-        errorDetails = 'Não foi possível ler resposta de erro';
-      }
-      
-      throw new Error(`n8n retornou HTTP ${response.status}: ${response.statusText}. Detalhes: ${errorDetails}`);
+      const errorText = await response.text();
+      console.error('🔧 Erro n8n - status:', response.status);
+      throw new Error(`n8n retornou HTTP ${response.status}`);
     }
 
     return response;
@@ -319,16 +398,12 @@ const makeSecureRequest = async (payload: WebhookPayload): Promise<Response> => 
   } catch (error) {
     clearTimeout(timeoutId);
     
-    // 🎯 TRATAMENTO ESPECÍFICO PARA ABORT ERROR
     if (error instanceof DOMException && error.name === 'AbortError') {
-      console.error('⏰ Requisição abortada por timeout:', CONFIG.TIMEOUT);
-      throw new Error(`n8n não respondeu dentro do tempo limite (${CONFIG.TIMEOUT}ms)`);
+      throw new Error(`n8n não respondeu a tempo`);
     }
     
-    // 🔗 TRATAMENTO PARA ERROS DE REDE
     if (error instanceof TypeError && error.message.includes('fetch')) {
-      console.error('🌐 Erro de conexão:', error);
-      throw new Error('Não foi possível conectar ao n8n - verifique a conexão de rede');
+      throw new Error('Não foi possível conectar ao n8n');
     }
     
     throw error;
@@ -336,7 +411,7 @@ const makeSecureRequest = async (payload: WebhookPayload): Promise<Response> => 
 };
 
 /**
- * 🔄 REQUISIÇÃO COM RETRY INTELIGENTE
+ * 🔄 REQUISIÇÃO COM RETRY
  */
 const makeSecureRequestWithRetry = async (
   payload: WebhookPayload, 
@@ -345,45 +420,13 @@ const makeSecureRequestWithRetry = async (
   try {
     return await makeSecureRequest(payload);
   } catch (error) {
-    // 🎯 DETECTAR ERRO DE QUOTA EXCEDIDA
-    const isQuotaError = error instanceof Error && 
-      (error.message.includes('quota') || 
-       error.message.includes('rate limit') ||
-       error.message.includes('429') ||
-       error.message.includes('too many requests'));
-
-    // 🎯 DETECTAR ERROS TEMPORÁRIOS
     const isTemporaryError = error instanceof Error && 
-      (error.message.includes('timeout') || 
-       error.message.includes('conexão') ||
-       error.message.includes('rede'));
+      (error.message.includes('timeout') || error.message.includes('conexão'));
 
-    // 🎯 DETECTAR ERRO DE SCHEMA
-    const isSchemaError = error instanceof Error && 
-      (error.message.includes('tool input') || 
-       error.message.includes('schema') ||
-       error.message.includes('did not match'));
-
-    // ⏰ BACKOFF EXPONENCIAL PARA QUOTA ERRORS
-    if (isQuotaError && attempt < CONFIG.RETRY_ATTEMPTS) {
-      const backoffTime = Math.min(1000 * Math.pow(2, attempt), CONFIG.MAX_RETRY_DELAY);
-      console.log(`🔄 Quota excedida - Retry ${attempt} em ${backoffTime}ms`);
-      await new Promise(resolve => setTimeout(resolve, backoffTime));
-      return makeSecureRequestWithRetry(payload, attempt + 1);
-    }
-
-    // 🔄 RETRY PARA ERROS TEMPORÁRIOS
     if (isTemporaryError && attempt < CONFIG.RETRY_ATTEMPTS) {
-      console.log(`🔄 Tentativa ${attempt + 1} de ${CONFIG.RETRY_ATTEMPTS}`);
+      console.log(`🔄 Tentativa ${attempt + 1}`);
       await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
       return makeSecureRequestWithRetry(payload, attempt + 1);
-    }
-
-    // 🔧 TENTAR PAYLOAD SIMPLIFICADO PARA ERROS DE SCHEMA
-    if (isSchemaError && attempt === 1) {
-      console.log('🔄 Tentando com payload simplificado...');
-      const minimalPayload = createMinimalPayload(payload.chatInput, payload.sessionId);
-      return makeSecureRequestWithRetry(minimalPayload, attempt + 1);
     }
     
     throw error;
@@ -391,42 +434,61 @@ const makeSecureRequestWithRetry = async (
 };
 
 /**
- * 📋 PARSE DA RESPOSTA n8n
+ * 📋 PARSE DA RESPOSTA n8n - SEGURO E FORMATADO
  */
 const parseN8nResponse = async (response: Response): Promise<string> => {
   const responseText = await response.text();
   
-  console.log('📨 Resposta do n8n:', {
-    tamanho: responseText.length,
-    preview: responseText.substring(0, 200),
-    isJson: isJsonString(responseText)
-  });
+  // ✅ LOG SEGURO
+  console.log('📨 Resposta n8n - tamanho:', responseText.length);
 
-  // ✅ VALIDAÇÃO ESTRITA - EXIGIR JSON VÁLIDO
   if (!responseText.trim()) {
     throw new Error('n8n retornou resposta vazia');
   }
 
   if (!isJsonString(responseText)) {
-    throw new Error('n8n não retornou JSON válido. Verifique a configuração do workflow.');
+    throw new Error('n8n não retornou JSON válido');
   }
 
   try {
     const data: ApiResponse = JSON.parse(responseText);
     
-    // ✅ PROPAGAR ERROS DO n8n
-    if (data.error) {
-      throw new Error(`n8n: ${data.error}`);
+    // ✅ LOG SEGURO
+    console.log('🤖 Agent - steps:', data.intermediateSteps?.length || 0);
+
+    // 🎯 AGENT COM TOOLS - FORMATAR RESPOSTA
+    if (data.intermediateSteps && Array.isArray(data.intermediateSteps)) {
+      
+      // ✅ FORMATAR LISTA DE EMPRESAS
+      if (data.output && (data.output.includes('company_name') || data.output.includes('['))) {
+        try {
+          const companiesData = JSON.parse(data.output);
+          return formatCompaniesList(companiesData);
+        } catch (e) {
+          // Não é JSON, usar output original
+        }
+      }
+      
+      if (data.output && data.output.trim()) {
+        return formatAgentResponse(data.output);
+      }
+      
+      // ✅ PROCURAR OBSERVATIONS
+      for (let i = data.intermediateSteps.length - 1; i >= 0; i--) {
+        const step = data.intermediateSteps[i];
+        if (step.observation && step.observation.trim()) {
+          return formatAgentResponse(step.observation);
+        }
+      }
+      
+      return '✅ Ação executada com sucesso';
     }
 
-    if (!data.success && !data.output && !data.response && !data.message) {
-      throw new Error('n8n retornou estrutura JSON inválida');
-    }
-
-    // ✅ RETORNAR RESPOSTAS DO n8n
-    if (data.output) return data.output;
-    if (data.response) return data.response;
-    if (data.message) return data.message;
+    // 🎯 RESPOSTA SIMPLES
+    if (data.error) throw new Error(`n8n: ${data.error}`);
+    if (data.output) return formatAgentResponse(data.output);
+    if (data.response) return formatAgentResponse(data.response);
+    if (data.message) return formatAgentResponse(data.message);
     
     if (data.usuarios_processados !== undefined) {
       return `✅ Processados ${data.usuarios_processados} usuários`;
@@ -435,28 +497,15 @@ const parseN8nResponse = async (response: Response): Promise<string> => {
     if (data.usuarios_criados !== undefined) {
       return `✅ Criados ${data.usuarios_criados} usuários`;
     }
-    
-    if (data.success) return '✅ Processamento concluído';
-    
-    throw new Error('n8n retornou resposta sem dados processáveis');
+
+    throw new Error('Resposta inválida do n8n');
 
   } catch (error) {
-    console.error('❌ Erro no parse:', error);
-    
-    if (error instanceof Error) {
-      if (error.message.includes('n8n')) {
-        throw error;
-      }
-      throw new Error(`Erro de comunicação com n8n: ${error.message}`);
-    }
-    
-    throw new Error('Erro desconhecido na comunicação com n8n');
+    console.error('❌ Erro no parse');
+    throw new Error(`Erro de comunicação com n8n`);
   }
 };
 
-/**
- * 🔍 VALIDAR SE STRING É JSON VÁLIDO
- */
 const isJsonString = (str: string): boolean => {
   try {
     JSON.parse(str);
@@ -467,93 +516,31 @@ const isJsonString = (str: string): boolean => {
 };
 
 /**
- * 🛑 TRATAMENTO DE ERROS - VERSÃO COMPLETA
+ * 🛑 TRATAMENTO DE ERROS
  */
 const handleDynamicError = (error: any): string => {
-  console.error('❌ Erro detalhado:', error);
+  console.error('❌ Erro detalhado');
 
   if (error instanceof Error) {
-    // 🎯 ERRO DE SCHEMA - TOOL INPUT
-    if (error.message.includes('tool input') || error.message.includes('schema') || error.message.includes('did not match')) {
-      return `🔧 Problema de configuração no n8n: Schema das ferramentas não corresponde.\n\nSoluções:\n• Verifique os "Tools" no agente LangChain\n• Valide os schemas de input\n• Teste com payload simplificado`;
-    }
-    
-    // 🎯 ERRO 500 - PROBLEMA INTERNO DO n8n
     if (error.message.includes('HTTP 500')) {
-      return `🔧 Erro interno no n8n (500). Verifique:\n\n• ✅ Workflow está ativado?\n• ✅ Credenciais da API configuradas?\n• ✅ Modelo LLM disponível?\n• ✅ Logs do n8n para detalhes`;
+      return `🔧 Erro interno no n8n`;
     }
     
-    // 🎯 ERRO DE QUOTA EXCEDIDA
-    if (error.message.includes('quota') || error.message.includes('rate limit') || error.message.includes('429') || error.message.includes('too many requests')) {
-      return `📊 Cota da API excedida. Aguarde alguns minutos ou altere para outro modelo no n8n.`;
+    if (error.message.includes('timeout')) {
+      return `⏰ n8n não respondeu a tempo`;
     }
     
-    // 🎯 ERROS DE TIMEOUT
-    if (error.name === 'AbortError' || error.message.includes('timeout')) {
-      return `⏰ n8n não respondeu após ${CONFIG.TIMEOUT}ms. Tente novamente.`;
-    }
-    
-    // 🌐 ERROS DE CONEXÃO
-    if (error.message.includes('Failed to fetch') || error.message.includes('conexão') || error.message.includes('rede')) {
-      return '🌐 Não foi possível conectar ao n8n. Verifique sua conexão de rede.';
-    }
-    
-    // 📋 ERROS DE JSON
-    if (error.message.includes('JSON') || error.message.includes('parse')) {
-      return '🔧 n8n configurado incorretamente - deve retornar JSON válido';
-    }
-    
-    // 🔧 ERROS DO n8n
-    if (error.message.includes('n8n')) {
-      return `🔧 ${error.message}`;
+    if (error.message.includes('conexão')) {
+      return '🌐 Não foi possível conectar ao n8n';
     }
     
     return `❌ ${error.message}`;
   }
 
-  return `❌ Erro inesperado: ${String(error)}`;
+  return `❌ Erro inesperado`;
 };
 
 // ==================== SERVIÇOS ADICIONAIS ====================
-
-/**
- * 🧪 TESTE DE SCHEMA DO n8n
- */
-export const testN8nSchema = async (): Promise<string> => {
-  const testPayloads = [
-    // Payload mínimo
-    {
-      sessionId: "test-schema",
-      chatInput: "hello",
-      action: "test",
-      timestamp: new Date().toISOString(),
-      token: "test-token"
-    },
-    // Payload com dados extras
-    {
-      sessionId: "test-schema-2", 
-      chatInput: "test message",
-      action: "chat",
-      timestamp: new Date().toISOString(),
-      token: "test-token-2",
-      additionalData: "should be ignored if not in schema"
-    }
-  ];
-
-  for (const payload of testPayloads) {
-    try {
-      console.log('🧪 Testando payload:', JSON.stringify(payload));
-      const response = await makeSecureRequest(payload as WebhookPayload);
-      const result = await response.text();
-      console.log('✅ Payload funcionou:', payload.action);
-      return `✅ Schema testado com sucesso: ${payload.action}`;
-    } catch (error) {
-      console.log('❌ Payload falhou:', payload.action, error);
-    }
-  }
-
-  return '❌ Todos os testes de schema falharam';
-};
 
 export const testConnection = async (): Promise<{ 
   status: 'success' | 'error';
@@ -572,30 +559,10 @@ export const testConnection = async (): Promise<{
   } catch (error) {
     return {
       status: 'error', 
-      message: `❌ Falha na conexão: ${error instanceof Error ? error.message : 'Erro desconhecido'}`,
+      message: `❌ Falha na conexão`,
       timestamp: new Date().toISOString()
     };
   }
-};
-
-export const getServiceConfig = () => {
-  return {
-    version: '11.0.0',
-    description: 'Versão completa e corrigida com tratamento de schema',
-    capabilities: [
-      '🔗 Conexão direta com n8n',
-      '🔑 Detecção automática de token',
-      '🏢 Detecção de seleção de empresa', 
-      '👤 Processamento de dados de usuários',
-      '📊 Processamento de planilhas',
-      '💬 Mensagens genéricas',
-      '🔍 Validação estrita de JSON',
-      '🔄 Sistema de retry inteligente',
-      '🎯 Tratamento de erros de schema',
-      '📊 Monitoramento de quota',
-      '🧪 Teste de schema automático'
-    ]
-  };
 };
 
 // ==================== COMPATIBILIDADE ====================
@@ -606,27 +573,14 @@ export const testOnbotConnection = testConnection;
 // ==================== INICIALIZAÇÃO ====================
 
 console.log(`
-🚀 Onbot Service 11.0.0 - VERSÃO COMPLETA E CORRIGIDA
-
-🎯 CAPACIDADES:
-🔗 Conexão direta com n8n
-🔑 Detecção automática de token
-🏢 Detecção de seleção de empresa
-👤 Processamento de dados de usuários  
-📊 Processamento de planilhas
-💬 Mensagens genéricas
-🔍 Validação estrita de JSON
-🔄 Sistema de retry inteligente
-🎯 Tratamento de erros de schema
-📊 Monitoramento de quota
-🧪 Teste de schema automático
+🚀 Onbot Service 13.0 - SEGURO E FORMATADO
 
 📍 URL: ${CONFIG.CHAT_WEBHOOK_URL}
 ⏰ Timeout: ${CONFIG.TIMEOUT}ms
 🔄 Retry: ${CONFIG.RETRY_ATTEMPTS} tentativas
-✅ Pronto para processamento direto!
+🔒 Dados sensíveis protegidos
+✅ Pronto para uso!
 `);
 
 // Exportações
-export { generateSessionId as SessionManager };
 export type { WebhookPayload, ApiResponse };
