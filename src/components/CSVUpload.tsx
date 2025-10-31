@@ -1,533 +1,279 @@
-// =============================================
-// 🚀 INTERFACE MODERNA - USER IMPORT DASHBOARD
-// =============================================
-
-import React, { useState, useCallback } from 'react';
+import { useState, useRef } from 'react';
 import { 
-  Upload, Users, Building2, CheckCircle2, 
-  AlertCircle, Play, Download, Settings,
-  Sparkles, Shield, Zap
+  Upload, 
+  FileText, 
+  X, 
+  Loader2, 
+  Download, 
+  CheckCircle, 
+  AlertTriangle // Adicionado para feedback de erro
 } from 'lucide-react';
+// 1. Importado para animações de nível especialista
+import { motion, AnimatePresence } from 'framer-motion';
 
-// 🎯 Componente Principal
-const UserImportDashboard = () => {
-  const [currentStep, setCurrentStep] = useState(1);
-  const [processing, setProcessing] = useState(false);
-  const [results, setResults] = useState(null);
-  const [dragActive, setDragActive] = useState(false);
+interface CSVUploadProps {
+  token: string;
+  companyId: string;
+  onFileSelect?: (file: File) => void;
+}
 
-  // 🎯 Estados para dados
-  const [csvData, setCsvData] = useState(null);
-  const [selectedCompany, setSelectedCompany] = useState('');
-  const [importSettings, setImportSettings] = useState({
-    autoGenerateUsernames: true,
-    skipDuplicates: true,
-    sendWelcomeEmail: false,
-    validatePhones: true
-  });
+// 2. Definindo variantes de animação para código limpo
+const panelVariants = {
+  initial: { opacity: 0, scale: 0.95, y: 10 },
+  animate: { opacity: 1, scale: 1, y: 0 },
+  exit: { opacity: 0, scale: 0.95, y: -10 },
+};
 
-  // 🎯 Processar upload do CSV
-  const handleFileUpload = useCallback((file) => {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const content = e.target.result;
-      // Simulação do processamento
-      const users = parseCSV(content);
-      setCsvData(users);
-      setCurrentStep(2);
-    };
-    reader.readAsText(file);
-  }, []);
+export const CSVUpload = ({ token, companyId, onFileSelect }: CSVUploadProps) => {
+  // --- NENHUMA LÓGICA INTERNA FOI ALTERADA ---
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadMessage, setUploadMessage] = useState<string | null>(null);
+  const [finished, setFinished] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // 🎯 Iniciar importação
-  const startImport = async () => {
-    setProcessing(true);
-    
+  const handleUpload = async (file: File) => {
+    // ... Lógica original mantida ...
+    if (!token) {
+      setUploadMessage('⚠️ Insira o token antes de enviar o CSV.');
+      return;
+    }
+    setIsUploading(true);
+    setUploadMessage('⏳ Enviando arquivo...');
+    setFinished(false);
     try {
-      // Simulação da API call
-      const importResults = await processUsersImport({
-        users: csvData,
-        company: selectedCompany,
-        settings: importSettings
-      });
-      
-      setResults(importResults);
-      setCurrentStep(3);
-    } catch (error) {
-      console.error('Erro na importação:', error);
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('file_name', file.name);
+      formData.append('file_size', file.size.toString());
+      formData.append('uploaded_at', new Date().toISOString());
+      const response = await fetch(
+        'https://consentient-bridger-pyroclastic.ngrok-free.dev/webhook/criar_conta_final',
+        {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}` },
+          body: formData,
+        }
+      );
+      const result = await response.json();
+      if (response.ok) {
+        setUploadMessage(`✅ ${result.message || 'Arquivo processado com sucesso!'}`);
+      } else {
+        setUploadMessage(`❌ Erro: ${result.error || 'Falha no processamento'}`);
+      }
+    } catch (err) {
+      console.error('Erro no upload:', err);
+      setUploadMessage('❌ Erro de conexão. Tente novamente.');
     } finally {
-      setProcessing(false);
+      setIsUploading(false);
+      setFinished(true);
     }
   };
 
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50/30">
-      {/* 🎯 Header */}
-      <header className="border-b border-slate-200 bg-white/80 backdrop-blur-sm sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center space-x-3">
-              <div className="p-2 bg-blue-600 rounded-lg">
-                <Users className="h-6 w-6 text-white" />
-              </div>
-              <div>
-                <h1 className="text-xl font-bold text-slate-900">User Import</h1>
-                <p className="text-sm text-slate-600">Importação inteligente de usuários</p>
-              </div>
-            </div>
-            
-            <div className="flex items-center space-x-4">
-              <button className="flex items-center space-x-2 px-4 py-2 text-slate-700 hover:text-slate-900 transition-colors">
-                <Settings className="h-4 w-4" />
-                <span>Configurações</span>
-              </button>
-              <button className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
-                <Download className="h-4 w-4" />
-                <span>Exportar Template</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      </header>
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    // ... Lógica original mantida ...
+    const file = e.target.files?.[0];
+    if (file && file.name.endsWith('.csv')) {
+      setSelectedFile(file);
+      onFileSelect?.(file);
+      handleUpload(file);
+    } else {
+      setUploadMessage('⚠️ Selecione um arquivo CSV válido.');
+    }
+  };
 
-      {/* 🎯 Conteúdo Principal */}
-      <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Progress Steps */}
-        <div className="mb-12">
-          <div className="flex items-center justify-center space-x-8">
-            {[1, 2, 3].map((step) => (
-              <div key={step} className="flex items-center space-x-4">
-                <div className={`flex items-center justify-center w-10 h-10 rounded-full border-2 ${
-                  currentStep >= step 
-                    ? 'bg-blue-600 border-blue-600 text-white' 
-                    : 'border-slate-300 text-slate-400'
-                } transition-all duration-300`}>
-                  {currentStep > step ? (
-                    <CheckCircle2 className="h-5 w-5" />
-                  ) : (
-                    <span className="font-semibold">{step}</span>
+  const handleDrop = (e: React.DragEvent) => {
+    // ... Lógica original mantida ...
+    e.preventDefault();
+    setIsDragging(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file && file.name.endsWith('.csv')) {
+      setSelectedFile(file);
+      onFileSelect?.(file);
+      handleUpload(file);
+    } else {
+      setUploadMessage('⚠️ Arquivo inválido.');
+    }
+  };
+
+  const handleRemoveFile = () => {
+    // ... Lógica original mantida ...
+    setSelectedFile(null);
+    setUploadMessage(null);
+    setFinished(false);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+  // --- FIM DA LÓGICA INALTERADA ---
+
+
+  // Variável para checagem de sucesso
+  const isSuccess = finished && uploadMessage && uploadMessage.includes('✅');
+
+  return (
+    // 3. Fundo da página mais escuro para destacar o card
+    <div className="flex flex-col items-center justify-center min-h-[60vh] text-center px-4 bg-[#050505]">
+      
+      {/* 4. Card com animação de entrada e brilho (shadow) mais "tech" */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, ease: 'circOut' }}
+        className="bg-gradient-to-b from-[#0b0b0b] to-[#111] border border-blue-900/50 rounded-2xl shadow-[0_0_30px_rgba(59,130,246,0.1)] p-8 max-w-lg w-full backdrop-blur-sm"
+      >
+        <h2 className="text-2xl font-bold text-white mb-2 tracking-tighter">
+          <span className="text-blue-500">C2S</span> – Create Sellers
+        </h2>
+
+        <p className="text-gray-400 text-sm mb-6">
+          Envie sua planilha CSV para criar vendedores automaticamente.
+        </p>
+
+        <a
+          href="https://docs.google.com/spreadsheets/d/1IwOyAPOmJVd9jhk5KBUmzHcqS8VoJ-sql0zADDUXmUo/export?format=csv&id=1IwOyAPOmJVd9jhk5KBUmzHcqS8VoJ-sql0zADDUXmUo&gid=0"
+          download="modelo_c2s.csv"
+          className="inline-flex items-center gap-2 px-4 py-2 border border-gray-700 rounded-lg text-xs text-blue-400 bg-black/30 hover:bg-blue-500/10 hover:border-blue-700 hover:text-blue-300 transition-all duration-200 shadow-sm hover:shadow-md hover:shadow-blue-500/10"
+        >
+          <Download className="w-4 h-4" />
+          Baixar modelo CSV
+        </a>
+
+        {/* 5. Área de conteúdo principal com altura mínima para evitar pulos de layout */}
+        <div className="mt-8 min-h-[210px] flex flex-col justify-center">
+          
+          {/* 6. AnimatePresence gerencia a transição entre o dropzone e o painel de status */}
+          <AnimatePresence mode="wait">
+            {!selectedFile ? (
+              
+              // --- PAINEL DE DROPZONE ---
+              <motion.div
+                key="dropzone"
+                variants={panelVariants}
+                initial="initial"
+                animate="animate"
+                exit="exit"
+                transition={{ duration: 0.3, ease: 'circOut' }}
+                whileHover={{ scale: 1.02, borderColor: 'rgb(59 130 246 / 0.4)' }}
+                onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+                onDragLeave={() => setIsDragging(false)}
+                onDrop={handleDrop}
+                onClick={() => fileInputRef.current?.click()}
+                className={`border-2 border-dashed rounded-xl p-10 cursor-pointer transition-colors duration-300 ${
+                  isDragging
+                    ? 'border-blue-500 bg-blue-500/10 scale-105'
+                    : 'border-gray-700 bg-black/40'
+                }`}
+              >
+                <div className="flex flex-col items-center gap-4">
+                  {/* 7. Ícone com animação sutil de pulsação */}
+                  <motion.div
+                    animate={{ y: [0, -5, 0] }}
+                    transition={{ duration: 1.5, repeat: Infinity, ease: 'easeInOut' }}
+                  >
+                    <Upload className="w-10 h-10 text-blue-400" strokeWidth={1.5} />
+                  </motion.div>
+                  <p className="text-base font-medium text-white">
+                    {isDragging ? 'Solte o arquivo aqui' : 'Clique ou arraste o arquivo CSV'}
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    O token e o ID da empresa serão incluídos.
+                  </p>
+                </div>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".csv"
+                  onChange={handleFileChange}
+                  className="hidden"
+                />
+              </motion.div>
+
+            ) : (
+              
+              // --- PAINEL DE STATUS (UPLOAD/CONCLUÍDO) ---
+              <motion.div
+                key="status"
+                variants={panelVariants}
+                initial="initial"
+                animate="animate"
+                exit="exit"
+                transition={{ duration: 0.3, ease: 'circOut' }}
+                className="w-full text-left"
+              >
+                {/* 8. Informações do arquivo com botão de remover (só aparece se não estiver enviando) */}
+                <div className="bg-gray-900/50 border border-gray-800 rounded-xl p-4 flex items-center gap-4">
+                  <div className="flex-shrink-0 bg-blue-500/20 p-3 rounded-lg">
+                    <FileText className="w-6 h-6 text-blue-400" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-white font-medium truncate">{selectedFile.name}</p>
+                    <p className="text-xs text-gray-400">
+                      {(selectedFile.size / 1024).toFixed(2)} KB
+                    </p>
+                  </div>
+                  {!isUploading && (
+                    <motion.button
+                      whileHover={{ scale: 1.1, color: 'rgb(248 113 113)' }}
+                      whileTap={{ scale: 0.9 }}
+                      onClick={handleRemoveFile}
+                      className="text-gray-500 p-1"
+                    >
+                      <X className="w-5 h-5" />
+                    </motion.button>
                   )}
                 </div>
-                {step < 3 && (
-                  <div className={`w-16 h-0.5 ${
-                    currentStep > step ? 'bg-blue-600' : 'bg-slate-300'
-                  } transition-colors duration-300`} />
+
+                {/* 9. Área de status (Barra de Progresso + Mensagem) */}
+                <div className="mt-6 space-y-3">
+                  {isUploading && (
+                    // 10. Barra de progresso "Tech" com efeito shimmer
+                    <div className="w-full bg-blue-900/30 rounded-full h-2.5 overflow-hidden">
+                      <motion.div
+                        className="bg-gradient-to-r from-transparent via-blue-500 to-transparent w-1/2 h-full"
+                        initial={{ x: '-100%' }}
+                        animate={{ x: '200%' }}
+                        transition={{ repeat: Infinity, duration: 2, ease: 'linear' }}
+                      />
+                    </div>
+                  )}
+
+                  {/* 11. Mensagem de status unificada com ícones */}
+                  {uploadMessage && (
+                    <motion.div
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      className={`flex items-center justify-center gap-2 text-sm ${
+                        isSuccess ? 'text-green-400' :
+                        finished ? 'text-red-400' :
+                        'text-blue-400' // Cor "neutra" para "enviando..."
+                      }`}
+                    >
+                      {isUploading && <Loader2 className="w-4 h-4 animate-spin" />}
+                      {isSuccess && <CheckCircle className="w-4 h-4" />}
+                      {finished && !isSuccess && <AlertTriangle className="w-4 h-4" />}
+                      <span>{uploadMessage}</span>
+                    </motion.div>
+                  )}
+                </div>
+
+                {/* 12. Botão para "Novo Upload" só aparece ao finalizar */}
+                {finished && (
+                  <motion.button
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0, transition: { delay: 0.5 } }}
+                    onClick={handleRemoveFile}
+                    className="mt-8 w-full px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors shadow-lg shadow-blue-500/10"
+                  >
+                    Carregar Novo Arquivo
+                  </motion.button>
                 )}
-              </div>
-            ))}
-          </div>
-          
-          <div className="flex justify-center space-x-24 mt-4">
-            <span className={`text-sm font-medium ${
-              currentStep >= 1 ? 'text-blue-600' : 'text-slate-500'
-            }`}>Upload do CSV</span>
-            <span className={`text-sm font-medium ${
-              currentStep >= 2 ? 'text-blue-600' : 'text-slate-500'
-            }`}>Configuração</span>
-            <span className={`text-sm font-medium ${
-              currentStep >= 3 ? 'text-blue-600' : 'text-slate-500'
-            }`}>Resultado</span>
-          </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
-
-        {/* 🎯 Step 1 - Upload */}
-        {currentStep === 1 && (
-          <UploadStep 
-            onFileUpload={handleFileUpload}
-            dragActive={dragActive}
-            setDragActive={setDragActive}
-          />
-        )}
-
-        {/* 🎯 Step 2 - Configuração */}
-        {currentStep === 2 && (
-          <ConfigurationStep
-            csvData={csvData}
-            selectedCompany={selectedCompany}
-            setSelectedCompany={setSelectedCompany}
-            importSettings={importSettings}
-            setImportSettings={setImportSettings}
-            onStartImport={startImport}
-            processing={processing}
-          />
-        )}
-
-        {/* 🎯 Step 3 - Resultados */}
-        {currentStep === 3 && (
-          <ResultsStep results={results} onReset={() => setCurrentStep(1)} />
-        )}
-      </main>
-
-      {/* 🎯 Features Highlight */}
-      <div className="border-t border-slate-200 bg-white/50">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <FeatureCard
-              icon={<Shield className="h-8 w-8 text-green-600" />}
-              title="Anti-Duplicação"
-              description="Sistema inteligente que previne usuários duplicados automaticamente"
-            />
-            <FeatureCard
-              icon={<Zap className="h-8 w-8 text-blue-600" />}
-              title="Processamento Rápido"
-              description="Importe centenas de usuários em segundos com nossa engine otimizada"
-            />
-            <FeatureCard
-              icon={<Sparkles className="h-8 w-8 text-purple-600" />}
-              title="Detecção Inteligente"
-              description="Reconhece automaticamente empresas e gera usernames únicos"
-            />
-          </div>
-        </div>
-      </div>
+      </motion.div>
     </div>
   );
 };
 
-// 🎯 Componente de Upload
-const UploadStep = ({ onFileUpload, dragActive, setDragActive }) => {
-  const handleDrag = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (e.type === "dragenter" || e.type === "dragover") {
-      setDragActive(true);
-    } else if (e.type === "dragleave") {
-      setDragActive(false);
-    }
-  };
-
-  const handleDrop = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setDragActive(false);
-    
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      onFileUpload(e.dataTransfer.files[0]);
-    }
-  };
-
-  return (
-    <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-8">
-      <div className="text-center max-w-2xl mx-auto">
-        <div className="p-3 bg-blue-50 rounded-full w-16 h-16 mx-auto mb-6">
-          <Upload className="h-10 w-10 text-blue-600 mx-auto" />
-        </div>
-        
-        <h2 className="text-2xl font-bold text-slate-900 mb-4">
-          Importar Usuários via CSV
-        </h2>
-        
-        <p className="text-slate-600 mb-8">
-          Faça upload do arquivo CSV contendo os dados dos usuários. 
-          Suportamos formatação automática de campos e detecção inteligente.
-        </p>
-
-        <div
-          className={`border-2 border-dashed rounded-xl p-12 transition-all duration-300 ${
-            dragActive 
-              ? 'border-blue-400 bg-blue-50/50' 
-              : 'border-slate-300 hover:border-blue-300'
-          }`}
-          onDragEnter={handleDrag}
-          onDragLeave={handleDrag}
-          onDragOver={handleDrag}
-          onDrop={handleDrop}
-        >
-          <Upload className="h-12 w-12 text-slate-400 mx-auto mb-4" />
-          <p className="text-lg font-medium text-slate-700 mb-2">
-            Arraste seu arquivo CSV aqui
-          </p>
-          <p className="text-slate-500 mb-6">ou</p>
-          
-          <label className="cursor-pointer">
-            <input
-              type="file"
-              accept=".csv"
-              className="hidden"
-              onChange={(e) => e.target.files[0] && onFileUpload(e.target.files[0])}
-            />
-            <span className="inline-flex items-center px-6 py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors">
-              Selecionar Arquivo
-            </span>
-          </label>
-          
-          <p className="text-sm text-slate-500 mt-4">
-            Formatos suportados: CSV • Máx. 10MB
-          </p>
-        </div>
-
-        {/* 📋 Template Info */}
-        <div className="mt-8 p-6 bg-slate-50 rounded-xl text-left">
-          <h3 className="font-semibold text-slate-900 mb-3">Formato do CSV:</h3>
-          <div className="text-sm text-slate-600 space-y-1">
-            <p><strong>Colunas obrigatórias:</strong> nome, email, empresa_ou_equipe</p>
-            <p><strong>Colunas opcionais:</strong> telefone, é master</p>
-            <p><strong>Encoding:</strong> UTF-8 recomendado</p>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// 🎯 Componente de Configuração
-const ConfigurationStep = ({
-  csvData,
-  selectedCompany,
-  setSelectedCompany,
-  importSettings,
-  setImportSettings,
-  onStartImport,
-  processing
-}) => {
-  return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-      {/* 📊 Preview */}
-      <div className="lg:col-span-2">
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
-          <h3 className="text-lg font-semibold text-slate-900 mb-4">
-            Prévia dos Dados ({csvData?.length || 0} usuários)
-          </h3>
-          
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-slate-200">
-                  <th className="text-left py-3 font-medium text-slate-700">Nome</th>
-                  <th className="text-left py-3 font-medium text-slate-700">Email</th>
-                  <th className="text-left py-3 font-medium text-slate-700">Empresa</th>
-                  <th className="text-left py-3 font-medium text-slate-700">Status</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {csvData?.slice(0, 5).map((user, index) => (
-                  <tr key={index} className="hover:bg-slate-50">
-                    <td className="py-3 text-slate-900">{user.nome}</td>
-                    <td className="py-3 text-slate-600">{user.email}</td>
-                    <td className="py-3 text-slate-600">{user.empresa_ou_equipe}</td>
-                    <td className="py-3">
-                      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                        <CheckCircle2 className="h-3 w-3 mr-1" />
-                        Válido
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          
-          {csvData && csvData.length > 5 && (
-            <p className="text-sm text-slate-500 mt-4">
-              + {csvData.length - 5} usuários adicionais...
-            </p>
-          )}
-        </div>
-      </div>
-
-      {/* ⚙️ Configurações */}
-      <div className="space-y-6">
-        {/* Seleção de Empresa */}
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
-          <h3 className="text-lg font-semibold text-slate-900 mb-4">
-            <Building2 className="h-5 w-5 inline mr-2 text-blue-600" />
-            Empresa Destino
-          </h3>
-          
-          <select
-            value={selectedCompany}
-            onChange={(e) => setSelectedCompany(e.target.value)}
-            className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-          >
-            <option value="">Selecione uma empresa</option>
-            <option value="company1">Thais Imobiliária - Equipe GUARA</option>
-            <option value="company2">Thais Imobiliária - Equipe ASA SUL</option>
-            <option value="company3">Thais Imobiliária - AGÊNCIA DIGITAL</option>
-          </select>
-        </div>
-
-        {/* Configurações */}
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
-          <h3 className="text-lg font-semibold text-slate-900 mb-4">
-            <Settings className="h-5 w-5 inline mr-2 text-slate-600" />
-            Configurações de Importação
-          </h3>
-          
-          <div className="space-y-4">
-            {Object.entries(importSettings).map(([key, value]) => (
-              <label key={key} className="flex items-center space-x-3 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={value}
-                  onChange={(e) => setImportSettings(prev => ({
-                    ...prev,
-                    [key]: e.target.checked
-                  }))}
-                  className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
-                />
-                <span className="text-sm font-medium text-slate-700">
-                  {getSettingLabel(key)}
-                </span>
-              </label>
-            ))}
-          </div>
-        </div>
-
-        {/* Ação */}
-        <button
-          onClick={onStartImport}
-          disabled={processing || !selectedCompany}
-          className="w-full flex items-center justify-center space-x-3 px-6 py-4 bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 disabled:bg-slate-400 disabled:cursor-not-allowed transition-colors"
-        >
-          {processing ? (
-            <>
-              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-              <span>Processando...</span>
-            </>
-          ) : (
-            <>
-              <Play className="h-5 w-5" />
-              <span>Iniciar Importação</span>
-            </>
-          )}
-        </button>
-      </div>
-    </div>
-  );
-};
-
-// 🎯 Componente de Resultados
-const ResultsStep = ({ results, onReset }) => {
-  return (
-    <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-8">
-      <div className="text-center max-w-2xl mx-auto">
-        <div className="p-3 bg-green-50 rounded-full w-16 h-16 mx-auto mb-6">
-          <CheckCircle2 className="h-10 w-10 text-green-600 mx-auto" />
-        </div>
-        
-        <h2 className="text-2xl font-bold text-slate-900 mb-4">
-          Importação Concluída!
-        </h2>
-        
-        <p className="text-slate-600 mb-8">
-          A importação dos usuários foi realizada com sucesso.
-        </p>
-
-        {/* 📊 Estatísticas */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-8">
-          <StatCard
-            value={results?.total || 45}
-            label="Total"
-            color="blue"
-          />
-          <StatCard
-            value={results?.success || 42}
-            label="Sucesso"
-            color="green"
-          />
-          <StatCard
-            value={results?.duplicates || 2}
-            label="Duplicatas"
-            color="amber"
-          />
-          <StatCard
-            value={results?.errors || 1}
-            label="Erros"
-            color="red"
-          />
-        </div>
-
-        {/* ⚠️ Alertas */}
-        {(results?.duplicates > 0 || results?.errors > 0) && (
-          <div className="bg-amber-50 border border-amber-200 rounded-xl p-6 text-left mb-6">
-            <div className="flex items-start space-x-3">
-              <AlertCircle className="h-5 w-5 text-amber-600 mt-0.5" />
-              <div>
-                <h4 className="font-semibold text-amber-900 mb-2">
-                  Atenção necessária
-                </h4>
-                <ul className="text-amber-800 text-sm space-y-1">
-                  {results.duplicates > 0 && (
-                    <li>• {results.duplicates} usuários duplicados foram ignorados</li>
-                  )}
-                  {results.errors > 0 && (
-                    <li>• {results.errors} usuários com erro não foram processados</li>
-                  )}
-                </ul>
-              </div>
-            </div>
-          </div>
-        )}
-
-        <button
-          onClick={onReset}
-          className="inline-flex items-center space-x-2 px-6 py-3 bg-slate-900 text-white font-medium rounded-lg hover:bg-slate-800 transition-colors"
-        >
-          <Users className="h-4 w-4" />
-          <span>Nova Importação</span>
-        </button>
-      </div>
-    </div>
-  );
-};
-
-// 🎯 Componentes Auxiliares
-const FeatureCard = ({ icon, title, description }) => (
-  <div className="text-center p-6">
-    <div className="inline-flex items-center justify-center w-16 h-16 bg-white rounded-2xl shadow-sm border border-slate-200 mb-4">
-      {icon}
-    </div>
-    <h3 className="text-lg font-semibold text-slate-900 mb-2">{title}</h3>
-    <p className="text-slate-600 text-sm">{description}</p>
-  </div>
-);
-
-const StatCard = ({ value, label, color }) => {
-  const colorClasses = {
-    blue: 'bg-blue-50 text-blue-700',
-    green: 'bg-green-50 text-green-700',
-    amber: 'bg-amber-50 text-amber-700',
-    red: 'bg-red-50 text-red-700'
-  };
-
-  return (
-    <div className={`p-4 rounded-xl text-center ${colorClasses[color]}`}>
-      <div className="text-2xl font-bold mb-1">{value}</div>
-      <div className="text-sm font-medium">{label}</div>
-    </div>
-  );
-};
-
-// 🎯 Utilitários
-const getSettingLabel = (key) => {
-  const labels = {
-    autoGenerateUsernames: 'Gerar usernames automaticamente',
-    skipDuplicates: 'Ignorar usuários duplicados',
-    sendWelcomeEmail: 'Enviar email de boas-vindas',
-    validatePhones: 'Validar números de telefone'
-  };
-  return labels[key] || key;
-};
-
-// 🎯 Funções de simulação
-const parseCSV = (content) => {
-  // Simulação do parser CSV
-  return [
-    { nome: 'João Silva', email: 'joao@empresa.com', empresa_ou_equipe: 'Equipe GUARA' },
-    { nome: 'Maria Santos', email: 'maria@empresa.com', empresa_ou_equipe: 'Equipe ASA SUL' },
-    // ... mais dados simulados
-  ];
-};
-
-const processUsersImport = async ({ users, company, settings }) => {
-  // Simulação da API
-  await new Promise(resolve => setTimeout(resolve, 2000));
-  return {
-    total: users.length,
-    success: users.length - 3,
-    duplicates: 2,
-    errors: 1
-  };
-};
-
-export default UserImportDashboard;
+export default CSVUpload;
