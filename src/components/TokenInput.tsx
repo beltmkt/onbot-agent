@@ -1,4 +1,3 @@
-// src/components/TokenInput.tsx
 import { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Key, CheckCircle, AlertCircle, ArrowRight } from 'lucide-react';
@@ -6,7 +5,6 @@ import { Key, CheckCircle, AlertCircle, ArrowRight } from 'lucide-react';
 interface TokenInputProps {
   token: string;
   onTokenChange: (token: string) => void;
-  // ✅ NOVA PROP: Função para ser chamada ao confirmar
   onConfirm: () => void;
 }
 
@@ -19,7 +17,6 @@ const messageVariants = {
 export const TokenInput = ({ token, onTokenChange, onConfirm }: TokenInputProps) => {
   const [error, setError] = useState<string | null>(null);
 
-  // Validação em tempo real
   const isValid = useMemo(() => {
     if (!token) return false;
     if (token.length < 5) return false;
@@ -29,7 +26,7 @@ export const TokenInput = ({ token, onTokenChange, onConfirm }: TokenInputProps)
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newToken = e.target.value.trim();
-    onTokenChange(newToken); // Atualiza o pai (App.tsx)
+    onTokenChange(newToken);
 
     if (newToken && newToken.length < 5) {
       setError('Token muito curto');
@@ -42,12 +39,11 @@ export const TokenInput = ({ token, onTokenChange, onConfirm }: TokenInputProps)
 
   const handleConfirm = () => {
     if (isValid) {
-      onConfirm(); // Diz ao App.tsx para avançar
+      onConfirm();
     }
   };
 
   return (
-    // Wrapper de animação para o componente
     <motion.div
       key="token"
       initial={{ opacity: 0, x: -100 }}
@@ -70,7 +66,6 @@ export const TokenInput = ({ token, onTokenChange, onConfirm }: TokenInputProps)
       </p>
 
       <div className="space-y-3">
-        {/* Input e ícones internos... */}
         <div className="relative w-full">
           <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-500"><Key className="w-5 h-5" /></span>
           <input
@@ -78,29 +73,51 @@ export const TokenInput = ({ token, onTokenChange, onConfirm }: TokenInputProps)
             value={token}
             onChange={handleChange}
             placeholder="Cole seu token aqui..."
-            className={`w-full pl-10 pr-10 py-3 bg-black/40 border rounded-xl text-white ... ${ error ? 'border-red-500/50 ...' : isValid ? 'border-green-500/50 ...' : 'border-gray-700 ...' }`}
+            className={`w-full pl-10 pr-10 py-3 bg-black/40 border rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-1 transition-all duration-200 ${
+              error
+                ? 'border-red-500/50 focus:border-red-500 focus:ring-red-500/50'
+                : isValid
+                ? 'border-green-500/50 focus:border-green-500 focus:ring-green-500/50'
+                : 'border-gray-700 focus:border-blue-500 focus:ring-blue-500'
+            }`}
           />
           <div className="absolute right-3.5 top-1/2 -translate-y-1/2">
             <AnimatePresence>
-              {error && <motion.div ...><AlertCircle className="w-5 h-5 text-red-400" /></motion.div>}
-              {isValid && <motion.div ...><CheckCircle className="w-5 h-5 text-green-400" /></motion.div>}
+              {/* ✅ CORRIGIDO: Adicionado initial e animate */}
+              {error && (
+                <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }}>
+                  <AlertCircle className="w-5 h-5 text-red-400" />
+                </motion.div>
+              )}
+              {/* ✅ CORRIGIDO: Adicionado initial e animate */}
+              {isValid && (
+                <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }}>
+                  <CheckCircle className="w-5 h-5 text-green-400" />
+                </motion.div>
+              )}
             </AnimatePresence>
           </div>
         </div>
 
-        {/* Mensagem de erro */}
         <div className="h-12 pt-1">
           <AnimatePresence mode="wait">
             {error && (
-              <motion.div key="error" variants={messageVariants} ...>
-                <AlertCircle className="w-4 h-4 text-red-400" />
+              // ✅ CORRIGIDO: Adicionado props de animação e className
+              <motion.div
+                key="error"
+                variants={messageVariants}
+                initial="initial"
+                animate="animate"
+                exit="exit"
+                className="bg-red-500/10 border border-red-500/30 rounded-xl p-3 flex items-center gap-2"
+              >
+                <AlertCircle className="w-4 h-4 text-red-400 flex-shrink-0" />
                 <span className="text-red-400 text-sm">{error}</span>
               </motion.div>
             )}
           </AnimatePresence>
         </div>
-        
-        {/* ✅ BOTÃO DE CONFIRMAR */}
+
         <motion.button
           onClick={handleConfirm}
           disabled={!isValid}

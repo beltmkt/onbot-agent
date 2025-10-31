@@ -1,20 +1,28 @@
-// src/components/CSVUpload.tsx
-import { useRef } from 'react';
+import { useRef, useState } from 'react'; // Adicionado useState
 import { Upload, FileText, X, Loader2, Download, CheckCircle, AlertTriangle, ArrowLeft } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface CSVUploadProps {
-  // ✅ PROPS DE CONTROLE DO PAI
   onFileSelect: (file: File) => void;
   onBack: () => void;
   onRemoveFile: () => void;
   
-  // ✅ PROPS DE ESTADO DO PAI
   selectedFile: File | null;
   isUploading: boolean;
   uploadMessage: string | null;
   finished: boolean;
+
+  // Adicionado para corrigir erro de prop
+  token: string; 
+  companyId: string;
 }
+
+// Adicionado para animação
+const panelVariants = {
+  initial: { opacity: 0, scale: 0.95, y: 10 },
+  animate: { opacity: 1, scale: 1, y: 0 },
+  exit: { opacity: 0, scale: 0.95, y: -10 },
+};
 
 export const CSVUpload = ({
   onFileSelect,
@@ -23,14 +31,14 @@ export const CSVUpload = ({
   selectedFile,
   isUploading,
   uploadMessage,
-  finished
+  finished,
+  token, // Adicionado
+  companyId // Adicionado
 }: CSVUploadProps) => {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isDragging, setIsDragging] = useState(false);
 
-  // A lógica de upload foi movida para App.tsx
-  // Estas funções apenas passam o evento para o pai (App.tsx)
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file && file.name.endsWith('.csv')) {
@@ -49,13 +57,12 @@ export const CSVUpload = ({
   
   const handleInternalRemove = () => {
     if (fileInputRef.current) fileInputRef.current.value = '';
-    onRemoveFile(); // Chama a função do pai para limpar o estado
+    onRemoveFile();
   }
 
   const isSuccess = finished && uploadMessage && uploadMessage.includes('✅');
 
   return (
-    // Wrapper de animação
     <motion.div
       key="upload"
       initial={{ opacity: 0, x: 100 }}
@@ -64,7 +71,6 @@ export const CSVUpload = ({
       transition={{ duration: 0.3, ease: 'circOut' }}
       className="w-full"
     >
-      {/* Botão de Voltar */}
       <div className="w-full flex mb-4">
         <button
           onClick={onBack}
@@ -82,6 +88,7 @@ export const CSVUpload = ({
         Envie sua planilha CSV para criar vendedores.
       </p>
 
+      {/* ✅ CORRIGIDO: Adicionado className */}
       <a
         href="https://docs.google.com/spreadsheets/d/1IwOyAPOmJVd9jhk5KBUmzHcqS8VoJ-sql0zADDUXmUo/export?format=csv&id=1IwOyAPOmJVd9jhk5KBUmzHcqS8VoJ-sql0zADDUXmUo&gid=0"
         download="modelo_c2s.csv"
@@ -91,24 +98,29 @@ export const CSVUpload = ({
         Baixar modelo CSV
       </a>
 
-      {/* Conteúdo principal (Dropzone ou Status) */}
       <div className="mt-8 min-h-[210px] flex flex-col justify-center">
         <AnimatePresence mode="wait">
           {!selectedFile ? (
-            // --- DROPZONE ---
+            // ✅ CORRIGIDO: Adicionado props de animação e className
             <motion.div
               key="dropzone"
-              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              variants={panelVariants}
+              initial="initial"
+              animate="animate"
+              exit="exit"
               whileHover={{ scale: 1.02, borderColor: 'rgb(59 130 246 / 0.4)' }}
               onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
               onDragLeave={() => setIsDragging(false)}
               onDrop={handleDrop}
               onClick={() => fileInputRef.current?.click()}
-              className={`border-2 border-dashed rounded-xl p-10 cursor-pointer ... ${ isDragging ? 'border-blue-500 bg-blue-500/10' : 'border-gray-700 bg-black/40' }`}
+              className={`border-2 border-dashed rounded-xl p-10 cursor-pointer transition-colors duration-300 ${ isDragging ? 'border-blue-500 bg-blue-500/10 scale-105' : 'border-gray-700 bg-black/40' }`}
             >
               <div className="flex flex-col items-center gap-4">
-                <motion.div animate={{ y: [0, -5, 0] }} ...>
-                  <Upload className="w-10 h-10 text-blue-400" />
+                <motion.div
+                  animate={{ y: [0, -5, 0] }}
+                  transition={{ duration: 1.5, repeat: Infinity, ease: 'easeInOut' }}
+                >
+                  <Upload className="w-10 h-10 text-blue-400" strokeWidth={1.5} />
                 </motion.div>
                 <p className="text-base font-medium text-white">
                   {isDragging ? 'Solte o arquivo aqui' : 'Clique ou arraste o CSV'}
@@ -117,10 +129,13 @@ export const CSVUpload = ({
               <input ref={fileInputRef} type="file" accept=".csv" onChange={handleFileChange} className="hidden" />
             </motion.div>
           ) : (
-            // --- PAINEL DE STATUS ---
+            // ✅ CORRIGIDO: Adicionado props de animação e className
             <motion.div
               key="status"
-              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              variants={panelVariants}
+              initial="initial"
+              animate="animate"
+              exit="exit"
               className="w-full text-left"
             >
               <div className="bg-gray-900/50 border border-gray-800 rounded-xl p-4 flex items-center gap-4">
@@ -130,7 +145,13 @@ export const CSVUpload = ({
                   <p className="text-xs text-gray-400">{(selectedFile.size / 1024).toFixed(2)} KB</p>
                 </div>
                 {!isUploading && (
-                  <motion.button whileHover={{ scale: 1.1 }} onClick={handleInternalRemove} ...>
+                  // ✅ CORRIGIDO: Adicionado className
+                  <motion.button
+                    whileHover={{ scale: 1.1, color: 'rgb(248 113 113)' }}
+                    whileTap={{ scale: 0.9 }}
+                    onClick={handleInternalRemove}
+                    className="text-gray-500 p-1"
+                  >
                     <X className="w-5 h-5" />
                   </motion.button>
                 )}
@@ -138,12 +159,23 @@ export const CSVUpload = ({
 
               <div className="mt-6 space-y-3">
                 {isUploading && (
+                  // ✅ CORRIGIDO: Adicionado className
                   <div className="w-full bg-blue-900/30 rounded-full h-2.5 overflow-hidden">
-                    <motion.div ... /> {/* Barra de progresso */}
+                    {/* ✅ CORRIGIDO: Adicionado props de animação e className */}
+                    <motion.div
+                      className="bg-gradient-to-r from-transparent via-blue-500 to-transparent w-1/2 h-full"
+                      initial={{ x: '-100%' }}
+                      animate={{ x: '200%' }}
+                      transition={{ repeat: Infinity, duration: 2, ease: 'linear' }}
+                    />
                   </div>
                 )}
                 {uploadMessage && (
-                  <motion.div className={`flex items-center justify-center gap-2 text-sm ${ isSuccess ? 'text-green-400' : finished ? 'text-red-400' : 'text-blue-400' }`}>
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    className={`flex items-center justify-center gap-2 text-sm ${ isSuccess ? 'text-green-400' : finished ? 'text-red-400' : 'text-blue-400' }`}
+                  >
                     {isUploading && <Loader2 className="w-4 h-4 animate-spin" />}
                     {isSuccess && <CheckCircle className="w-4 h-4" />}
                     {finished && !isSuccess && <AlertTriangle className="w-4 h-4" />}
@@ -154,9 +186,10 @@ export const CSVUpload = ({
 
               {finished && (
                 <motion.button
-                  initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0, transition: { delay: 0.5 } }}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0, transition: { delay: 0.5 } }}
                   onClick={handleInternalRemove}
-                  className="mt-8 w-full px-6 py-2.5 bg-blue-600 hover:bg-blue-700 ..."
+                  className="mt-8 w-full px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors shadow-lg shadow-blue-500/10"
                 >
                   Carregar Novo Arquivo
                 </motion.button>
