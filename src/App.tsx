@@ -70,10 +70,11 @@ const App: React.FC = () => {
   };
 
   /**
-   * NOVA FUNÇÃO: Reseta o estado de upload e volta para a etapa 'token' (Home).
+   * NOVA FUNÇÃO: Reseta o estado de upload, o TOKEN e volta para a etapa 'token' (Home).
    */
   const handleFinishAndHome = () => {
     handleRemoveFile(); // Limpa todos os estados relacionados ao upload
+    setToken(''); // LIMPA O TOKEN CONFORME SOLICITADO
     setStep('token'); // Volta para o passo inicial
   };
 
