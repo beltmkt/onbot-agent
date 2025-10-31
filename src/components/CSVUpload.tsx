@@ -1,11 +1,14 @@
 import { useRef, useState } from 'react';
-import { Upload, FileText, X, Loader2, Download, CheckCircle, AlertTriangle, ArrowLeft } from 'lucide-react';
+import { Upload, FileText, X, Loader2, Download, CheckCircle, AlertTriangle, ArrowLeft, Home } from 'lucide-react'; // Adicionei 'Home'
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface CSVUploadProps {
   onFileSelect: (file: File) => void;
   onBack: () => void;
   onRemoveFile: () => void;
+  // --- NOVIDADE: AÇÃO PARA FINALIZAR E VOLTAR AO HOME ---
+  onFinishAndHome: () => void; 
+  // --------------------------------------------------------
   
   selectedFile: File | null;
   isUploading: boolean;
@@ -28,6 +31,9 @@ export const CSVUpload = ({
   onFileSelect,
   onBack,
   onRemoveFile,
+  // --- NOVIDADE: Recebe a função onFinishAndHome ---
+  onFinishAndHome,
+  // -------------------------------------------------
   selectedFile,
   isUploading,
   uploadMessage,
@@ -187,16 +193,30 @@ export const CSVUpload = ({
                 )}
               </div>
 
-              {/* Botão de Novo Upload (só aparece ao finalizar) */}
+              {/* Botões de Ação (só aparecem ao finalizar) */}
               {finished && (
-                <motion.button
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0, transition: { delay: 0.5 } }}
-                  onClick={handleInternalRemove}
-                  className="mt-8 w-full px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors shadow-lg shadow-blue-500/10"
-                >
-                  Carregar Novo Arquivo
-                </motion.button>
+                <div className="flex flex-col gap-3 mt-8">
+                  <motion.button
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0, transition: { delay: 0.5 } }}
+                    onClick={handleInternalRemove}
+                    className="w-full px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors shadow-lg shadow-blue-500/10"
+                  >
+                    Carregar Novo Arquivo
+                  </motion.button>
+                  
+                  {/* --- NOVO BOTÃO PARA VOLTAR AO HOME --- */}
+                  <motion.button
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0, transition: { delay: 0.6 } }}
+                    onClick={onFinishAndHome} // Chama a nova função
+                    className="w-full flex items-center justify-center gap-2 px-6 py-2.5 bg-gray-700/50 hover:bg-gray-700 text-gray-300 rounded-lg font-medium transition-colors border border-gray-600"
+                  >
+                    <Home className="w-4 h-4" />
+                    Finalizar e Voltar ao Início
+                  </motion.button>
+                  {/* -------------------------------------- */}
+                </div>
               )}
             </motion.div>
           )}
