@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'; // Adicionado useState
+import { useRef, useState } from 'react';
 import { Upload, FileText, X, Loader2, Download, CheckCircle, AlertTriangle, ArrowLeft } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -12,12 +12,12 @@ interface CSVUploadProps {
   uploadMessage: string | null;
   finished: boolean;
 
-  // Adicionado para corrigir erro de prop
+  // Props de dados
   token: string; 
   companyId: string;
 }
 
-// Adicionado para animação
+// Variantes de animação para os painéis
 const panelVariants = {
   initial: { opacity: 0, scale: 0.95, y: 10 },
   animate: { opacity: 1, scale: 1, y: 0 },
@@ -32,13 +32,14 @@ export const CSVUpload = ({
   isUploading,
   uploadMessage,
   finished,
-  token, // Adicionado
-  companyId // Adicionado
+  token,
+  companyId
 }: CSVUploadProps) => {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isDragging, setIsDragging] = useState(false);
 
+  // Funções que repassam a lógica para o App.tsx
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file && file.name.endsWith('.csv')) {
@@ -71,6 +72,7 @@ export const CSVUpload = ({
       transition={{ duration: 0.3, ease: 'circOut' }}
       className="w-full"
     >
+      {/* Botão para voltar à etapa do Token */}
       <div className="w-full flex mb-4">
         <button
           onClick={onBack}
@@ -81,6 +83,7 @@ export const CSVUpload = ({
         </button>
       </div>
 
+      {/* Título (consistente com o TokenInput) */}
       <h2 className="text-2xl font-bold text-white mb-2 tracking-tighter">
         <span className="text-blue-500">C2S</span> – Create Sellers
       </h2>
@@ -88,7 +91,7 @@ export const CSVUpload = ({
         Envie sua planilha CSV para criar vendedores.
       </p>
 
-      {/* ✅ CORRIGIDO: Adicionado className */}
+      {/* Link para baixar o modelo CSV */}
       <a
         href="https://docs.google.com/spreadsheets/d/1IwOyAPOmJVd9jhk5KBUmzHcqS8VoJ-sql0zADDUXmUo/export?format=csv&id=1IwOyAPOmJVd9jhk5KBUmzHcqS8VoJ-sql0zADDUXmUo&gid=0"
         download="modelo_c2s.csv"
@@ -98,10 +101,11 @@ export const CSVUpload = ({
         Baixar modelo CSV
       </a>
 
+      {/* Área principal (Dropzone ou Status) */}
       <div className="mt-8 min-h-[210px] flex flex-col justify-center">
         <AnimatePresence mode="wait">
           {!selectedFile ? (
-            // ✅ CORRIGIDO: Adicionado props de animação e className
+            // --- PAINEL DROPZONE ---
             <motion.div
               key="dropzone"
               variants={panelVariants}
@@ -129,7 +133,7 @@ export const CSVUpload = ({
               <input ref={fileInputRef} type="file" accept=".csv" onChange={handleFileChange} className="hidden" />
             </motion.div>
           ) : (
-            // ✅ CORRIGIDO: Adicionado props de animação e className
+            // --- PAINEL DE STATUS ---
             <motion.div
               key="status"
               variants={panelVariants}
@@ -138,6 +142,7 @@ export const CSVUpload = ({
               exit="exit"
               className="w-full text-left"
             >
+              {/* Informação do Arquivo */}
               <div className="bg-gray-900/50 border border-gray-800 rounded-xl p-4 flex items-center gap-4">
                 <div className="flex-shrink-0 bg-blue-500/20 p-3 rounded-lg"><FileText className="w-6 h-6 text-blue-400" /></div>
                 <div className="flex-1 min-w-0">
@@ -145,7 +150,6 @@ export const CSVUpload = ({
                   <p className="text-xs text-gray-400">{(selectedFile.size / 1024).toFixed(2)} KB</p>
                 </div>
                 {!isUploading && (
-                  // ✅ CORRIGIDO: Adicionado className
                   <motion.button
                     whileHover={{ scale: 1.1, color: 'rgb(248 113 113)' }}
                     whileTap={{ scale: 0.9 }}
@@ -157,11 +161,10 @@ export const CSVUpload = ({
                 )}
               </div>
 
+              {/* Status do Upload (Barra e Mensagem) */}
               <div className="mt-6 space-y-3">
                 {isUploading && (
-                  // ✅ CORRIGIDO: Adicionado className
                   <div className="w-full bg-blue-900/30 rounded-full h-2.5 overflow-hidden">
-                    {/* ✅ CORRIGIDO: Adicionado props de animação e className */}
                     <motion.div
                       className="bg-gradient-to-r from-transparent via-blue-500 to-transparent w-1/2 h-full"
                       initial={{ x: '-100%' }}
@@ -184,6 +187,7 @@ export const CSVUpload = ({
                 )}
               </div>
 
+              {/* Botão de Novo Upload (só aparece ao finalizar) */}
               {finished && (
                 <motion.button
                   initial={{ opacity: 0, y: 10 }}

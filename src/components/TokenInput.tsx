@@ -58,11 +58,12 @@ export const TokenInput = ({ token, onTokenChange, onConfirm }: TokenInputProps)
         </div>
       </div>
 
-      <h2 className="text-2xl font-semibold text-white mb-2 tracking-wide">
-        Token da Empresa
+      {/* ✅ TÍTULO AJUSTADO PARA CONSISTÊNCIA */}
+      <h2 className="text-2xl font-bold text-white mb-2 tracking-tighter">
+        <span className="text-blue-500">C2S</span> – Create Sellers
       </h2>
       <p className="text-gray-400 text-sm mb-8">
-        Insira o token para continuar.
+        Insira o token da empresa para continuar.
       </p>
 
       <div className="space-y-3">
@@ -83,13 +84,11 @@ export const TokenInput = ({ token, onTokenChange, onConfirm }: TokenInputProps)
           />
           <div className="absolute right-3.5 top-1/2 -translate-y-1/2">
             <AnimatePresence>
-              {/* ✅ CORRIGIDO: Adicionado initial e animate */}
               {error && (
                 <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }}>
                   <AlertCircle className="w-5 h-5 text-red-400" />
                 </motion.div>
               )}
-              {/* ✅ CORRIGIDO: Adicionado initial e animate */}
               {isValid && (
                 <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }}>
                   <CheckCircle className="w-5 h-5 text-green-400" />
@@ -102,7 +101,6 @@ export const TokenInput = ({ token, onTokenChange, onConfirm }: TokenInputProps)
         <div className="h-12 pt-1">
           <AnimatePresence mode="wait">
             {error && (
-              // ✅ CORRIGIDO: Adicionado props de animação e className
               <motion.div
                 key="error"
                 variants={messageVariants}

@@ -1,4 +1,3 @@
-// src/App.tsx - VERSÃO WIZARD CORRIGIDA
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion'; 
 import { TokenInput } from './components/TokenInput';
@@ -7,20 +6,23 @@ import { uploadCSVToN8N } from './services/csvService';
 import { OnBotChat } from './components/OnBotChat';
 
 const App: React.FC = () => {
-  // ESTADOS DO WIZARD
+  // Estado para controlar a etapa do wizard (qual componente mostrar)
   const [step, setStep] = useState<'token' | 'upload'>('token');
-  const [token, setToken] = useState('');
-  const [companyId] = useState('C2S');
   
-  // ESTADOS DO UPLOAD
+  // Estados compartilhados
+  const [token, setToken] = useState('');
+  const [companyId] = useState('C2S'); // Você pode mudar isso se precisar
+  
+  // Estados de Upload
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadMessage, setUploadMessage] = useState<string | null>(null);
   const [finished, setFinished] = useState(false);
 
+  // Estado do Chat
   const [showChat, setShowChat] = useState(false);
 
-  // Lógica de upload
+  // Lógica de Upload (chamada pelo CSVUpload)
   const handleFileUpload = async (file: File) => {
     if (!token) {
       setUploadMessage('⚠️ Insira o token antes de enviar o CSV.');
@@ -48,16 +50,17 @@ const App: React.FC = () => {
     }
   };
 
-  // FUNÇÕES DE NAVEGAÇÃO DO WIZARD
+  // Funções de Navegação do Wizard
   const handleTokenConfirm = () => {
-    setStep('upload');
+    setStep('upload'); // Avança para a etapa de upload
   };
 
   const handleBack = () => {
-    handleRemoveFile();
-    setStep('token');
+    handleRemoveFile(); // Limpa o estado do upload
+    setStep('token'); // Volta para a etapa de token
   };
 
+  // Limpa o estado do upload (usado ao voltar ou ao enviar novo)
   const handleRemoveFile = () => {
     setSelectedFile(null);
     setIsUploading(false);
@@ -69,6 +72,7 @@ const App: React.FC = () => {
     setShowChat(false);
   };
 
+  // Renderiza o Chat em tela cheia se ativo
   if (showChat) {
     return (
       <div className="h-screen w-full bg-black text-white">
@@ -77,17 +81,21 @@ const App: React.FC = () => {
     );
   }
 
+  // Renderização principal (O Wizard)
   return (
     <div className="min-h-screen bg-[#050505] text-white flex flex-col items-center justify-center p-4">
       
-      {/* O Card do Wizard */}
+      {/* O Card principal que serve como "palco" */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         className="bg-gradient-to-b from-[#0b0b0b] to-[#111] border border-blue-900/50 rounded-2xl shadow-[0_0_30px_rgba(59,130,246,0.1)] p-8 max-w-lg w-full backdrop-blur-sm text-center"
       >
+        {/* ✅ TÍTULO REMOVIDO DAQUI */}
+        {/* A AnimatePresence controla a transição suave */}
         <AnimatePresence mode="wait">
           {step === 'token' ? (
+            // Etapa 1: Mostrar TokenInput
             <TokenInput
               key="tokenStep"
               token={token}
@@ -95,6 +103,7 @@ const App: React.FC = () => {
               onConfirm={handleTokenConfirm}
             />
           ) : (
+            // Etapa 2: Mostrar CSVUpload
             <CSVUpload
               key="uploadStep"
               onFileSelect={handleFileUpload}
@@ -111,7 +120,7 @@ const App: React.FC = () => {
         </AnimatePresence>
       </motion.div>
 
-      {/* ✅ CORRIGIDO: Botão flutuante do Chat (com as classes corretas) */}
+      {/* Botão flutuante do Chat */}
       <button
         onClick={() => setShowChat(true)}
         className="fixed left-6 bottom-6 bg-blue-600 hover:bg-blue-700 text-white rounded-full p-3 shadow-lg transition-all z-50 flex items-center gap-2 group hover:scale-105"
@@ -126,7 +135,7 @@ const App: React.FC = () => {
         </span>
       </button>
 
-      {/* ✅ CORRIGIDO: Status do sistema (com as classes corretas) */}
+      {/* Status do sistema */}
       <div className="fixed right-6 bottom-6 bg-gray-800 border border-gray-700 rounded-lg p-3 text-xs text-gray-300 z-40">
         <div className="flex items-center gap-2">
           <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
