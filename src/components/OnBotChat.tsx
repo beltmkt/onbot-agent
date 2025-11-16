@@ -1,6 +1,6 @@
 // src/components/OnBotChat.tsx - VERSÃO COM PLANILHA INTEGRADA
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Send, RefreshCw, Bot, User, Maximize2, Minimize2, Upload, FileText, CheckCircle2, Sparkles } from 'lucide-react';
+import { X, Send, RefreshCw, Bot, User, Maximize2, Minimize2, Upload, FileText } from 'lucide-react';
 import { sendMessageToOnbot, testOnbotConnection, processPlanilha } from '../services/onbotService';
 import onbotAvatar from '/onbot-avatar.png';
 
@@ -16,7 +16,6 @@ interface ChatMessage {
   isTyping?: boolean;
   hasPlanilha?: boolean;
   planilhaData?: string[][];
-  isSuccess?: boolean;
 }
 
 export const OnBotChat: React.FC<OnBotChatProps> = ({ onClose }) => {
@@ -63,34 +62,8 @@ export const OnBotChat: React.FC<OnBotChatProps> = ({ onClose }) => {
     });
   }, [messages]);
 
-  // ✅ Função para tratar respostas do sistema
-  const tratarRespostaBot = (resposta: string): { texto: string; isSuccess: boolean } => {
-    const respostaLower = resposta.toLowerCase().trim();
-    
-    // Se for a mensagem de workflow iniciado, transforma em mensagem de sucesso
-    if (respostaLower.includes('workflow was started') || respostaLower.includes('workflow started')) {
-      return {
-        texto: '🎉 **Usuários criados com sucesso!**\n\n✅ Todos os dados foram processados e os usuários foram cadastrados no sistema.\n\n**Próximos passos:**\n• Os usuários receberão e-mails de boas-vindas\n• Credenciais de acesso foram geradas\n• Você pode verificar no painel administrativo\n\n💬 Deseja criar mais usuários ou posso ajudar com algo mais?',
-        isSuccess: true
-      };
-    }
-    
-    // Outras respostas padrão que podem indicar sucesso
-    if (respostaLower.includes('success') || respostaLower.includes('sucesso') || respostaLower.includes('criado com sucesso')) {
-      return {
-        texto: resposta,
-        isSuccess: true
-      };
-    }
-    
-    return {
-      texto: resposta,
-      isSuccess: false
-    };
-  };
-
   // ✅ Efeito de digitação mais suave
-  const addTypingEffect = async (message: string, isSuccess: boolean = false, delay: number = 20) => {
+  const addTypingEffect = async (message: string, delay: number = 20) => {
     return new Promise<void>((resolve) => {
       let currentText = '';
       let index = 0;
@@ -101,8 +74,7 @@ export const OnBotChat: React.FC<OnBotChatProps> = ({ onClose }) => {
         sender: 'bot',
         text: '',
         timestamp: new Date(),
-        isTyping: true,
-        isSuccess: false
+        isTyping: true
       }]);
 
       const interval = setInterval(() => {
@@ -118,12 +90,7 @@ export const OnBotChat: React.FC<OnBotChatProps> = ({ onClose }) => {
           clearInterval(interval);
           setMessages(prev => prev.map(msg => 
             msg.id === typingMessageId 
-              ? { 
-                  ...msg, 
-                  isTyping: false, 
-                  isSuccess: isSuccess,
-                  text: currentText 
-                }
+              ? { ...msg, isTyping: false }
               : msg
           ));
           resolve();
@@ -160,15 +127,6 @@ export const OnBotChat: React.FC<OnBotChatProps> = ({ onClose }) => {
       
       setMessages(prev => [...prev, userMessage]);
 
-      // Adicionar mensagem de processamento
-      const processingMessage: ChatMessage = {
-        id: `processing_${Date.now()}`,
-        sender: 'system',
-        text: '⏳ Processando planilha...',
-        timestamp: new Date()
-      };
-      setMessages(prev => [...prev, processingMessage]);
-
       // Ler arquivo como texto (simulação - em produção você processaria o CSV/Excel)
       const text = await file.text();
       const linhas = text.split('\n').filter(line => line.trim()).map(line => line.split(',').map(cell => cell.trim()));
@@ -178,13 +136,11 @@ export const OnBotChat: React.FC<OnBotChatProps> = ({ onClose }) => {
       // Enviar para processamento
       const resultado = await processPlanilha(linhas, sessionId);
       
-      // Tratar a resposta
-      const respostaTratada = tratarRespostaBot(resultado);
-      await addTypingEffect(respostaTratada.texto, respostaTratada.isSuccess);
+      await addTypingEffect(resultado);
 
     } catch (error) {
       console.error('❌ Erro ao processar planilha:', error);
-      await addTypingEffect('❌ Erro ao processar planilha. Verifique o formato e tente novamente.');
+      await addTypingEffect('❌ Erro ao processar planilha. Tente novamente.');
     } finally {
       setLoading(false);
       // Limpar input de arquivo
@@ -225,9 +181,8 @@ export const OnBotChat: React.FC<OnBotChatProps> = ({ onClose }) => {
       
       console.log('✅ Resposta recebida:', botResponse);
       
-      // ✅ TRATAR RESPOSTA E APLICAR EFEITO DE DIGITAÇÃO
-      const respostaTratada = tratarRespostaBot(botResponse);
-      await addTypingEffect(respostaTratada.texto, respostaTratada.isSuccess);
+      // ✅ ADICIONA RESPOSTA COM EFEITO DE DIGITAÇÃO
+      await addTypingEffect(botResponse);
       
     } catch (error) {
       console.error('❌ Erro na comunicação:', error);
@@ -358,18 +313,11 @@ export const OnBotChat: React.FC<OnBotChatProps> = ({ onClose }) => {
                     : 'bg-gradient-to-r from-blue-500/90 to-cyan-500/90 text-white shadow-lg border-blue-400/30'
                   : msg.sender === 'system'
                   ? 'bg-gradient-to-r from-purple-500/20 to-pink-500/20 text-purple-200 border-purple-400/20'
-                  : msg.isSuccess
-                  ? 'bg-gradient-to-r from-green-500/20 to-emerald-500/20 text-green-100 border-green-400/50 shadow-lg relative overflow-hidden'
                   : msg.isTyping
                   ? 'bg-gradient-to-r from-gray-700/80 to-gray-600/80 text-gray-100 border-gray-500/30'
                   : 'bg-gradient-to-r from-gray-750/80 to-gray-700/80 text-gray-100 border-gray-600/30 shadow-lg'
-              } ${msg.isSuccess ? 'success-message-glow' : ''}`}
+              }`}
             >
-              {/* Efeito especial para mensagens de sucesso */}
-              {msg.isSuccess && (
-                <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-green-400 to-emerald-400"></div>
-              )}
-              
               <div className="flex items-center gap-2 mb-2">
                 {msg.sender === 'user' ? (
                   <div className="flex items-center gap-2">
@@ -385,14 +333,8 @@ export const OnBotChat: React.FC<OnBotChatProps> = ({ onClose }) => {
                   </div>
                 ) : (
                   <div className="flex items-center gap-2">
-                    {msg.isSuccess ? (
-                      <CheckCircle2 className="w-4 h-4 text-green-400" />
-                    ) : (
-                      <Bot className="w-4 h-4" />
-                    )}
-                    <span className="text-xs opacity-70 font-medium">
-                      {msg.isSuccess ? 'Sucesso!' : 'OnBot AI'}
-                    </span>
+                    <Bot className="w-4 h-4" />
+                    <span className="text-xs opacity-70 font-medium">OnBot AI</span>
                   </div>
                 )}
                 {msg.isTyping && (
@@ -401,9 +343,6 @@ export const OnBotChat: React.FC<OnBotChatProps> = ({ onClose }) => {
                     <div className="w-1.5 h-1.5 bg-cyan-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
                     <div className="w-1.5 h-1.5 bg-cyan-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
                   </div>
-                )}
-                {msg.isSuccess && (
-                  <Sparkles className="w-4 h-4 text-yellow-400 animate-pulse" />
                 )}
               </div>
               
@@ -488,26 +427,6 @@ export const OnBotChat: React.FC<OnBotChatProps> = ({ onClose }) => {
           </button>
         </div>
       </div>
-
-      {/* Estilos CSS para o efeito de sucesso */}
-      <style>{`
-        .success-message-glow {
-          position: relative;
-          animation: successGlow 2s ease-in-out;
-        }
-        
-        @keyframes successGlow {
-          0% {
-            box-shadow: 0 0 0px rgba(34, 197, 94, 0.3);
-          }
-          50% {
-            box-shadow: 0 0 20px rgba(34, 197, 94, 0.6);
-          }
-          100% {
-            box-shadow: 0 0 0px rgba(34, 197, 94, 0.3);
-          }
-        }
-      `}</style>
     </div>
   );
 };
