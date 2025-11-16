@@ -23,7 +23,7 @@ export const OnBotChat: React.FC<OnBotChatProps> = ({ onClose }) => {
     { 
       id: 'welcome',
       sender: 'bot', 
-      text: '👋 Olá! Sou o OnBot e vou te ajudar a criar novos usuários.\n\n📊 **Posso processar:**\n• Token de acesso\n• Dados de usuários em texto\n• Planilhas CSV/Excel\n• Múltiplos usuários de uma vez\n\n🔑 Para começar, me envie o token de acesso da sua empresa.',
+      text: '👋 Olá! Sou o OnBot e vou te ajudar a criar novos usuários.\n\n📊 **Posso processar:**\n• Token de acesso\n• Dados de usuários em texto\n• Planilhas CSV\n• Múltiplos usuários de uma vez\n\n🔑 Para começar, me envie o token de acesso da sua empresa.',
       timestamp: new Date()
     }
   ]);
