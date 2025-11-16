@@ -109,7 +109,7 @@ export const OnBotChat: React.FC<OnBotChatProps> = ({ onClose }) => {
     const fileExtension = file.name.toLowerCase().split('.').pop();
     
     if (!validTypes.some(type => file.name.toLowerCase().includes(type) || file.type.includes(type))) {
-      await addTypingEffect('❌ Formato não suportado. Use CSV ou Excel.');
+      await addTypingEffect('❌ Formato não suportado. Use CSV.');
       return;
     }
 
@@ -390,7 +390,7 @@ export const OnBotChat: React.FC<OnBotChatProps> = ({ onClose }) => {
             Upload Planilha
           </button>
           <div className="flex-1 text-xs text-cyan-300/70 flex items-center">
-            📊 Suporta CSV e Excel
+            📊 Suporta CSV
           </div>
         </div>
 
