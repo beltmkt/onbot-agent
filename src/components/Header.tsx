@@ -8,13 +8,13 @@ import { auditService } from '../services/auditService';
 
 export const Header: React.FC = () => {
   const { theme, toggleTheme } = useTheme();
-  const { user, signOut } = useAuth();
+  const { user, logout } = useAuth();
 
   const handleSignOut = async () => {
     if (user?.email) {
       await auditService.logLogout(user.email, user.id);
     }
-    await signOut();
+    await logout();
     toast.success('Logout realizado com sucesso');
   };
 

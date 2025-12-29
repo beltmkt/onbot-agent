@@ -31,4 +31,4 @@ class AuditService {
     }
 }
 
-export { AuditService, AuditLog };
+export type { AuditService, AuditLog };

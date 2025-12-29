@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { Upload, FileText, X, Loader2, Download, CheckCircle, AlertTriangle, ArrowLeft, Home } from 'lucide-react'; // Adicionei 'Home'
+import { Upload, FileText, X, Loader2, Download, CheckCircle, AlertTriangle, ArrowLeft, Home, Key } from 'lucide-react'; // Adicionei 'Home'
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface CSVUploadProps {

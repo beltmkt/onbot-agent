@@ -1,9 +1,9 @@
 // src/components/OnBotChat/index.tsx
 import React from 'react';
 import { X, Send, Wifi, WifiOff, RefreshCw } from 'lucide-react';
-import { useRealtimeChat } from '../../../hooks/useRealtimeChat';
+import { useRealtimeChat } from '../../hooks/useRealtimeChat';
 import { useChatScroll, useChatInput } from './hooks';
-import { ChatMessage } from '../../../types/chat';
+import { ChatMessage } from '../../types/chat';
 
 interface OnBotChatProps {
   onClose: () => void;
@@ -93,7 +93,7 @@ export const OnBotChat: React.FC<OnBotChatProps> = ({
         ref={scrollRef}
         className="flex-1 overflow-y-auto p-3 space-y-2"
       >
-        {displayMessages.map((message) => (
+        {displayMessages.map((message: ChatMessage) => (
           <div
             key={message.id}
             className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}

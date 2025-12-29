@@ -8,8 +8,7 @@ interface ChatInputProps {
 
 export const ChatInput: React.FC<ChatInputProps> = ({ onSend, sessionId }) => {
   const [message, setMessage] = useState('');
-  const webhookUrl =
-    'https://consentient-bridger-pyroclastic.ngrok-free.dev/webhook/bc410b9e-0c7e-4625-b4aa-06f42b413ddc/chat';
+  const webhookUrl = import.meta.env.VITE_CHAT_WEBHOOK_URL;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

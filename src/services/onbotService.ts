@@ -113,7 +113,7 @@ const formatCompaniesList = (companiesData: any): string => {
     
     let formatted = '🏢 **EMPRESAS DISPONÍVEIS:**\n\n';
     
-    companies.forEach((company, index) => {
+    companies.forEach((company: any, index: number) => {
       if (company.company_name) {
         formatted += `${index + 1}. ${company.company_name}\n`;
       }

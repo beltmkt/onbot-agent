@@ -18,20 +18,15 @@ export const TokenInput = ({ token, onTokenChange, onConfirm }: TokenInputProps)
   const [error, setError] = useState<string | null>(null);
 
   const isValid = useMemo(() => {
-    if (!token) return false;
-    if (token.length < 5) return false;
-    if (!/^[a-zA-Z0-9-_]+$/.test(token)) return false;
-    return true;
+    return token.length > 0;
   }, [token]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newToken = e.target.value.trim();
+    const newToken = e.target.value;
     onTokenChange(newToken);
 
-    if (newToken && newToken.length < 5) {
-      setError('Token muito curto');
-    } else if (newToken && !/^[a-zA-Z0-9-_]+$/.test(newToken)) {
-      setError('Token contém caracteres inválidos');
+    if (newToken.length === 0) {
+      setError('Token é obrigatório');
     } else {
       setError(null);
     }
@@ -74,7 +69,11 @@ export const TokenInput = ({ token, onTokenChange, onConfirm }: TokenInputProps)
             value={token}
             onChange={handleChange}
             placeholder="Cole seu token aqui..."
-            className={`w-full pl-10 pr-10 py-3 bg-black/40 border rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-1 transition-all duration-200 ${
+            autoCapitalize="off"
+            autoCorrect="off"
+            autoComplete="off"
+            spellCheck="false"
+            className={`w-full pl-12 pr-10 py-3 bg-black/40 border rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-1 transition-all duration-200 ${
               error
                 ? 'border-red-500/50 focus:border-red-500 focus:ring-red-500/50'
                 : isValid

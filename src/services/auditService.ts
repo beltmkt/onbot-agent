@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase';
 export interface AuditLogData {
   userEmail: string;
   userId?: string;
-  actionType: 'csv_upload' | 'token_validation' | 'user_creation' | 'login' | 'logout' | 'export_data';
+  actionType: 'csv_upload' | 'token_validation' | 'user_creation' | 'login' | 'logout' | 'export_data' | 'login_attempt' | 'profile_update';
   fileName?: string;
   fileSize?: number;
   status: 'success' | 'error' | 'pending';
@@ -69,7 +69,7 @@ export const auditService = {
     userId: string | undefined,
     fileName: string,
     fileSize: number,
-    status: 'success' | 'error',
+    status: 'success' | 'error' | 'pending',
     errorMessage?: string,
     metadata?: Record<string, any>
   ): Promise<void> {

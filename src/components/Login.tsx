@@ -1,259 +1,481 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import './Login.css'; // Importe o CSS
+import { motion, AnimatePresence } from 'framer-motion';
+import { Mail, Lock, User, Eye, EyeOff, AlertCircle, CheckCircle, ArrowRight } from 'lucide-react';
+import './Login.css';
 
 interface LoginFormData {
   email: string;
   password: string;
 }
 
-const ALLOWED_DOMAIN = '@c2sglobal.com';
+interface RegisterFormData {
+  name: string;
+  email: string;
+  password: string;
+  confirmPassword: string;
+}
 
-export const Login: React.FC = () => {
-  const { signIn, signUp, isAuthorizedDomain } = useAuth();
-  const [formData, setFormData] = useState<LoginFormData>({
+const Login: React.FC = () => {
+  const { signIn, signUp, recoverPassword } = useAuth();
+  const navigate = useNavigate();
+
+  // Estados para controle de abas
+  const [activeTab, setActiveTab] = useState<'login' | 'register'>('login');
+
+  // Estados para formulários
+  const [loginData, setLoginData] = useState<LoginFormData>({
     email: '',
     password: '',
   });
+
+  const [registerData, setRegisterData] = useState<RegisterFormData>({
+    name: '',
+    email: '',
+    password: '',
+    confirmPassword: '',
+  });
+
+  // Estados de UI
   const [error, setError] = useState<string>('');
-  const [showRegisterOption, setShowRegisterOption] = useState<boolean>(false);
-  const [isRegistering, setIsRegistering] = useState<boolean>(false);
+  const [success, setSuccess] = useState<string>('');
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [showPassword, setShowPassword] = useState<boolean>(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState<boolean>(false);
+  const [showForgotPassword, setShowForgotPassword] = useState<boolean>(false);
+  const [forgotEmail, setForgotEmail] = useState<string>('');
 
   // Debug: log quando o componente monta
   useEffect(() => {
     console.log('Login component mounted');
-    console.log('isAuthorizedDomain function exists:', typeof isAuthorizedDomain === 'function');
   }, []);
 
-  // Função de validação com debug
-  const validateEmail = (email: string): boolean => {
-    console.log('Validando email:', email);
-    
-    if (!email || typeof email !== 'string') {
-      console.log('Email inválido ou não é string');
-      return false;
-    }
-    
-    if (isAuthorizedDomain) {
-      try {
-        const result = isAuthorizedDomain(email);
-        console.log('Resultado de isAuthorizedDomain:', result);
-        return result;
-      } catch (err) {
-        console.error('Erro em isAuthorizedDomain:', err);
-        return email.toLowerCase().endsWith(ALLOWED_DOMAIN);
-      }
-    }
-    
-    return email.toLowerCase().endsWith(ALLOWED_DOMAIN);
-  };
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    console.log(`Campo ${name} alterado para:`, value);
-    
-    const newFormData = {
-      ...formData,
-      [name]: value,
-    };
-
-    setFormData(newFormData);
+  // Limpa mensagens quando muda de aba
+  useEffect(() => {
     setError('');
+    setSuccess('');
+  }, [activeTab]);
 
-    if (name === 'email') {
-      const isValid = validateEmail(value);
-      console.log('Email válido?', isValid);
-      setShowRegisterOption(isValid);
-    }
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
+  // Handler para login
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('Tentando login com:', formData.email);
-
-    if (!formData.email || !formData.password) {
-      setError('Por favor, preencha todos os campos');
-      return;
-    }
-
-    const emailValid = validateEmail(formData.email);
-    console.log('Validação final do email:', emailValid);
-    
-    if (!emailValid) {
-      setError(`Apenas emails do domínio ${ALLOWED_DOMAIN} são permitidos`);
-      return;
-    }
-
-    setIsLoading(true);
     setError('');
+    setSuccess('');
+    setIsLoading(true);
 
     try {
-      console.log('Chamando signIn...');
-      const res = await signIn(formData.email, formData.password);
-      console.log('Resposta do signIn:', res);
-      
-      if (res.error) {
-        setError(res.error);
-        if (
-          res.error.toLowerCase().includes('não encontrado') || 
-          res.error.toLowerCase().includes('not found') ||
-          res.error.toLowerCase().includes('usuário não existe')
-        ) {
-          setShowRegisterOption(true);
-        }
+      const result = await signIn(loginData.email, loginData.password);
+
+      if (result.error) {
+        setError(result.error);
+      } else {
+        setSuccess('Login realizado com sucesso!');
+        // Redirecionar para o dashboard
+        navigate('/dashboard');
       }
-    } catch (err: any) {
-      console.error('Erro no catch do login:', err);
-      setError(err instanceof Error ? err.message : 'Erro ao fazer login');
+    } catch (err) {
+      setError('Erro inesperado. Tente novamente.');
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleRegisterRequest = async () => {
-    console.log('Solicitando registro para:', formData.email);
-    
-    if (!validateEmail(formData.email)) {
-      setError(`Para registrar, use um email ${ALLOWED_DOMAIN}`);
-      return;
-    }
-
-    setIsRegistering(true);
+  // Handler para cadastro
+  const handleRegister = async (e: React.FormEvent) => {
+    e.preventDefault();
     setError('');
+    setSuccess('');
+    setIsLoading(true);
 
     try {
-      console.log('Chamando signUp...');
-      const res = await signUp(formData.email, formData.password);
-      console.log('Resposta do signUp:', res);
-      
-      if (res.error) {
-        setError(res.error);
-      } else {
-        setError('✅ Solicitação de registro enviada! Verifique seu email para confirmar.');
-        setShowRegisterOption(false);
+      // Validações adicionais
+      if (registerData.password !== registerData.confirmPassword) {
+        setError('As senhas não coincidem');
+        setIsLoading(false);
+        return;
       }
-    } catch (err: any) {
-      console.error('Erro no catch do registro:', err);
-      setError(err instanceof Error ? err.message : 'Erro ao solicitar registro');
+
+      if (registerData.password.length < 6) {
+        setError('A senha deve ter pelo menos 6 caracteres');
+        setIsLoading(false);
+        return;
+      }
+
+      const result = await signUp(registerData.email, registerData.password, registerData.name);
+
+      if (result.error) {
+        setError(result.error);
+      } else {
+        setSuccess('Conta criada com sucesso! Verifique seu email para confirmação.');
+        // Limpa formulário
+        setRegisterData({
+          name: '',
+          email: '',
+          password: '',
+          confirmPassword: '',
+        });
+      }
+    } catch (err) {
+      setError('Erro inesperado. Tente novamente.');
     } finally {
-      setIsRegistering(false);
+      setIsLoading(false);
     }
   };
 
-  const handleForgotPassword = () => {
-    if (validateEmail(formData.email)) {
-      setError('📧 Link de recuperação enviado para seu email!');
-      // Implementar: recoverPassword(formData.email);
-    } else {
-      setError('Digite um email válido para recuperar a senha');
+  // Handler para recuperação de senha
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setSuccess('');
+    setIsLoading(true);
+
+    try {
+      const result = await recoverPassword(forgotEmail);
+
+      if (result.success) {
+        setSuccess(result.message);
+        setForgotEmail('');
+        setShowForgotPassword(false);
+      } else {
+        setError(result.message);
+      }
+    } catch (err) {
+      setError('Erro inesperado. Tente novamente.');
+    } finally {
+      setIsLoading(false);
     }
+  };
+
+  // Animações
+  const tabVariants = {
+    inactive: { opacity: 0.7, scale: 0.95 },
+    active: { opacity: 1, scale: 1 },
+  };
+
+  const formVariants = {
+    hidden: { opacity: 0, x: -20 },
+    animate: { opacity: 1, x: 0 },
   };
 
   return (
     <div className="login-container">
-      <form onSubmit={handleSubmit} className="login-form">
-        <div className="form-header">
-          <h2>Acesso Restrito</h2>
-          <p className="domain-info">
-            <strong>Domínio permitido:</strong> {ALLOWED_DOMAIN}
-          </p>
-        </div>
-
-        <div className="form-group">
-          <label htmlFor="email">
-            Email {ALLOWED_DOMAIN}
-            <span className="required">*</span>
-          </label>
-          <input
-            id="email"
-            type="email"
-            name="email"
-            value={formData.email}
-            onChange={handleChange}
-            disabled={isLoading || isRegistering}
-            placeholder={`seu.nome${ALLOWED_DOMAIN}`}
-            className={formData.email && !validateEmail(formData.email) ? 'invalid' : ''}
-          />
-          {formData.email && !validateEmail(formData.email) && (
-            <div className="domain-warning">
-              <span>⚠️</span> Use um email {ALLOWED_DOMAIN}
+      <motion.div
+        className="login-card"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+      >
+        {/* Header */}
+        <div className="login-header">
+          <motion.div
+            className="logo-section"
+            initial={{ scale: 0 }}
+            animate={{ scale: 1 }}
+            transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
+          >
+            <div className="logo-icon">
+              <Lock className="w-8 h-8" />
             </div>
-          )}
+            <h1 className="logo-text">C2S Onboarding Tools</h1>
+          </motion.div>
+          <p className="login-subtitle">Central de Ações e Setup</p>
         </div>
 
-        <div className="form-group">
-          <label htmlFor="password">
-            Senha
-            <span className="required">*</span>
-          </label>
-          <input
-            id="password"
-            type="password"
-            name="password"
-            value={formData.password}
-            onChange={handleChange}
-            disabled={isLoading || isRegistering}
-            placeholder="Digite sua senha"
-          />
-        </div>
-
-        {error && (
-          <div className={`message ${error.startsWith('✅') || error.startsWith('📧') ? 'success' : 'error'}`}>
-            {error}
-          </div>
-        )}
-
-        <div className="form-actions">
-          <button
-            type="submit"
-            disabled={isLoading || isRegistering || !validateEmail(formData.email)}
-            className="login-button"
+        {/* Tabs */}
+        <div className="tabs-container">
+          <motion.button
+            className={`tab-button ${activeTab === 'login' ? 'active' : ''}`}
+            onClick={() => setActiveTab('login')}
+            variants={tabVariants}
+            animate={activeTab === 'login' ? 'active' : 'inactive'}
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
           >
-            {isLoading ? (
-              <>
-                <span className="loading-spinner"></span>
-                Entrando...
-              </>
-            ) : (
-              'Entrar'
-            )}
-          </button>
+            Login
+          </motion.button>
+          <motion.button
+            className={`tab-button ${activeTab === 'register' ? 'active' : ''}`}
+            onClick={() => setActiveTab('register')}
+            variants={tabVariants}
+            animate={activeTab === 'register' ? 'active' : 'inactive'}
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+          >
+            Cadastro
+          </motion.button>
+        </div>
 
-          {showRegisterOption && (
-            <button
-              type="button"
-              onClick={handleRegisterRequest}
-              disabled={isLoading || isRegistering || !validateEmail(formData.email)}
-              className="register-button"
+        {/* Formulários */}
+        <AnimatePresence mode="wait">
+          {activeTab === 'login' ? (
+            <motion.form
+              key="login"
+              className="login-form"
+              onSubmit={handleLogin}
+              variants={formVariants}
+              initial="hidden"
+              animate="animate"
+              exit="hidden"
+              transition={{ duration: 0.3 }}
             >
-              {isRegistering ? (
-                <>
-                  <span className="loading-spinner"></span>
-                  Enviando...
-                </>
-              ) : (
-                'Solicitar Cadastro'
-              )}
-            </button>
-          )}
-        </div>
+              <div className="form-group">
+                <label className="form-label">Email Corporativo</label>
+                <div className="input-wrapper">
+                  <Mail className="input-icon" />
+                  <input
+                    type="email"
+                    value={loginData.email}
+                    onChange={(e) => setLoginData({ ...loginData, email: e.target.value })}
+                    placeholder="seu.email@c2sglobal.com"
+                    className="form-input pl-12"
+                    required
+                  />
+                </div>
+              </div>
 
-        <div className="form-footer">
-          <p className="info-text">
-            Apenas colaboradores com email {ALLOWED_DOMAIN} podem acessar o sistema. 
-            Novo usuário? Solicite registro acima.
-          </p>
-          
-          <button
-            type="button"
-            onClick={handleForgotPassword}
-            className="forgot-password-button"
-          >
-            Esqueceu sua senha?
-          </button>
-        </div>
-      </form>
+              <div className="form-group">
+                <label className="form-label">Senha</label>
+                <div className="input-wrapper">
+                  <Lock className="input-icon" />
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    value={loginData.password}
+                    onChange={(e) => setLoginData({ ...loginData, password: e.target.value })}
+                    placeholder="Digite sua senha"
+                    className="form-input pl-12"
+                    required
+                  />
+                  <button
+                    type="button"
+                    className="password-toggle"
+                    onClick={() => setShowPassword(!showPassword)}
+                  >
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+
+              <motion.button
+                type="submit"
+                className="submit-button"
+                disabled={isLoading}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+              >
+                {isLoading ? (
+                  <div className="loading-spinner" />
+                ) : (
+                  <>
+                    Entrar
+                    <ArrowRight className="w-4 h-4 ml-2" />
+                  </>
+                )}
+              </motion.button>
+
+              <button
+                type="button"
+                className="forgot-password-link"
+                onClick={() => setShowForgotPassword(true)}
+              >
+                Esqueceu sua senha?
+              </button>
+            </motion.form>
+          ) : (
+            <motion.form
+              key="register"
+              className="login-form"
+              onSubmit={handleRegister}
+              variants={formVariants}
+              initial="hidden"
+              animate="animate"
+              exit="hidden"
+              transition={{ duration: 0.3 }}
+            >
+              <div className="form-group">
+                <label className="form-label">Nome Completo</label>
+                <div className="input-wrapper">
+                  <User className="input-icon" />
+                  <input
+                    type="text"
+                    value={registerData.name}
+                    onChange={(e) => setRegisterData({ ...registerData, name: e.target.value })}
+                    placeholder="Seu nome completo"
+                    className="form-input pl-12"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Email Corporativo</label>
+                <div className="input-wrapper">
+                  <Mail className="input-icon" />
+                  <input
+                    type="email"
+                    value={registerData.email}
+                    onChange={(e) => setRegisterData({ ...registerData, email: e.target.value })}
+                    placeholder="seu.email@c2sglobal.com"
+                    className="form-input pl-12"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Senha</label>
+                <div className="input-wrapper">
+                  <Lock className="input-icon" />
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    value={registerData.password}
+                    onChange={(e) => setRegisterData({ ...registerData, password: e.target.value })}
+                    placeholder="Mínimo 6 caracteres"
+                    className="form-input pl-12"
+                    required
+                  />
+                  <button
+                    type="button"
+                    className="password-toggle"
+                    onClick={() => setShowPassword(!showPassword)}
+                  >
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Confirmar Senha</label>
+                <div className="input-wrapper">
+                  <Lock className="input-icon" />
+                  <input
+                    type={showConfirmPassword ? 'text' : 'password'}
+                    value={registerData.confirmPassword}
+                    onChange={(e) => setRegisterData({ ...registerData, confirmPassword: e.target.value })}
+                    placeholder="Digite a senha novamente"
+                    className="form-input pl-12"
+                    required
+                  />
+                  <button
+                    type="button"
+                    className="password-toggle"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  >
+                    {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+
+              <motion.button
+                type="submit"
+                className="submit-button register-button"
+                disabled={isLoading}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+              >
+                {isLoading ? (
+                  <div className="loading-spinner" />
+                ) : (
+                  <>
+                    Criar Conta
+                    <ArrowRight className="w-4 h-4 ml-2" />
+                  </>
+                )}
+              </motion.button>
+            </motion.form>
+          )}
+        </AnimatePresence>
+
+        {/* Mensagens */}
+        <AnimatePresence>
+          {error && (
+            <motion.div
+              className="message error-message"
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+            >
+              <AlertCircle className="w-4 h-4" />
+              <span>{error}</span>
+            </motion.div>
+          )}
+
+          {success && (
+            <motion.div
+              className="message success-message"
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+            >
+              <CheckCircle className="w-4 h-4" />
+              <span>{success}</span>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Modal de Esqueci Senha */}
+        <AnimatePresence>
+          {showForgotPassword && (
+            <motion.div
+              className="modal-overlay"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowForgotPassword(false)}
+            >
+              <motion.div
+                className="modal-content"
+                initial={{ scale: 0.8, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.8, opacity: 0 }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <h3 className="modal-title">Recuperar Senha</h3>
+                <p className="modal-description">
+                  Digite seu email corporativo para receber instruções de recuperação.
+                </p>
+
+                <form onSubmit={handleForgotPassword} className="modal-form">
+                  <div className="form-group">
+                    <div className="input-wrapper">
+                      <Mail className="input-icon" />
+                      <input
+                        type="email"
+                        value={forgotEmail}
+                        onChange={(e) => setForgotEmail(e.target.value)}
+                        placeholder="seu.email@c2sglobal.com"
+                        className="form-input pl-12"
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <div className="modal-actions">
+                    <button
+                      type="button"
+                      className="cancel-button"
+                      onClick={() => setShowForgotPassword(false)}
+                    >
+                      Cancelar
+                    </button>
+                    <motion.button
+                      type="submit"
+                      className="submit-button"
+                      disabled={isLoading}
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                    >
+                      {isLoading ? <div className="loading-spinner" /> : 'Enviar'}
+                    </motion.button>
+                  </div>
+                </form>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </motion.div>
     </div>
   );
 };
+
+export { Login };

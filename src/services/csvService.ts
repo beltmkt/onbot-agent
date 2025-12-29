@@ -48,9 +48,6 @@ export interface UploadCompleteResponse {
   success: boolean;
 }
 
-// 🔑 Sua chave Supabase
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZxeG5tdnBydWNxY2Z6eHFwY2VjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTk3ODQ1MTQsImV4cCI6MjA3NTM2MDUxNH0.jhDWlRM51z_GUZTfq04pbiJozF-huW_sInYyTYOZ9KA';
-
 // ==========================
 // Função de upload de CSV ajustada com headers
 // ==========================
@@ -63,15 +60,15 @@ export const uploadCSVToN8N = async (file: File, token: string): Promise<{ succe
     formData.append('file_name', file.name);
     formData.append('file_size', file.size.toString());
     formData.append('uploaded_at', new Date().toISOString());
+    formData.append('token', token);
 
     // 🔹 Envio para webhook com headers personalizados
     const response = await fetch(
-      'https://consentient-bridger-pyroclastic.ngrok-free.dev/webhook/criar_conta_final',
+      import.meta.env.VITE_N8N_WEBHOOK_URL,
       {
         method: 'POST',
         headers: {
           'arquivo': 'enviado',
-          'Authorization': `Bearer ${token}`,
         },
         body: formData,
       }
@@ -159,7 +156,7 @@ export const parseCSV = async (file: File): Promise<CSVUser[]> => {
         const users: CSVUser[] = [];
         const dataLines = lines.slice(1);
 
-        dataLines.forEach((line, i) => {
+        dataLines.forEach((line) => {
           const cols = line.split(',').map(c => c.trim().replace(/^"|"$/g, ''));
           if (cols.length >= 5) {
             const user: CSVUser = {

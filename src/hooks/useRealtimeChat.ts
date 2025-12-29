@@ -1,6 +1,6 @@
 // src/hooks/useRealtimeChat.ts
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { realtimeService } from '../services/realtime';
+import { realtimeService } from '../services/realtimeService';
 import { SseEvent, ChatMessage, SendMessagePayload } from '../types/chat';
 
 export const useRealtimeChat = (sessionId: string, userId: string) => {
@@ -34,9 +34,9 @@ export const useRealtimeChat = (sessionId: string, userId: string) => {
             } else {
               // Cria nova mensagem parcial
               newMessages.push({
-                id: event.data.message_id!,
+                id: event.data.message_id || '',
                 role: 'assistant',
-                content: event.data.content,
+                content: event.data.content || '',
                 timestamp: new Date(),
                 status: 'sent'
               });
@@ -60,9 +60,9 @@ export const useRealtimeChat = (sessionId: string, userId: string) => {
             return [
               ...filtered,
               {
-                id: event.data.message_id,
+                id: event.data.message_id || '',
                 role: 'assistant',
-                content: event.data.content,
+                content: event.data.content || '',
                 timestamp: new Date(),
                 status: 'sent'
               }
@@ -106,14 +106,7 @@ export const useRealtimeChat = (sessionId: string, userId: string) => {
     setMessages(prev => [...prev, userMessage]);
 
     try {
-      const payload: SendMessagePayload = {
-        message_id: messageId,
-        session_id: sessionId,
-        user_id: userId,
-        text: text
-      };
-
-      await realtimeService.sendMessage(payload);
+      await realtimeService.sendMessage(text, sessionId);
       
       // Atualiza status para enviado
       setMessages(prev => prev.map(msg =>
