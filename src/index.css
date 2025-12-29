@@ -22,3 +22,92 @@
     @apply bg-background text-foreground;
   }
 }
+
+@layer components {
+  .login-container {
+    @apply flex items-center justify-center min-h-screen px-4;
+  }
+
+  .login-form {
+    @apply w-full max-w-md bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg p-6 shadow-md;
+  }
+
+  .form-header h2 {
+    @apply text-2xl font-semibold mb-1 text-gray-900 dark:text-white;
+  }
+
+  .domain-info {
+    @apply text-sm text-gray-600 dark:text-gray-300 mb-4;
+  }
+
+  .form-group {
+    @apply mb-4;
+  }
+
+  .form-group > label {
+    @apply block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1;
+  }
+
+  .login-form input {
+    @apply w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-gray-100;
+  }
+
+  .login-form input:disabled {
+    @apply opacity-60 cursor-not-allowed;
+  }
+
+  .domain-warning {
+    @apply text-xs text-yellow-600 mt-1;
+  }
+
+  .message {
+    @apply mt-2;
+  }
+
+  .message.success {
+    @apply text-sm text-green-600;
+  }
+
+  .message.error {
+    @apply text-sm text-red-600;
+  }
+
+  .form-actions {
+    @apply flex items-center gap-2 mt-4;
+  }
+
+  .login-button {
+    @apply inline-flex items-center justify-center px-4 py-2 rounded-md bg-blue-600 hover:bg-blue-700 text-white text-sm disabled:opacity-50;
+  }
+
+  .register-button {
+    @apply inline-flex items-center justify-center px-3 py-2 rounded-md bg-gray-100 dark:bg-gray-700 text-sm text-gray-800 dark:text-gray-100 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50;
+  }
+
+  .form-footer .info-text {
+    @apply text-xs text-gray-500 dark:text-gray-400 mt-3;
+  }
+}@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+  }
+
+  .dark {
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}

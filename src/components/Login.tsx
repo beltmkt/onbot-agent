@@ -1,136 +1,179 @@
 import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { Input } from './ui/Input';
-import { Button } from './ui/Button';
-import { Key, Mail, Lock, ShieldAlert } from 'lucide-react';
-import { toast } from 'sonner';
-import { auditService } from '../services/auditService';
+
+interface LoginFormData {
+  email: string;
+  password: string;
+}
+
+const ALLOWED_DOMAIN = '@c2sglobal.com';
 
 export const Login: React.FC = () => {
-  const { signIn, signUp } = useAuth();
-  const [isSignUp, setIsSignUp] = useState(false);
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [loading, setLoading] = useState(false);
+  const { signIn, signUp, isAuthorizedDomain } = useAuth();
+  const [formData, setFormData] = useState<LoginFormData>({
+    email: '',
+    password: '',
+  });
+  const [error, setError] = useState<string>('');
+  const [showRegisterOption, setShowRegisterOption] = useState<boolean>(false);
+  const [isRegistering, setIsRegistering] = useState<boolean>(false);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+
+  const validateEmailDomain = (email: string): boolean => {
+    return isAuthorizedDomain ? isAuthorizedDomain(email) : email.endsWith(ALLOWED_DOMAIN);
+  };
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    const newFormData = {
+      ...formData,
+      [name]: value,
+    };
+
+    setFormData(newFormData);
+    setError('');
+
+    if (name === 'email' && validateEmailDomain(value)) {
+      setShowRegisterOption(true);
+    } else {
+      setShowRegisterOption(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
+
+    if (!formData.email || !formData.password) {
+      setError('Por favor, preencha todos os campos');
+      return;
+    }
+
+    if (!validateEmailDomain(formData.email)) {
+      setError(`Apenas emails do domínio ${ALLOWED_DOMAIN} são permitidos`);
+      return;
+    }
+
+    setIsLoading(true);
+    setError('');
 
     try {
-      const result = isSignUp
-        ? await signUp(email, password)
-        : await signIn(email, password);
-
-      if (result.error) {
-        toast.error(result.error);
-      } else {
-        toast.success(isSignUp ? 'Conta criada com sucesso!' : 'Login realizado com sucesso!');
-
-        if (!isSignUp) {
-          await auditService.logLogin(email);
+      const res = await signIn(formData.email, formData.password);
+      if (res.error) {
+        setError(res.error);
+        if (
+          res.error.toLowerCase().includes('não encontrado') ||
+          res.error.toLowerCase().includes('not found') ||
+          res.error.toLowerCase().includes('usuário não existe')
+        ) {
+          setShowRegisterOption(true);
         }
       }
-    } catch (error) {
-      toast.error('Erro ao processar solicitação');
+    } catch (err: any) {
+      setError(err instanceof Error ? err.message : 'Erro ao fazer login');
     } finally {
-      setLoading(false);
+      setIsLoading(false);
+    }
+  };
+
+  const handleRegisterRequest = async () => {
+    if (!validateEmailDomain(formData.email)) {
+      setError(`Para registrar, use um email ${ALLOWED_DOMAIN}`);
+      return;
+    }
+
+    setIsRegistering(true);
+    setError('');
+
+    try {
+      const res = await signUp(formData.email, formData.password || Math.random().toString(36).slice(2, 10));
+      if (res.error) {
+        setError(res.error);
+      } else {
+        setError('✅ Solicitação de registro enviada! Verifique seu email para confirmar.');
+        setShowRegisterOption(false);
+      }
+    } catch (err: any) {
+      setError(err instanceof Error ? err.message : 'Erro ao solicitar registro');
+    } finally {
+      setIsRegistering(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-950 px-4 py-8">
-      <div className="w-full max-w-md">
-        <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-xl border border-gray-200 dark:border-gray-800 overflow-hidden">
-          <div className="bg-gradient-to-r from-blue-600 to-blue-700 dark:from-blue-500 dark:to-blue-600 px-8 py-10 text-center">
-            <div className="flex justify-center mb-4">
-              <div className="relative">
-                <Key className="w-16 h-16 text-white drop-shadow-lg" strokeWidth={1.5} />
-              </div>
-            </div>
-            <h2 className="text-2xl font-bold text-white mb-2">
-              C<span className="text-blue-200">2</span>S CreateSeller
-            </h2>
-            <p className="text-blue-100 text-sm">
-              Plataforma Corporativa Interna
-            </p>
-          </div>
-
-          <div className="px-8 py-8">
-            <div className="mb-6 p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
-              <div className="flex items-start gap-3">
-                <ShieldAlert className="w-5 h-5 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
-                <div>
-                  <p className="text-sm font-medium text-amber-900 dark:text-amber-200 mb-1">
-                    Acesso Restrito
-                  </p>
-                  <p className="text-xs text-amber-700 dark:text-amber-300">
-                    Apenas emails corporativos @contact2sale.com.br são permitidos nesta plataforma.
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <form onSubmit={handleSubmit} className="space-y-5">
-              <div>
-                <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                  <Input
-                    type="email"
-                    placeholder="seu.email@contact2sale.com.br"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="pl-11"
-                    required
-                  />
-                </div>
-              </div>
-
-              <div>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                  <Input
-                    type="password"
-                    placeholder="Senha"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="pl-11"
-                    required
-                    minLength={6}
-                  />
-                </div>
-              </div>
-
-              <Button
-                type="submit"
-                loading={loading}
-                className="w-full"
-                size="lg"
-              >
-                {isSignUp ? 'Criar Conta' : 'Entrar'}
-              </Button>
-            </form>
-
-            <div className="mt-6 text-center">
-              <button
-                type="button"
-                onClick={() => setIsSignUp(!isSignUp)}
-                className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
-              >
-                {isSignUp
-                  ? 'Já tem uma conta? Fazer login'
-                  : 'Não tem conta? Criar uma nova'}
-              </button>
-            </div>
-          </div>
-
-          <div className="px-8 py-4 bg-gray-50 dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700">
-            <p className="text-xs text-center text-gray-500 dark:text-gray-400">
-              Sistema de gestão de usuários Contact2Sale
-            </p>
-          </div>
+    <div className="login-container">
+      <form onSubmit={handleSubmit} className="login-form">
+        <div className="form-header">
+          <h2>Acesso Restrito</h2>
+          <p className="domain-info">
+            <strong>Domínio permitido:</strong> {ALLOWED_DOMAIN}
+          </p>
         </div>
-      </div>
+
+        <div className="form-group">
+          <label htmlFor="email">
+            Email {ALLOWED_DOMAIN}
+            <span className="required">*</span>
+          </label>
+          <input
+            id="email"
+            type="email"
+            name="email"
+            value={formData.email}
+            onChange={handleChange}
+            disabled={isLoading || isRegistering}
+            placeholder={`seu-nome${ALLOWED_DOMAIN}`}
+            className={formData.email && !validateEmailDomain(formData.email) ? 'invalid' : ''}
+          />
+          {formData.email && !validateEmailDomain(formData.email) && (
+            <div className="domain-warning">⚠️ Use um email {ALLOWED_DOMAIN}</div>
+          )}
+        </div>
+
+        <div className="form-group">
+          <label htmlFor="password">
+            Senha
+            <span className="required">*</span>
+          </label>
+          <input
+            id="password"
+            type="password"
+            name="password"
+            value={formData.password}
+            onChange={handleChange}
+            disabled={isLoading || isRegistering}
+            placeholder="Sua senha"
+          />
+        </div>
+
+        {error && <div className={`message ${error.startsWith('✅') ? 'success' : 'error'}`}>{error}</div>}
+
+        <div className="form-actions">
+          <button
+            type="submit"
+            disabled={isLoading || isRegistering || !validateEmailDomain(formData.email)}
+            className="login-button"
+          >
+            {isLoading ? 'Entrando...' : 'Entrar'}
+          </button>
+
+          {showRegisterOption && (
+            <button
+              type="button"
+              onClick={handleRegisterRequest}
+              disabled={isLoading || isRegistering || !validateEmailDomain(formData.email)}
+              className="register-button"
+            >
+              {isRegistering ? 'Enviando...' : 'Solicitar Cadastro'}
+            </button>
+          )}
+        </div>
+
+        <div className="form-footer">
+          <p className="info-text">
+            Apenas colaboradores com email {ALLOWED_DOMAIN} podem acessar o sistema. Novo usuário? Solicite registro acima.
+          </p>
+        </div>
+      </form>
     </div>
   );
 };

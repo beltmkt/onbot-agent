@@ -1,51 +1,54 @@
+// App.tsx - exemplo de uso
 import React from 'react';
-import { Toaster } from 'sonner';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
-import { ThemeProvider } from './contexts/ThemeContext';
-import { Header } from './components/Header';
-import { Login } from './components/Login';
+import { LoginInput } from './components/LoginInput';
 import { Dashboard } from './components/Dashboard';
 
-const AppContent: React.FC = () => {
-  const { user, loading } = useAuth();
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-600 dark:text-gray-400">Carregando...</p>
-        </div>
-      </div>
-    );
+// Componente protegido
+const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { isAuthenticated, isLoading } = useAuth();
+  
+  if (isLoading) {
+    return <div>Carregando...</div>;
   }
-
-  if (!user) {
-    return <Login />;
+  
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
   }
-
-  return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
-      <Header />
-      <Dashboard />
-    </div>
-  );
+  
+  return <>{children}</>;
 };
 
 const App: React.FC = () => {
+  const { login, requestRegistration } = useAuth();
+
   return (
-    <ThemeProvider>
-      <AuthProvider>
-        <AppContent />
-        <Toaster
-          position="top-right"
-          toastOptions={{
-            className: 'dark:bg-gray-800 dark:text-white dark:border-gray-700',
-          }}
+    <Router>
+      <Routes>
+        <Route 
+          path="/login" 
+          element={
+            <LoginInput 
+              onSubmit={login}
+              onRegisterRequest={requestRegistration}
+            />
+          } 
         />
-      </AuthProvider>
-    </ThemeProvider>
+        <Route 
+          path="/dashboard" 
+          element={
+            <ProtectedRoute>
+              <Dashboard />
+            </ProtectedRoute>
+          } 
+        />
+        <Route path="/" element={<Navigate to="/dashboard" replace />} />
+      </Routes>
+    </Router>
   );
 };
 
+// Envolva seu App com o AuthProvider no index.tsx ou main.tsx
 export default App;
