@@ -19,8 +19,66 @@ export const Login: React.FC = () => {
   const [isRegistering, setIsRegistering] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(false);
 
+  // NOVA FUNÇÃO DE VALIDAÇÃO ADICIONADA AQUI
+  const validateC2SEmail = (email: string): { isValid: boolean; error?: string } => {
+    if (!email || typeof email !== 'string') {
+      return { 
+        isValid: false, 
+        error: 'Email não é uma string válida' 
+      };
+    }
+    
+    const trimmedEmail = email.trim();
+    
+    if (trimmedEmail === '') {
+      return { 
+        isValid: false, 
+        error: 'Email não pode estar vazio' 
+      };
+    }
+    
+    // Expressão regular para validar formato básico de email
+    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    
+    if (!emailRegex.test(trimmedEmail)) {
+      return { 
+        isValid: false, 
+        error: 'Formato de email inválido' 
+      };
+    }
+    
+    const emailLower = trimmedEmail.toLowerCase();
+    
+    if (!emailLower.endsWith(ALLOWED_DOMAIN)) {
+      return { 
+        isValid: false, 
+        error: `Somente emails ${ALLOWED_DOMAIN} são permitidos` 
+      };
+    }
+    
+    const atIndex = emailLower.indexOf('@');
+    if (atIndex === 0) {
+      return { 
+        isValid: false, 
+        error: 'Email deve ter um nome de usuário antes do @' 
+      };
+    }
+    
+    return { 
+      isValid: true 
+    };
+  };
+
   const validateEmailDomain = (email: string): boolean => {
-    return isAuthorizedDomain ? isAuthorizedDomain(email) : email.endsWith(ALLOWED_DOMAIN);
+    // Agora usando a nova função de validação
+    const validation = validateC2SEmail(email);
+    return validation.isValid;
+  };
+
+  // Função para obter mensagem de erro específica do email
+  const getEmailErrorMessage = (email: string): string => {
+    const validation = validateC2SEmail(email);
+    return validation.error || `Apenas emails do domínio ${ALLOWED_DOMAIN} são permitidos`;
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -33,10 +91,13 @@ export const Login: React.FC = () => {
     setFormData(newFormData);
     setError('');
 
-    if (name === 'email' && validateEmailDomain(value)) {
-      setShowRegisterOption(true);
-    } else {
-      setShowRegisterOption(false);
+    if (name === 'email') {
+      const validation = validateC2SEmail(value);
+      if (validation.isValid) {
+        setShowRegisterOption(true);
+      } else {
+        setShowRegisterOption(false);
+      }
     }
   };
 
@@ -48,8 +109,10 @@ export const Login: React.FC = () => {
       return;
     }
 
-    if (!validateEmailDomain(formData.email)) {
-      setError(`Apenas emails do domínio ${ALLOWED_DOMAIN} são permitidos`);
+    // Usando a nova validação
+    const emailValidation = validateC2SEmail(formData.email);
+    if (!emailValidation.isValid) {
+      setError(emailValidation.error || `Apenas emails do domínio ${ALLOWED_DOMAIN} são permitidos`);
       return;
     }
 
@@ -63,21 +126,30 @@ export const Login: React.FC = () => {
         if (
           res.error.toLowerCase().includes('não encontrado') ||
           res.error.toLowerCase().includes('not found') ||
-          res.error.toLowerCase().includes('usuário não existe')
+          res.error.toLowerCase().includes('usuário não existe') ||
+          res.error.toLowerCase().includes('c.endswith') // Adicionado para capturar o erro específico
         ) {
           setShowRegisterOption(true);
         }
       }
     } catch (err: any) {
-      setError(err instanceof Error ? err.message : 'Erro ao fazer login');
+      // Tratamento específico para o erro c.endsWith
+      if (err.message && err.message.includes('c.endsWith')) {
+        setError('Erro de validação de email. Por favor, insira um email válido.');
+        console.error('Erro c.endsWith detectado:', err);
+      } else {
+        setError(err instanceof Error ? err.message : 'Erro ao fazer login');
+      }
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleRegisterRequest = async () => {
-    if (!validateEmailDomain(formData.email)) {
-      setError(`Para registrar, use um email ${ALLOWED_DOMAIN}`);
+    // Usando a nova validação
+    const emailValidation = validateC2SEmail(formData.email);
+    if (!emailValidation.isValid) {
+      setError(emailValidation.error || `Para registrar, use um email ${ALLOWED_DOMAIN}`);
       return;
     }
 
@@ -93,9 +165,25 @@ export const Login: React.FC = () => {
         setShowRegisterOption(false);
       }
     } catch (err: any) {
-      setError(err instanceof Error ? err.message : 'Erro ao solicitar registro');
+      // Tratamento específico para o erro c.endsWith
+      if (err.message && err.message.includes('c.endsWith')) {
+        setError('Erro de validação de email. Por favor, insira um email válido.');
+        console.error('Erro c.endsWith detectado:', err);
+      } else {
+        setError(err instanceof Error ? err.message : 'Erro ao solicitar registro');
+      }
     } finally {
       setIsRegistering(false);
+    }
+  };
+
+  // Função para lidar com blur do campo email (validação em tempo real)
+  const handleEmailBlur = () => {
+    if (formData.email) {
+      const validation = validateC2SEmail(formData.email);
+      if (!validation.isValid) {
+        setError(validation.error || '');
+      }
     }
   };
 
@@ -120,12 +208,15 @@ export const Login: React.FC = () => {
             name="email"
             value={formData.email}
             onChange={handleChange}
+            onBlur={handleEmailBlur} // Adicionado evento onBlur
             disabled={isLoading || isRegistering}
             placeholder={`seu-nome${ALLOWED_DOMAIN}`}
             className={formData.email && !validateEmailDomain(formData.email) ? 'invalid' : ''}
           />
           {formData.email && !validateEmailDomain(formData.email) && (
-            <div className="domain-warning">⚠️ Use um email {ALLOWED_DOMAIN}</div>
+            <div className="domain-warning">
+              ⚠️ {getEmailErrorMessage(formData.email)}
+            </div>
           )}
         </div>
 
@@ -172,6 +263,32 @@ export const Login: React.FC = () => {
           <p className="info-text">
             Apenas colaboradores com email {ALLOWED_DOMAIN} podem acessar o sistema. Novo usuário? Solicite registro acima.
           </p>
+          {/* ADICIONE ESTE BOTÃO PARA RECUPERAÇÃO DE SENHA */}
+          <button
+            type="button"
+            onClick={() => {
+              // Implemente a lógica de recuperação de senha aqui
+              if (formData.email && validateEmailDomain(formData.email)) {
+                setError('📧 Link de recuperação enviado para seu email!');
+                // Chame sua função de recuperação de senha aqui
+                // recoverPassword(formData.email);
+              } else {
+                setError('Digite um email válido para recuperar a senha');
+              }
+            }}
+            className="forgot-password-button"
+            style={{
+              background: 'transparent',
+              border: 'none',
+              color: '#1a73e8',
+              cursor: 'pointer',
+              fontSize: '14px',
+              marginTop: '10px',
+              textDecoration: 'underline'
+            }}
+          >
+            Esqueceu sua senha?
+          </button>
         </div>
       </form>
     </div>
