@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import './Login.css'; // Importe o CSS
 
 interface LoginFormData {
   email: string;
@@ -19,13 +20,39 @@ export const Login: React.FC = () => {
   const [isRegistering, setIsRegistering] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(false);
 
-  // Função de validação simplificada
+  // Debug: log quando o componente monta
+  useEffect(() => {
+    console.log('Login component mounted');
+    console.log('isAuthorizedDomain function exists:', typeof isAuthorizedDomain === 'function');
+  }, []);
+
+  // Função de validação com debug
   const validateEmail = (email: string): boolean => {
-    return isAuthorizedDomain ? isAuthorizedDomain(email) : email.toLowerCase().endsWith(ALLOWED_DOMAIN);
+    console.log('Validando email:', email);
+    
+    if (!email || typeof email !== 'string') {
+      console.log('Email inválido ou não é string');
+      return false;
+    }
+    
+    if (isAuthorizedDomain) {
+      try {
+        const result = isAuthorizedDomain(email);
+        console.log('Resultado de isAuthorizedDomain:', result);
+        return result;
+      } catch (err) {
+        console.error('Erro em isAuthorizedDomain:', err);
+        return email.toLowerCase().endsWith(ALLOWED_DOMAIN);
+      }
+    }
+    
+    return email.toLowerCase().endsWith(ALLOWED_DOMAIN);
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
+    console.log(`Campo ${name} alterado para:`, value);
+    
     const newFormData = {
       ...formData,
       [name]: value,
@@ -34,22 +61,26 @@ export const Login: React.FC = () => {
     setFormData(newFormData);
     setError('');
 
-    if (name === 'email' && validateEmail(value)) {
-      setShowRegisterOption(true);
-    } else {
-      setShowRegisterOption(false);
+    if (name === 'email') {
+      const isValid = validateEmail(value);
+      console.log('Email válido?', isValid);
+      setShowRegisterOption(isValid);
     }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    console.log('Tentando login com:', formData.email);
 
     if (!formData.email || !formData.password) {
       setError('Por favor, preencha todos os campos');
       return;
     }
 
-    if (!validateEmail(formData.email)) {
+    const emailValid = validateEmail(formData.email);
+    console.log('Validação final do email:', emailValid);
+    
+    if (!emailValid) {
       setError(`Apenas emails do domínio ${ALLOWED_DOMAIN} são permitidos`);
       return;
     }
@@ -58,16 +89,22 @@ export const Login: React.FC = () => {
     setError('');
 
     try {
+      console.log('Chamando signIn...');
       const res = await signIn(formData.email, formData.password);
+      console.log('Resposta do signIn:', res);
+      
       if (res.error) {
         setError(res.error);
-        // Mostra opção de registro se o usuário não existir
-        if (res.error.toLowerCase().includes('não encontrado') || 
-            res.error.toLowerCase().includes('not found')) {
+        if (
+          res.error.toLowerCase().includes('não encontrado') || 
+          res.error.toLowerCase().includes('not found') ||
+          res.error.toLowerCase().includes('usuário não existe')
+        ) {
           setShowRegisterOption(true);
         }
       }
     } catch (err: any) {
+      console.error('Erro no catch do login:', err);
       setError(err instanceof Error ? err.message : 'Erro ao fazer login');
     } finally {
       setIsLoading(false);
@@ -75,6 +112,8 @@ export const Login: React.FC = () => {
   };
 
   const handleRegisterRequest = async () => {
+    console.log('Solicitando registro para:', formData.email);
+    
     if (!validateEmail(formData.email)) {
       setError(`Para registrar, use um email ${ALLOWED_DOMAIN}`);
       return;
@@ -84,7 +123,10 @@ export const Login: React.FC = () => {
     setError('');
 
     try {
+      console.log('Chamando signUp...');
       const res = await signUp(formData.email, formData.password);
+      console.log('Resposta do signUp:', res);
+      
       if (res.error) {
         setError(res.error);
       } else {
@@ -92,9 +134,19 @@ export const Login: React.FC = () => {
         setShowRegisterOption(false);
       }
     } catch (err: any) {
+      console.error('Erro no catch do registro:', err);
       setError(err instanceof Error ? err.message : 'Erro ao solicitar registro');
     } finally {
       setIsRegistering(false);
+    }
+  };
+
+  const handleForgotPassword = () => {
+    if (validateEmail(formData.email)) {
+      setError('📧 Link de recuperação enviado para seu email!');
+      // Implementar: recoverPassword(formData.email);
+    } else {
+      setError('Digite um email válido para recuperar a senha');
     }
   };
 
@@ -120,11 +172,13 @@ export const Login: React.FC = () => {
             value={formData.email}
             onChange={handleChange}
             disabled={isLoading || isRegistering}
-            placeholder={`seu-nome${ALLOWED_DOMAIN}`}
+            placeholder={`seu.nome${ALLOWED_DOMAIN}`}
             className={formData.email && !validateEmail(formData.email) ? 'invalid' : ''}
           />
           {formData.email && !validateEmail(formData.email) && (
-            <div className="domain-warning">⚠️ Use um email {ALLOWED_DOMAIN}</div>
+            <div className="domain-warning">
+              <span>⚠️</span> Use um email {ALLOWED_DOMAIN}
+            </div>
           )}
         </div>
 
@@ -140,11 +194,15 @@ export const Login: React.FC = () => {
             value={formData.password}
             onChange={handleChange}
             disabled={isLoading || isRegistering}
-            placeholder="Sua senha"
+            placeholder="Digite sua senha"
           />
         </div>
 
-        {error && <div className={`message ${error.startsWith('✅') ? 'success' : 'error'}`}>{error}</div>}
+        {error && (
+          <div className={`message ${error.startsWith('✅') || error.startsWith('📧') ? 'success' : 'error'}`}>
+            {error}
+          </div>
+        )}
 
         <div className="form-actions">
           <button
@@ -152,7 +210,14 @@ export const Login: React.FC = () => {
             disabled={isLoading || isRegistering || !validateEmail(formData.email)}
             className="login-button"
           >
-            {isLoading ? 'Entrando...' : 'Entrar'}
+            {isLoading ? (
+              <>
+                <span className="loading-spinner"></span>
+                Entrando...
+              </>
+            ) : (
+              'Entrar'
+            )}
           </button>
 
           {showRegisterOption && (
@@ -162,37 +227,31 @@ export const Login: React.FC = () => {
               disabled={isLoading || isRegistering || !validateEmail(formData.email)}
               className="register-button"
             >
-              {isRegistering ? 'Enviando...' : 'Solicitar Cadastro'}
+              {isRegistering ? (
+                <>
+                  <span className="loading-spinner"></span>
+                  Enviando...
+                </>
+              ) : (
+                'Solicitar Cadastro'
+              )}
             </button>
           )}
         </div>
 
         <div className="form-footer">
           <p className="info-text">
-            Apenas colaboradores com email {ALLOWED_DOMAIN} podem acessar o sistema.
+            Apenas colaboradores com email {ALLOWED_DOMAIN} podem acessar o sistema. 
+            Novo usuário? Solicite registro acima.
           </p>
           
-          {/* Botão de recuperação de senha */}
-          {formData.email && validateEmail(formData.email) && (
-            <button
-              type="button"
-              onClick={() => {
-                setError('📧 Link de recuperação enviado para ' + formData.email);
-                // Implemente: recoverPassword(formData.email);
-              }}
-              style={{
-                background: 'transparent',
-                border: 'none',
-                color: '#1a73e8',
-                cursor: 'pointer',
-                fontSize: '14px',
-                marginTop: '15px',
-                textDecoration: 'underline'
-              }}
-            >
-              Esqueceu sua senha?
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={handleForgotPassword}
+            className="forgot-password-button"
+          >
+            Esqueceu sua senha?
+          </button>
         </div>
       </form>
     </div>

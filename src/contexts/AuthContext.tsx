@@ -7,19 +7,27 @@ interface User {
   role?: string;
 }
 
+interface AuthResponse {
+  user: User;
+  token: string;
+}
+
 interface AuthContextType {
   user: User | null;
-  // Mantenha as funções originais
   login: (email: string, password: string) => Promise<void>;
   logout: () => void;
   isAuthenticated: boolean;
   isLoading: boolean;
   requestRegistration: (email: string) => Promise<void>;
   
-  // ADICIONE ESTAS FUNÇÕES QUE O Login.tsx PRECISA
+  // Funções específicas para o Login.tsx
   signIn: (email: string, password: string) => Promise<{ error?: string }>;
   signUp: (email: string, password: string) => Promise<{ error?: string }>;
   isAuthorizedDomain: (email: string) => boolean;
+  
+  // Funções adicionais
+  recoverPassword: (email: string) => Promise<{ success: boolean; message: string }>;
+  resetPassword: (token: string, newPassword: string) => Promise<{ success: boolean; message: string }>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -30,103 +38,217 @@ const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isInitialized, setIsInitialized] = useState(false);
 
-  // Verifica se há usuário salvo no localStorage ao carregar
+  // Inicialização - Verifica se há usuário salvo
   useEffect(() => {
-    const storedUser = localStorage.getItem('user');
-    if (storedUser) {
+    const initializeAuth = async () => {
       try {
-        setUser(JSON.parse(storedUser));
+        const token = localStorage.getItem('token');
+        const storedUser = localStorage.getItem('user');
+        
+        if (token && storedUser) {
+          try {
+            const parsedUser = JSON.parse(storedUser);
+            
+            // Verifica se o token é válido
+            const isValid = await validateToken(token);
+            if (isValid) {
+              setUser(parsedUser);
+            } else {
+              // Token inválido ou expirado
+              localStorage.removeItem('token');
+              localStorage.removeItem('user');
+            }
+          } catch (error) {
+            console.error('Error parsing stored user:', error);
+            localStorage.removeItem('user');
+            localStorage.removeItem('token');
+          }
+        }
       } catch (error) {
-        console.error('Error parsing stored user:', error);
-        localStorage.removeItem('user');
-        localStorage.removeItem('token');
+        console.error('Error initializing auth:', error);
+      } finally {
+        setIsLoading(false);
+        setIsInitialized(true);
       }
-    }
-    setIsLoading(false);
+    };
+
+    initializeAuth();
   }, []);
 
-  // ADICIONE ESTA FUNÇÃO (renomeada para isAuthorizedDomain)
-  const isAuthorizedDomain = useCallback((email: string): boolean => {
-    if (!email || typeof email !== 'string') {
+  // Validação de token
+  const validateToken = async (token: string): Promise<boolean> => {
+    try {
+      const response = await fetch(`${API_URL}/auth/validate-token`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      return response.ok;
+    } catch (error) {
+      console.error('Token validation error:', error);
       return false;
     }
-    return email.toLowerCase().endsWith(AUTHORIZED_DOMAIN);
-  }, []);
-
-  // Função para validar domínio do email (mantida para compatibilidade)
-  const validateEmailDomain = (email: string): boolean => {
-    return isAuthorizedDomain(email);
   };
 
-  // ADICIONE ESTA FUNÇÃO signIn (compatível com Login.tsx)
-  const signIn = useCallback(async (email: string, password: string): Promise<{ error?: string }> => {
-    setIsLoading(true);
+  // Função de validação de domínio SEGURA
+  const isAuthorizedDomain = useCallback((email: any): boolean => {
+    // Verificação completa de tipo
+    if (email === null || email === undefined) {
+      console.warn('Email é null ou undefined');
+      return false;
+    }
+    
+    if (typeof email !== 'string') {
+      console.warn('Email não é uma string:', typeof email, email);
+      return false;
+    }
+    
+    const trimmedEmail = email.trim();
+    
+    if (trimmedEmail === '') {
+      return false;
+    }
+    
     try {
-      if (!isAuthorizedDomain(email)) {
-        return { error: `Apenas emails do domínio ${AUTHORIZED_DOMAIN} são permitidos` };
-      }
+      // Converte para minúsculas e verifica o domínio
+      const emailLower = trimmedEmail.toLowerCase();
+      const domainLower = AUTHORIZED_DOMAIN.toLowerCase();
+      
+      return emailLower.endsWith(domainLower);
+    } catch (error) {
+      console.error('Error in isAuthorizedDomain:', error);
+      return false;
+    }
+  }, []);
 
+  // Função signIn (requerida pelo Login.tsx)
+  const signIn = useCallback(async (email: string, password: string): Promise<{ error?: string }> => {
+    console.log('signIn chamado com:', { email });
+    
+    // Validação básica
+    if (!email || !password) {
+      return { error: 'Email e senha são obrigatórios' };
+    }
+    
+    // Valida domínio
+    if (!isAuthorizedDomain(email)) {
+      return { error: `Apenas emails do domínio ${AUTHORIZED_DOMAIN} são permitidos` };
+    }
+    
+    setIsLoading(true);
+    
+    try {
       const response = await fetch(`${API_URL}/auth/login`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          email: email.trim().toLowerCase(), 
+          password 
+        }),
       });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        return { error: errorData.message || 'Erro ao fazer login' };
-      }
 
       const data = await response.json();
       
-      // Salva token e informações do usuário
-      localStorage.setItem('token', data.token);
-      localStorage.setItem('user', JSON.stringify(data.user));
+      if (!response.ok) {
+        return { 
+          error: data.message || data.error || 'Erro ao fazer login. Verifique suas credenciais.' 
+        };
+      }
       
-      setUser(data.user);
-      return {};
+      // Login bem-sucedido
+      const authData: AuthResponse = data;
+      
+      // Salva no localStorage
+      localStorage.setItem('token', authData.token);
+      localStorage.setItem('user', JSON.stringify(authData.user));
+      
+      // Atualiza estado
+      setUser(authData.user);
+      
+      return {}; // Sucesso
+      
     } catch (error: any) {
-      console.error('SignIn error:', error);
-      return { error: error.message || 'Erro de conexão' };
+      console.error('Login API error:', error);
+      
+      if (error.name === 'TypeError' && error.message.includes('Failed to fetch')) {
+        return { error: 'Erro de conexão. Verifique sua internet e tente novamente.' };
+      }
+      
+      return { error: 'Erro interno do servidor. Tente novamente mais tarde.' };
     } finally {
       setIsLoading(false);
     }
   }, [isAuthorizedDomain]);
 
-  // ADICIONE ESTA FUNÇÃO signUp (compatível com Login.tsx)
+  // Função signUp (requerida pelo Login.tsx)
   const signUp = useCallback(async (email: string, password: string): Promise<{ error?: string }> => {
+    console.log('signUp chamado com:', { email });
+    
+    // Validação básica
+    if (!email || !password) {
+      return { error: 'Email e senha são obrigatórios' };
+    }
+    
+    // Valida domínio
+    if (!isAuthorizedDomain(email)) {
+      return { error: `Apenas emails do domínio ${AUTHORIZED_DOMAIN} são permitidos` };
+    }
+    
+    // Valida força da senha
+    if (password.length < 6) {
+      return { error: 'A senha deve ter pelo menos 6 caracteres' };
+    }
+    
     setIsLoading(true);
+    
     try {
-      if (!isAuthorizedDomain(email)) {
-        return { error: `Apenas emails do domínio ${AUTHORIZED_DOMAIN} podem solicitar registro` };
-      }
-
-      const name = email.split('@')[0]; // Usa parte do email como nome
+      // Extrai nome do email (parte antes do @)
+      const name = email.split('@')[0] || 'Usuário';
       
       const response = await fetch(`${API_URL}/auth/register`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password, name }),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          email: email.trim().toLowerCase(), 
+          password,
+          name
+        }),
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        return { error: errorData.message || 'Erro ao registrar' };
-      }
-
       const data = await response.json();
-      console.log('Registration successful:', data);
-      return {};
+      
+      if (!response.ok) {
+        return { 
+          error: data.message || data.error || 'Erro ao criar conta. Tente novamente.' 
+        };
+      }
+      
+      // Registro bem-sucedido
+      return {}; // Sucesso
+      
     } catch (error: any) {
-      console.error('SignUp error:', error);
-      return { error: error.message || 'Erro de conexão' };
+      console.error('SignUp API error:', error);
+      
+      if (error.name === 'TypeError' && error.message.includes('Failed to fetch')) {
+        return { error: 'Erro de conexão. Verifique sua internet e tente novamente.' };
+      }
+      
+      return { error: 'Erro interno do servidor. Tente novamente mais tarde.' };
     } finally {
       setIsLoading(false);
     }
   }, [isAuthorizedDomain]);
 
-  // Mantenha a função login original (pode ser um wrapper da signIn)
+  // Função login (mantida para compatibilidade)
   const login = async (email: string, password: string): Promise<void> => {
     const result = await signIn(email, password);
     if (result.error) {
@@ -134,61 +256,156 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
-  // Mantenha a função requestRegistration (pode usar signUp internamente)
+  // Função requestRegistration (mantida para compatibilidade)
   const requestRegistration = async (email: string): Promise<void> => {
-    const result = await signUp(email, Math.random().toString(36).slice(2, 10)); // Senha temporária
+    const result = await signUp(email, Math.random().toString(36).slice(2, 12)); // Senha temporária
     if (result.error) {
       throw new Error(result.error);
     }
   };
 
+  // Função de recuperação de senha
+  const recoverPassword = async (email: string): Promise<{ success: boolean; message: string }> => {
+    if (!isAuthorizedDomain(email)) {
+      return { 
+        success: false, 
+        message: `Apenas emails do domínio ${AUTHORIZED_DOMAIN} são permitidos` 
+      };
+    }
+    
+    setIsLoading(true);
+    
+    try {
+      const response = await fetch(`${API_URL}/auth/recover-password`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email: email.trim().toLowerCase() }),
+      });
+
+      const data = await response.json();
+      
+      if (!response.ok) {
+        return { 
+          success: false, 
+          message: data.message || data.error || 'Erro ao solicitar recuperação de senha' 
+        };
+      }
+      
+      return { 
+        success: true, 
+        message: 'Email de recuperação enviado com sucesso. Verifique sua caixa de entrada.' 
+      };
+      
+    } catch (error: any) {
+      console.error('Recover password error:', error);
+      return { 
+        success: false, 
+        message: 'Erro de conexão. Tente novamente mais tarde.' 
+      };
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Função para resetar senha
+  const resetPassword = async (token: string, newPassword: string): Promise<{ success: boolean; message: string }> => {
+    if (newPassword.length < 6) {
+      return { 
+        success: false, 
+        message: 'A nova senha deve ter pelo menos 6 caracteres' 
+      };
+    }
+    
+    setIsLoading(true);
+    
+    try {
+      const response = await fetch(`${API_URL}/auth/reset-password`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ token, newPassword }),
+      });
+
+      const data = await response.json();
+      
+      if (!response.ok) {
+        return { 
+          success: false, 
+          message: data.message || data.error || 'Erro ao redefinir senha' 
+        };
+      }
+      
+      return { 
+        success: true, 
+        message: 'Senha redefinida com sucesso! Você já pode fazer login.' 
+      };
+      
+    } catch (error: any) {
+      console.error('Reset password error:', error);
+      return { 
+        success: false, 
+        message: 'Erro de conexão. Tente novamente mais tarde.' 
+      };
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   // Função de logout
   const logout = (): void => {
+    // Limpa localStorage
     localStorage.removeItem('token');
     localStorage.removeItem('user');
+    
+    // Limpa estado
     setUser(null);
-    // Redirecionar para a página de login se necessário
+    
+    // Redireciona para login
     window.location.href = '/login';
   };
 
-  // Verifica token expirado periodicamente
+  // Monitora expiração do token
   useEffect(() => {
     const checkTokenExpiration = () => {
       const token = localStorage.getItem('token');
-      if (token) {
+      
+      if (token && user) {
         try {
-          // Decodifica o token JWT (simplificado)
+          // Decodifica JWT (parte do payload)
           const payload = JSON.parse(atob(token.split('.')[1]));
-          const expirationTime = payload.exp * 1000; // Convertendo para milissegundos
+          const expirationTime = payload.exp * 1000;
           
-          if (Date.now() > expirationTime) {
-            logout();
+          if (Date.now() > expirationTime - 30000) { // 30 segundos antes de expirar
+            console.log('Token expirando, renovando...');
+            // Aqui você pode implementar renovação automática do token
           }
         } catch (error) {
-          console.error('Error checking token expiration:', error);
-          logout();
+          console.error('Error checking token:', error);
         }
       }
     };
 
-    // Verifica a cada minuto
-    const interval = setInterval(checkTokenExpiration, 60000);
+    const interval = setInterval(checkTokenExpiration, 30000); // Verifica a cada 30 segundos
     
     return () => clearInterval(interval);
-  }, []);
+  }, [user]);
 
-  // Valor do contexto - ADICIONE AS NOVAS FUNÇÕES
+  // Context value
   const contextValue: AuthContextType = {
     user,
     login,
     logout,
-    isAuthenticated: !!user,
+    isAuthenticated: !!user && isInitialized,
     isLoading,
     requestRegistration,
-    // Adicione estas novas funções
     signIn,
     signUp,
     isAuthorizedDomain,
+    recoverPassword,
+    resetPassword,
   };
 
   return (
@@ -198,30 +415,64 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   );
 };
 
-// Hook personalizado para usar o contexto de autenticação
+// Hook useAuth
 export const useAuth = (): AuthContextType => {
   const context = useContext(AuthContext);
+  
   if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
+    throw new Error('useAuth deve ser usado dentro de um AuthProvider');
   }
+  
   return context;
 };
 
-// Hook para validar email (pode ser usado em outros componentes)
+// Hook para validação de email (opcional, para outros componentes)
 export const useEmailValidation = () => {
   const { isAuthorizedDomain } = useAuth();
   
-  const getDomainValidationMessage = (email: string): string => {
-    if (!email) return '';
-    if (!isAuthorizedDomain(email)) {
-      return `Por favor, use um email do domínio ${AUTHORIZED_DOMAIN}`;
+  const validateEmailWithMessage = (email: string): { isValid: boolean; message: string } => {
+    if (!email || email.trim() === '') {
+      return { isValid: false, message: 'Email é obrigatório' };
     }
-    return '';
+    
+    if (!isAuthorizedDomain(email)) {
+      return { 
+        isValid: false, 
+        message: `Use um email com domínio ${AUTHORIZED_DOMAIN}` 
+      };
+    }
+    
+    // Validação de formato básico
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return { isValid: false, message: 'Formato de email inválido' };
+    }
+    
+    return { isValid: true, message: '' };
   };
 
   return {
     validateEmailDomain: isAuthorizedDomain,
-    getDomainValidationMessage,
+    validateEmailWithMessage,
     AUTHORIZED_DOMAIN,
+  };
+};
+
+// Hook para verificar permissões (opcional)
+export const usePermissions = () => {
+  const { user } = useAuth();
+  
+  const hasRole = (role: string): boolean => {
+    return user?.role === role;
+  };
+  
+  const hasAnyRole = (roles: string[]): boolean => {
+    return roles.some(role => user?.role === role);
+  };
+  
+  return {
+    hasRole,
+    hasAnyRole,
+    userRole: user?.role,
   };
 };
