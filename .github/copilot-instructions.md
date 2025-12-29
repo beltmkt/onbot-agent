@@ -9,7 +9,7 @@ This is a corporate internal platform for Contact2Sale (C2S) built with React/Ty
 - **Database**: Supabase with Row Level Security (RLS) enabled
 - **Processing**: N8N workflows for CSV validation and user creation
 - **Real-time**: Server-Sent Events (SSE) for chat simulation
-- **Backend**: Multiple Node.js Express servers (OnBot proxy, SSE relay)
+- **Backend**: Multiple Node.js Express servers (OnBot proxy on port 5000, SSE relay on port 3001)
 - **Audit**: Comprehensive logging of all user actions to `audit_logs` table
 
 ## Critical Developer Workflows

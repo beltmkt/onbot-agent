@@ -1,97 +1,185 @@
-import { useState } from 'react';
-import { Key, CheckCircle, AlertCircle } from 'lucide-react';
+import { supabase } from '../lib/supabase';
 
-interface TokenInputProps {
-  onTokenChange: (token: string) => void;
-  token: string;
+export interface TokenValidationResult {
+  success: boolean;
+  error?: string;
+  data?: {
+    isValid: boolean;
+    companyId?: string;
+    companyName?: string;
+  };
 }
 
-export const TokenInput = ({ onTokenChange, token }: TokenInputProps) => {
-  const [error, setError] = useState<string | null>(null);
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newToken = e.target.value;
-    onTokenChange(newToken);
-    
-    // Limpa erro anterior
-    if (error) setError(null);
-    
-    // Validação básica em tempo real
-    if (newToken.trim() && newToken.length < 5) {
-      setError('Token muito curto');
-    } else if (newToken.trim() && !/^[a-zA-Z0-9-_]+$/.test(newToken)) {
-      setError('Token contém caracteres inválidos');
-    } else {
-      setError(null);
+/**
+ * Valida um token de empresa
+ * @param token - Token a ser validado
+ * @returns Promise<TokenValidationResult>
+ */
+export const validateCompanyToken = async (token: string): Promise<TokenValidationResult> => {
+  try {
+    // Validação básica do formato do token
+    if (!token || typeof token !== 'string') {
+      return {
+        success: false,
+        error: 'Token é obrigatório'
+      };
     }
-  };
 
-  return (
-    <div className="space-y-6">
-      <div className="text-center">
-        <div className="flex justify-center mb-4">
-          <div className="relative">
-            <Key className="w-12 h-12 text-blue-400" strokeWidth={1.5} />
-            <div className="absolute inset-0 bg-blue-400 blur-xl opacity-20"></div>
-          </div>
-        </div>
-        <h2 className="text-2xl font-bold text-white mb-2">Token da Empresa</h2>
-        <p className="text-gray-400">
-          Insira o token para habilitar o upload do arquivo
-        </p>
-      </div>
+    const trimmedToken = token.trim();
 
-      <div className="space-y-4">
-        <div className="relative">
-          <input
-            type="text"
-            value={token}
-            onChange={handleChange}
-            placeholder="Cole seu token aqui..."
-            className="w-full px-4 py-3 bg-black/40 border border-gray-700 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors"
-          />
-        </div>
+    if (trimmedToken.length < 5) {
+      return {
+        success: false,
+        error: 'Token muito curto'
+      };
+    }
 
-        {/* Mensagem de erro */}
-        {error && (
-          <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-3">
-            <div className="flex items-center gap-2"/>
-              <AlertCircle className="w-4 h-4 text-red-400 flex-shrink-0" >
-              <span className="text-red-400 text-sm">{error}</span>
-            </div>
-          </div>
-        )}
+    if (!/^[a-zA-Z0-9-_]+$/.test(trimmedToken)) {
+      return {
+        success: false,
+        error: 'Token contém caracteres inválidos'
+      };
+    }
 
-        {/* Mensagem de sucesso */}
-        {token && !error && (
-          <div className="bg-green-500/10 border border-green-500/30 rounded-xl p-3">
-            <div className="flex items-center gap-2">
-              <CheckCircle className="w-4 h-4 text-green-400 flex-shrink-0" />
-              <span className="text-green-400 text-sm">
-                ✅ Token inserido - Aguardando arquivo CSV
-              </span>
-            </div>
-          </div>
-        )}
+    // Consulta no Supabase para validar o token
+    const { data, error } = await supabase
+      .from('company_tokens')
+      .select('id, company_id, company_name, is_active, expires_at')
+      .eq('token', trimmedToken)
+      .eq('is_active', true)
+      .single();
 
-        {/* Informações sobre o fluxo */}
-        <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-4">
-          <div className="flex items-start gap-3">
-            <Key className="w-4 h-4 text-blue-400 mt-0.5 flex-shrink-0" />
-            <div className="flex-1">
-              <p className="text-blue-400 text-sm font-medium mb-1">
-                Como funciona:
-              </p>
-              <ul className="text-blue-300 text-xs space-y-1">
-                <li>• Insira o token da sua empresa</li>
-                <li>• Selecione o arquivo CSV</li>
-                <li>• Clique em "Enviar para Processamento"</li>
-                <li>• O token será validado junto com o arquivo</li>
-              </ul>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
+    if (error) {
+      console.error('Database error validating token:', error);
+      return {
+        success: false,
+        error: 'Erro interno do servidor'
+      };
+    }
+
+    if (!data) {
+      return {
+        success: false,
+        error: 'Token inválido ou expirado'
+      };
+    }
+
+    // Verifica se o token não expirou
+    if (data.expires_at) {
+      const expirationDate = new Date(data.expires_at);
+      const now = new Date();
+
+      if (expirationDate < now) {
+        return {
+          success: false,
+          error: 'Token expirado'
+        };
+      }
+    }
+
+    return {
+      success: true,
+      data: {
+        isValid: true,
+        companyId: data.company_id,
+        companyName: data.company_name
+      }
+    };
+
+  } catch (error) {
+    console.error('Error validating company token:', error);
+    return {
+      success: false,
+      error: 'Erro interno do servidor'
+    };
+  }
+};
+
+/**
+ * Verifica se um token é válido (validação síncrona básica)
+ * @param token - Token a ser verificado
+ * @returns boolean
+ */
+export const isTokenFormatValid = (token: string): boolean => {
+  if (!token || typeof token !== 'string') {
+    return false;
+  }
+
+  const trimmedToken = token.trim();
+
+  if (trimmedToken.length < 5) {
+    return false;
+  }
+
+  if (!/^[a-zA-Z0-9-_]+$/.test(trimmedToken)) {
+    return false;
+  }
+
+  return true;
+};
+
+/**
+ * Gera um token temporário para testes (apenas desenvolvimento)
+ * @returns string
+ */
+export const generateTestToken = (): string => {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
+  let result = '';
+  for (let i = 0; i < 32; i++) {
+    result += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return result;
+};
+
+/**
+ * Armazena o token validado no localStorage
+ * @param token - Token validado
+ * @param companyData - Dados da empresa
+ */
+export const storeValidatedToken = (token: string, companyData: { companyId: string; companyName: string }): void => {
+  try {
+    localStorage.setItem('company_token', token);
+    localStorage.setItem('company_data', JSON.stringify(companyData));
+  } catch (error) {
+    console.error('Error storing token:', error);
+  }
+};
+
+/**
+ * Recupera o token armazenado do localStorage
+ * @returns Token armazenado ou null
+ */
+export const getStoredToken = (): string | null => {
+  try {
+    return localStorage.getItem('company_token');
+  } catch (error) {
+    console.error('Error retrieving token:', error);
+    return null;
+  }
+};
+
+/**
+ * Recupera os dados da empresa armazenados
+ * @returns Dados da empresa ou null
+ */
+export const getStoredCompanyData = (): { companyId: string; companyName: string } | null => {
+  try {
+    const data = localStorage.getItem('company_data');
+    return data ? JSON.parse(data) : null;
+  } catch (error) {
+    console.error('Error retrieving company data:', error);
+    return null;
+  }
+};
+
+/**
+ * Remove o token armazenado
+ */
+export const clearStoredToken = (): void => {
+  try {
+    localStorage.removeItem('company_token');
+    localStorage.removeItem('company_data');
+  } catch (error) {
+    console.error('Error clearing token:', error);
+  }
 };
