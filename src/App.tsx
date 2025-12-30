@@ -1,25 +1,28 @@
-// App.tsx - exemplo de uso
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { Login } from './components/Login';
-import { Dashboard } from './components/Dashboard';
-import { Home } from './components/Home'; // Importe a nova Home
+import { CreateUsers } from './components/CreateUsers';
+import { Home } from './components/Home';
+import { MainLayout } from './components/MainLayout';
+import { Teams } from './components/Teams';
+import { TransferContacts } from './components/TransferContacts';
+import { Audit } from './components/Audit';
+import { Settings } from './components/Settings';
 
 
-// Componente protegido
-const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { isAuthenticated, isLoading } = useAuth();
+const ProtectedRoutesLayout: React.FC = () => {
+    const { isAuthenticated, isLoading } = useAuth();
 
-  if (isLoading) {
-    return <div>Carregando...</div>;
-  }
+    if (isLoading) {
+        return <div>Carregando...</div>;
+    }
 
-  if (!isAuthenticated) {
-    return <Navigate to="/login" replace />;
-  }
+    if (!isAuthenticated) {
+        return <Navigate to="/login" replace />;
+    }
 
-  return <>{children}</>;
+    return <MainLayout />;
 };
 
 const AppRoutes: React.FC = () => {
@@ -30,22 +33,16 @@ const AppRoutes: React.FC = () => {
           path="/login"
           element={<Login />}
         />
-        <Route
-          path="/dashboard"
-          element={
-            <ProtectedRoute>
-              <Dashboard />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/home"
-          element={
-            <ProtectedRoute>
-              <Home />
-            </ProtectedRoute>
-          }
-        />
+        
+        <Route element={<ProtectedRoutesLayout />}>
+          <Route path="/home" element={<Home />} />
+          <Route path="/create-users" element={<CreateUsers />} />
+          <Route path="/teams" element={<Teams />} />
+          <Route path="/transfer-contacts" element={<TransferContacts />} />
+          <Route path="/audit" element={<Audit />} />
+          <Route path="/settings" element={<Settings />} />
+        </Route>
+
         <Route path="/" element={<Navigate to="/home" replace />} />
       </Routes>
     </Router>

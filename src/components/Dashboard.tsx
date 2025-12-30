@@ -66,7 +66,7 @@ export const Dashboard: React.FC = () => {
     setLoadingLogs(true);
     try {
       const { data, error } = await supabase
-        .from('audit_logs')
+        .from('activity_logs')
         .select('*')
         .order('created_at', { ascending: false })
         .limit(100);
@@ -91,7 +91,7 @@ export const Dashboard: React.FC = () => {
     setLoadingUserLogs(true);
     try {
       const { data, error } = await supabase
-        .from('audit_logs')
+        .from('activity_logs')
         .select('*')
         .eq('user_email', user.email)
         .order('created_at', { ascending: false })

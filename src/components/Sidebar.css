@@ -1,0 +1,91 @@
+.sidebar {
+  width: 250px;
+  background-color: #1a202c;
+  color: white;
+  padding: 20px;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.sidebar-header {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.sidebar nav {
+    flex-grow: 1;
+    overflow-y: auto;
+}
+
+.nav-section {
+    margin-bottom: 1.5rem;
+}
+
+.nav-section-title {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #a0aec0;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 0 15px 10px;
+}
+
+.sidebar nav ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.nav-link {
+  display: flex;
+  align-items: center;
+  padding: 12px 15px;
+  color: #a0aec0;
+  text-decoration: none;
+  border-radius: 8px;
+  margin-bottom: 5px;
+  transition: background-color 0.2s, color 0.2s;
+  position: relative;
+}
+
+.nav-link:hover {
+  background-color: #2d3748;
+  color: white;
+}
+
+.nav-link.active {
+  background-color: #4a5568;
+  color: white;
+}
+
+.nav-link span {
+  margin-left: 15px;
+}
+
+.nav-item.disabled .nav-link {
+    opacity: 0.5;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
+.coming-soon-badge {
+    font-size: 0.65rem;
+    font-weight: 600;
+    background-color: #4a5568;
+    color: #cbd5e0;
+    padding: 2px 6px;
+    border-radius: 4px;
+    margin-left: auto;
+}
+
+.sidebar-footer {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    border-top: 1px solid #2d3748;
+    padding-top: 1rem;
+    margin-top: 1rem;
+}

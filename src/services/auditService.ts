@@ -14,7 +14,7 @@ export interface AuditLogData {
 export const auditService = {
   async createLog(data: AuditLogData): Promise<{ success: boolean; error?: string }> {
     try {
-      const { error } = await supabase.from('audit_logs').insert({
+      const { error } = await supabase.from('activity_logs').insert({
         user_email: data.userEmail,
         user_id: data.userId,
         action_type: data.actionType,
@@ -43,7 +43,7 @@ export const auditService = {
   async getUserLogs(userEmail: string): Promise<{ data: any[] | null; error?: string }> {
     try {
       const { data, error } = await supabase
-        .from('audit_logs')
+        .from('activity_logs')
         .select('*')
         .eq('user_email', userEmail)
         .order('created_at', { ascending: false })
