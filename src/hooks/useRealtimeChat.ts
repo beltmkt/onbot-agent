@@ -106,7 +106,7 @@ export const useRealtimeChat = (sessionId: string, userId: string) => {
     setMessages(prev => [...prev, userMessage]);
 
     try {
-      await realtimeService.sendMessage(text, sessionId);
+      await realtimeService.sendMessage(text, sessionId, userId, messageId);
       
       // Atualiza status para enviado
       setMessages(prev => prev.map(msg =>
