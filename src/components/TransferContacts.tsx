@@ -38,6 +38,7 @@ export const TransferContacts: React.FC = () => {
     const payload = {
       nome: `${contactName} | ${companyName}`,
       telefone: unmaskPhone(phone),
+      userEmail: user?.email,
     };
 
     try {
