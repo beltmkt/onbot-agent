@@ -1,7 +1,7 @@
-import { FileProcessingResult, UserData, FileProcessor } from '../types';
+import { FileProcessingResult, FileProcessor } from '../types';
 
 export class ExcelProcessor implements FileProcessor {
-  async process(file: File): Promise<FileProcessingResult> {
+  async process(_file: File): Promise<FileProcessingResult> {
     // Para Excel, precisaríamos de uma biblioteca como sheetjs
     return {
       success: false,

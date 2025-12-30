@@ -21,7 +21,7 @@ interface AuditLog {
   error_message?: string;
 }
 
-type TabType = 'create-users' | 'teams' | 'settings' | 'system-logs' | 'future1' | 'future2' | 'future3' | 'future4' | 'future5';
+type TabType = 'create-users' | 'teams' | 'settings' | 'system-logs' | 'activity-logs' | 'future1' | 'future2' | 'future3' | 'future4' | 'future5';
 
 export const Dashboard: React.FC = () => {
   const { user, logout } = useAuth();
@@ -57,7 +57,7 @@ export const Dashboard: React.FC = () => {
     if (activeTab === 'system-logs' && isAdmin) {
       loadAuditLogs();
     }
-    if (activeTab === 'logs') {
+    if (activeTab === 'activity-logs') {
       loadUserLogs();
     }
   }, [activeTab, isAdmin]);
@@ -327,7 +327,7 @@ export const Dashboard: React.FC = () => {
           </div>
         );
 
-      case 'logs':
+      case 'activity-logs':
         return (
           <div className="space-y-6">
             <div className="flex items-center gap-3">

@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { User } from '@supabase/supabase-js';
+
 import { auditService } from '../services/auditService';
 
 interface AuthContextType {
@@ -13,6 +14,7 @@ interface AuthContextType {
 
   // Funções específicas para o Login.tsx
   signIn: (email: string, password: string) => Promise<{ error?: string }>;
+  isFallbackMode?: boolean;
   signUp: (email: string, password: string, name: string) => Promise<{ error?: string }>;
   isAuthorizedDomain: (email: string) => boolean;
 
@@ -314,7 +316,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   // Função para resetar senha (Supabase)
-  const resetPassword = async (token: string, newPassword: string): Promise<{ success: boolean; message: string }> => {
+  const resetPassword = async (_token: string, newPassword: string): Promise<{ success: boolean; message: string }> => {
     if (newPassword.length < 6) {
       return {
         success: false,

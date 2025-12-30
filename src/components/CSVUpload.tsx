@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { Upload, FileText, X, Loader2, Download, CheckCircle, AlertTriangle, ArrowLeft, Home, Key } from 'lucide-react'; // Adicionei 'Home'
+import { Upload, FileText, X, Loader2, Download, CheckCircle, AlertTriangle, Home } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface CSVUploadProps {
@@ -29,17 +29,12 @@ const panelVariants = {
 
 export const CSVUpload = ({
   onFileSelect,
-  onBack,
   onRemoveFile,
-  // --- NOVIDADE: Recebe a função onFinishAndHome ---
   onFinishAndHome,
-  // -------------------------------------------------
   selectedFile,
   isUploading,
   uploadMessage,
-  finished,
-  token,
-  companyId
+  finished
 }: CSVUploadProps) => {
 
   const fileInputRef = useRef<HTMLInputElement>(null);

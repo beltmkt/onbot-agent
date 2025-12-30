@@ -37,7 +37,7 @@ const validateEmailDomain = (email: string): boolean => {
     }
 };
 
-export const AuthProvider = ({ children }: { children: ReactNode }) => {
+export const AuthProvider = ({ children: _children }: { children: ReactNode }) => {
     const [user, setUser] = useState<User | null>(null);
     const [isLoading, setIsLoading] = useState(false);
 
@@ -123,7 +123,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }, []);
 
     // Função signup (mantida para compatibilidade)
-    const signup = useCallback(async (email: string, password: string, name: string) => {
+    const signup = useCallback(async (email: string, password: string, _name: string) => {
         const result = await signUp(email, password);
         if (result.error) {
             throw new Error(result.error);

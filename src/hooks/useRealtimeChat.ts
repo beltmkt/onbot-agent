@@ -1,7 +1,7 @@
 // src/hooks/useRealtimeChat.ts
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { realtimeService } from '../services/realtimeService';
-import { SseEvent, ChatMessage, SendMessagePayload } from '../types/chat';
+import { SseEvent, ChatMessage } from '../types/chat';
 
 export const useRealtimeChat = (sessionId: string, userId: string) => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);

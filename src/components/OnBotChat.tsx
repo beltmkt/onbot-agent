@@ -106,7 +106,7 @@ export const OnBotChat: React.FC<OnBotChatProps> = ({ onClose }) => {
 
     // Validar tipo de arquivo
     const validTypes = ['.csv', '.xlsx', '.xls', 'text/csv', 'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'];
-    const fileExtension = file.name.toLowerCase().split('.').pop();
+
     
     if (!validTypes.some(type => file.name.toLowerCase().includes(type) || file.type.includes(type))) {
       await addTypingEffect('❌ Formato não suportado. Use CSV.');

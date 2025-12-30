@@ -1,7 +1,6 @@
 // src/components/LoginInput.tsx - Componente React correto
 import React, { useState } from 'react';
 import { Mail, Lock } from 'lucide-react';
-import { Mail, Lock } from 'lucide-react'; // Importe os ícones do Lucide React
 
 interface LoginFormData {
     email: string;
@@ -26,7 +25,7 @@ export const LoginInput: React.FC<LoginInputProps> = ({
         password: '',
     });
     const [error, setError] = useState<string>('');
-    const [showRegisterOption, setShowRegisterOption] = useState<boolean>(false);
+
     const [isRegistering, setIsRegistering] = useState<boolean>(false);
 
     const validateEmailDomain = (email: string): boolean => {
@@ -107,7 +106,7 @@ export const LoginInput: React.FC<LoginInputProps> = ({
                             value={formData.email}
                             onChange={handleChange}
                             placeholder={`seu-nome${ALLOWED_DOMAIN}`}
-                            className="w-full pl-10 pr-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                            className="w-full pl-14 pr-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-cyan-500/40 focus:border-cyan-500/60 backdrop-blur-sm transition-all"
                             required
                         />
                     </div>
@@ -127,7 +126,7 @@ export const LoginInput: React.FC<LoginInputProps> = ({
                             value={formData.password}
                             onChange={handleChange}
                             placeholder="Sua senha"
-                            className="w-full pl-10 pr-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                            className="w-full pl-14 pr-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-cyan-500/40 focus:border-cyan-500/60 backdrop-blur-sm transition-all"
                             required
                         />
                     </div>

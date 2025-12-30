@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 
 interface ActionLog {
     id: string;
@@ -10,20 +10,8 @@ interface ActionLog {
 }
 
 export const RegisterInput: React.FC = () => {
-    const [logs, setLogs] = useState<ActionLog[]>([]);
+    const [logs] = useState<ActionLog[]>([]);
     const [filterUser, setFilterUser] = useState('');
-
-    const addLog = (userId: string, userName: string, action: string, details?: string) => {
-        const newLog: ActionLog = {
-            id: Date.now().toString(),
-            userId,
-            userName,
-            action,
-            timestamp: new Date(),
-            details,
-        };
-        setLogs([newLog, ...logs]);
-    };
 
     const filteredLogs = logs.filter(log =>
         filterUser ? log.userId.includes(filterUser) : true

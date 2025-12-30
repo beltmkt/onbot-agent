@@ -195,7 +195,7 @@ const validateN8nResponse = async (): Promise<void> => {
     console.log('📨 Resposta validação - tamanho:', responseText.length);
 
     try {
-      const data = JSON.parse(responseText);
+      JSON.parse(responseText);
       console.log('✅ n8n configurado - JSON válido');
     } catch (jsonError) {
       throw new Error(`n8n não retorna JSON válido`);
@@ -388,7 +388,7 @@ const makeSecureRequest = async (payload: WebhookPayload): Promise<Response> => 
     clearTimeout(timeoutId);
 
     if (!response.ok) {
-      const errorText = await response.text();
+      await response.text();
       console.error('🔧 Erro n8n - status:', response.status);
       throw new Error(`n8n retornou HTTP ${response.status}`);
     }

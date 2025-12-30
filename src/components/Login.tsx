@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Mail, Lock, User, Eye, EyeOff, AlertCircle, CheckCircle, ArrowRight } from 'lucide-react';
+import { Mail, Rocket, User, Eye, EyeOff, AlertCircle, CheckCircle, ArrowRight, Key } from 'lucide-react';
 import './Login.css';
 
 interface LoginFormData {
@@ -175,7 +175,7 @@ const Login: React.FC = () => {
             transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
           >
             <div className="logo-icon">
-              <Lock className="w-8 h-8" />
+              <Rocket className="w-8 h-8" />
             </div>
             <h1 className="logo-text">C2S Onboarding Tools</h1>
           </motion.div>
@@ -220,30 +220,28 @@ const Login: React.FC = () => {
               transition={{ duration: 0.3 }}
             >
               <div className="form-group">
-                <label className="form-label">Email Corporativo</label>
+                <label className="form-label">Email Corporativo <Mail className="input-icon-label" /></label>
                 <div className="input-wrapper">
-                  <Mail className="input-icon" />
                   <input
                     type="email"
                     value={loginData.email}
                     onChange={(e) => setLoginData({ ...loginData, email: e.target.value })}
                     placeholder="seu.email@c2sglobal.com"
-                    className="form-input pl-12"
+                    className="form-input pl-14"
                     required
                   />
                 </div>
               </div>
 
               <div className="form-group">
-                <label className="form-label">Senha</label>
+                <label className="form-label">Senha <Key className="input-icon-label" /></label>
                 <div className="input-wrapper">
-                  <Lock className="input-icon" />
                   <input
                     type={showPassword ? 'text' : 'password'}
                     value={loginData.password}
                     onChange={(e) => setLoginData({ ...loginData, password: e.target.value })}
                     placeholder="Digite sua senha"
-                    className="form-input pl-12"
+                    className="form-input"
                     required
                   />
                   <button
@@ -293,45 +291,42 @@ const Login: React.FC = () => {
               transition={{ duration: 0.3 }}
             >
               <div className="form-group">
-                <label className="form-label">Nome Completo</label>
+                <label className="form-label">Nome <User className="input-icon-label" /></label>
                 <div className="input-wrapper">
-                  <User className="input-icon" />
                   <input
                     type="text"
                     value={registerData.name}
                     onChange={(e) => setRegisterData({ ...registerData, name: e.target.value })}
                     placeholder="Seu nome completo"
-                    className="form-input pl-12"
+                    className="form-input"
                     required
                   />
                 </div>
               </div>
 
               <div className="form-group">
-                <label className="form-label">Email Corporativo</label>
+                <label className="form-label">Email Corporativo <Mail className="input-icon-label" /></label>
                 <div className="input-wrapper">
-                  <Mail className="input-icon" />
                   <input
                     type="email"
                     value={registerData.email}
                     onChange={(e) => setRegisterData({ ...registerData, email: e.target.value })}
                     placeholder="seu.email@c2sglobal.com"
-                    className="form-input pl-12"
+                    className="form-input pl-14"
                     required
                   />
                 </div>
               </div>
 
               <div className="form-group">
-                <label className="form-label">Senha</label>
+                <label className="form-label">Senha <Key className="input-icon-label" /></label>
                 <div className="input-wrapper">
-                  <Lock className="input-icon" />
                   <input
                     type={showPassword ? 'text' : 'password'}
                     value={registerData.password}
                     onChange={(e) => setRegisterData({ ...registerData, password: e.target.value })}
                     placeholder="Mínimo 6 caracteres"
-                    className="form-input pl-12"
+                    className="form-input"
                     required
                   />
                   <button
@@ -345,15 +340,14 @@ const Login: React.FC = () => {
               </div>
 
               <div className="form-group">
-                <label className="form-label">Confirmar Senha</label>
+                <label className="form-label">Confirmar Senha <Key className="input-icon-label" /></label>
                 <div className="input-wrapper">
-                  <Lock className="input-icon" />
                   <input
                     type={showConfirmPassword ? 'text' : 'password'}
                     value={registerData.confirmPassword}
                     onChange={(e) => setRegisterData({ ...registerData, confirmPassword: e.target.value })}
                     placeholder="Digite a senha novamente"
-                    className="form-input pl-12"
+                    className="form-input"
                     required
                   />
                   <button
