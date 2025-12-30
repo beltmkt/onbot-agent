@@ -5,14 +5,19 @@ import { CSVUpload } from './CSVUpload';
 import { uploadCSVToN8N } from '../services/csvService';
 import { auditService } from '../services/auditService';
 import { toast } from 'sonner';
+import { useNavigate } from 'react-router-dom';
+
+type MessageType = 'success' | 'error' | 'info';
 
 export const CreateUsers: React.FC = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [token, setToken] = useState('');
   const [tokenConfirmed, setTokenConfirmed] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadMessage, setUploadMessage] = useState<string | null>(null);
+  const [uploadMessageType, setUploadMessageType] = useState<MessageType>('info');
   const [finished, setFinished] = useState(false);
 
   const handleTokenConfirm = () => {
@@ -29,6 +34,7 @@ export const CreateUsers: React.FC = () => {
     setIsUploading(true);
     setFinished(false);
     setUploadMessage('Enviando arquivo para o servidor...');
+    setUploadMessageType('info');
 
     await auditService.logCSVUpload(
       user.email,
@@ -44,8 +50,9 @@ export const CreateUsers: React.FC = () => {
       const result = await uploadCSVToN8N(file, token);
 
       if (result.success) {
-        setUploadMessage(`Arquivo processado com sucesso!`);
-        toast.success('CSV enviado com sucesso!');
+        setUploadMessage(result.mensagem || 'Arquivo processado com sucesso!');
+        setUploadMessageType('success');
+        toast.success(result.mensagem || 'CSV enviado com sucesso!');
 
         await auditService.logCSVUpload(
           user.email,
@@ -57,8 +64,9 @@ export const CreateUsers: React.FC = () => {
           { completed_at: new Date().toISOString() }
         );
       } else {
-        setUploadMessage(`Falha no envio do arquivo`);
-        toast.error('Erro ao enviar CSV');
+        setUploadMessage(result.mensagem || 'Falha no envio do arquivo.');
+        setUploadMessageType('error');
+        toast.error(result.mensagem || 'Erro ao enviar CSV');
 
         await auditService.logCSVUpload(
           user.email,
@@ -71,7 +79,9 @@ export const CreateUsers: React.FC = () => {
       }
     } catch (error) {
       console.error('Erro no upload:', error);
-      setUploadMessage('Erro de conexão. Tente novamente.');
+      const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
+      setUploadMessage(`Erro de conexão: ${errorMessage}`);
+      setUploadMessageType('error');
       toast.error('Erro de conexão');
 
       await auditService.logCSVUpload(
@@ -80,7 +90,7 @@ export const CreateUsers: React.FC = () => {
         file.name,
         file.size,
         'error',
-        error instanceof Error ? error.message : 'Erro desconhecido'
+        errorMessage
       );
     } finally {
       setIsUploading(false);
@@ -88,17 +98,21 @@ export const CreateUsers: React.FC = () => {
     }
   };
 
-  const handleRemoveFile = () => {
+  const handleRepeat = () => {
     setSelectedFile(null);
     setIsUploading(false);
     setUploadMessage(null);
     setFinished(false);
   };
 
-  const handleFinishAndHome = () => {
-    handleRemoveFile();
+  const handleNewAction = () => {
+    handleRepeat();
     setTokenConfirmed(false);
     setToken('');
+  };
+
+  const handleFinish = () => {
+    navigate('/home');
   };
 
   return (
@@ -113,15 +127,14 @@ export const CreateUsers: React.FC = () => {
         ) : (
             <CSVUpload
             onFileSelect={handleFileUpload}
-            onBack={() => setTokenConfirmed(false)}
-            onRemoveFile={handleRemoveFile}
-            onFinishAndHome={handleFinishAndHome}
+            onRepeat={handleRepeat}
+            onNewAction={handleNewAction}
+            onFinish={handleFinish}
             selectedFile={selectedFile}
             isUploading={isUploading}
             uploadMessage={uploadMessage}
+            uploadMessageType={uploadMessageType}
             finished={finished}
-            token={token}
-            companyId="C2S"
             />
         )}
         </div>
