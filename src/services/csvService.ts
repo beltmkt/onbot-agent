@@ -62,14 +62,11 @@ export const uploadCSVToN8N = async (file: File, token: string): Promise<{ succe
     formData.append('uploaded_at', new Date().toISOString());
     formData.append('token', token);
 
-    // 🔹 Envio para webhook com headers personalizados
+    // 🔹 Envio para webhook SEM headers manuais (deixar navegador definir multipart/form-data automaticamente)
     const response = await fetch(
       import.meta.env.VITE_N8N_WEBHOOK_URL,
       {
         method: 'POST',
-        headers: {
-          'arquivo': 'enviado',
-        },
         body: formData,
       }
     );
@@ -111,7 +108,7 @@ export const validateTokenWithN8N = async (token: string): Promise<ValidationRes
     console.log('🔐 Validando token com N8N...', token);
 
     const response = await fetch(
-      'https://consentient-bridger-pyroclastic.ngrok-free.dev/webhook/criar_conta_final',
+      import.meta.env.VITE_N8N_CHAT_WEBHOOK,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
