@@ -30,46 +30,22 @@ const AUTHORIZED_DOMAIN = '@c2sglobal.com';
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isInitialized, setIsInitialized] = useState(false);
 
   // Inicialização - Verifica sessão do Supabase
   useEffect(() => {
-    const initializeAuth = async () => {
-      try {
-        // Obtém sessão atual
-        const { data: { session }, error } = await supabase.auth.getSession();
-
-        if (error) {
-          console.error('Error getting session:', error);
-        } else if (session?.user) {
-          setUser(session.user);
-        }
-      } catch (error) {
-        console.error('Error initializing auth:', error);
-      } finally {
-        setIsLoading(false);
-        setIsInitialized(true);
-      }
-    };
-
-    initializeAuth();
-
-    // Listener para mudanças de auth
+    // onAuthStateChange is called on initial load and whenever the auth state changes.
+    // This is the most reliable way to get the session and avoid race conditions.
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        console.log('Auth state changed:', event, session?.user?.email);
-
-        if (session?.user) {
-          setUser(session.user);
-        } else {
-          setUser(null);
-        }
-
+      (_event, session) => {
+        setUser(session?.user ?? null);
         setIsLoading(false);
       }
     );
 
-    return () => subscription.unsubscribe();
+    // Cleanup subscription on unmount
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
   // Função de validação de domínio SEGURA
@@ -373,7 +349,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     user,
     login,
     logout,
-    isAuthenticated: !!user && isInitialized,
+    isAuthenticated: !!user,
     isLoading,
     requestRegistration,
     signIn,
