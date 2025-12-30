@@ -64,6 +64,12 @@ const Login: React.FC = () => {
     setSuccess('');
     setIsLoading(true);
 
+    if (!loginData.email.endsWith('@c2sglobal.com')) {
+      setError('Acesso restrito apenas para contas corporativas (@c2sglobal.com)');
+      setIsLoading(false);
+      return;
+    }
+
     try {
       const result = await signIn(loginData.email, loginData.password);
 
@@ -87,6 +93,12 @@ const Login: React.FC = () => {
     setError('');
     setSuccess('');
     setIsLoading(true);
+
+    if (!registerData.email.endsWith('@c2sglobal.com')) {
+      setError('Acesso restrito apenas para contas corporativas (@c2sglobal.com)');
+      setIsLoading(false);
+      return;
+    }
 
     try {
       // Validações adicionais
