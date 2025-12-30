@@ -41,6 +41,22 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       (_event, session) => {
         setUser(session?.user ?? null);
         setIsLoading(false);
+
+        // Log restoration of a session on page load
+        if (_event === 'INITIAL_SESSION' && session?.user) {
+          console.log('Attempting to log session restoration...');
+          try {
+            auditService.createLog({
+              userEmail: session.user.email!,
+              actionType: 'session_restored',
+              status: 'success',
+              metadata: { user_id: session.user.id }
+            });
+            console.log('Session restoration log attempted for:', session.user.email);
+          } catch (error) {
+            console.error('Failed to log session restoration:', error);
+          }
+        }
       }
     );
 
@@ -148,12 +164,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
       if (data.user) {
         setUser(data.user);
-        await auditService.createLog({
+        const logResult = await auditService.createLog({
           userEmail: email,
           actionType: 'login',
           status: 'success',
           metadata: { user_id: data.user.id }
         });
+        console.log('Audit log created for login:', logResult);
         return {}; // Sucesso
       } else {
         await auditService.createLog({
