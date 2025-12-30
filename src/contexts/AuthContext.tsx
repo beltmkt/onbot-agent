@@ -22,6 +22,7 @@ interface AuthContextType {
   recoverPassword: (email: string) => Promise<{ success: boolean; message: string }>;
   resetPassword: (token: string, newPassword: string) => Promise<{ success: boolean; message: string }>;
   updateUser: (data: { name?: string; phone?: string }) => Promise<{ error?: string }>;
+  updatePassword: (newPassword: string) => Promise<{ error?: string }>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -358,6 +359,18 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     return {};
   };
 
+  const updatePassword = async (newPassword: string): Promise<{ error?: string }> => {
+    if (newPassword.length < 6) {
+      return { error: 'A senha deve ter pelo menos 6 caracteres.' };
+    }
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    if (error) {
+      console.error("Error updating password:", error);
+      return { error: error.message };
+    }
+    return {};
+  };
+
   // Context value
   const contextValue: AuthContextType = {
     user,
@@ -372,6 +385,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     recoverPassword,
     resetPassword,
     updateUser,
+    updatePassword,
   };
 
   return (

@@ -67,9 +67,7 @@ export const Sidebar: React.FC = () => {
         </NavSection>
 
         <NavSection title="FUTURO">
-          <NavItem to="#" icon={<Archive size={20} />} disabled>Solicitações Remax</NavItem>
-          <NavItem to="#" icon={<DollarSign size={20} />} disabled>Integração Financeira</NavItem>
-          <NavItem to="#" icon={<AreaChart size={20} />} disabled>Dashboards Avançados</NavItem>
+          <NavItem to="/remax-requests" icon={<Archive size={20} />}>Solicitações Remax</NavItem>
         </NavSection>
 
         <NavSection title="ADMINISTRATIVO">

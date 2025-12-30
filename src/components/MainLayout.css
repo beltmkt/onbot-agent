@@ -1,9 +1,56 @@
 .main-layout {
   display: flex;
+  min-height: 100vh;
+  /* As cores de fundo e texto serão controladas pelo tema do Tailwind */
 }
 
-.content {
+.sidebar-desktop-container {
+  display: none; /* Escondido em mobile por padrão */
+}
+
+.content-wrapper {
+  display: flex;
+  flex-direction: column;
   flex-grow: 1;
-  background-color: #111827;
-  min-height: 100vh;
+  width: 100%;
+}
+
+.sidebar-mobile-container {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
+  z-index: 40;
+  transform: translateX(-100%);
+  transition: transform 0.3s ease-in-out;
+}
+
+.sidebar-mobile-container.open {
+  transform: translateX(0);
+}
+
+.sidebar-mobile-content {
+  height: 100%;
+  width: 250px; /* Largura da sidebar */
+  background-color: #111827; /* Cor de fundo da sidebar no modo escuro */
+}
+
+/* O Tailwind já deve estar aplicando estilos para o dark mode, 
+   mas podemos adicionar fallbacks ou estilos específicos se necessário */
+.dark .sidebar-mobile-content {
+    background-color: #111827;
+}
+.light .sidebar-mobile-content {
+    background-color: #f9fafb;
+}
+
+@media (min-width: 768px) {
+  .sidebar-desktop-container {
+    display: block;
+  }
+  .sidebar-mobile-container {
+    display: none;
+  }
 }

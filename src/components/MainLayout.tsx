@@ -3,17 +3,36 @@ import { Outlet } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { OnBotChat } from './OnBotChat';
 import { Sparkles } from 'lucide-react';
+import { Header } from './Header';
 import './MainLayout.css';
 
 export const MainLayout: React.FC = () => {
   const [isAssistantOpen, setIsAssistantOpen] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   return (
     <div className="main-layout">
-      <Sidebar />
-      <main className="content">
-        <Outlet />
-      </main>
+      {/* Sidebar para Desktop */}
+      <div className="sidebar-desktop-container">
+        <Sidebar />
+      </div>
+
+      {/* Sidebar para Mobile (com overlay) */}
+      <div 
+        className={`sidebar-mobile-container ${isSidebarOpen ? 'open' : ''}`}
+        onClick={() => setIsSidebarOpen(false)}
+      >
+        <div className="sidebar-mobile-content" onClick={(e) => e.stopPropagation()}>
+            <Sidebar />
+        </div>
+      </div>
+      
+      <div className="content-wrapper">
+        <Header onMenuClick={() => setIsSidebarOpen(true)} />
+        <main className="content p-4 md:p-8">
+          <Outlet />
+        </main>
+      </div>
 
       {!isAssistantOpen && (
         <button
@@ -22,9 +41,6 @@ export const MainLayout: React.FC = () => {
           aria-label="Abrir Assistente IA"
         >
           <Sparkles size={24} />
-          <span className="absolute right-full mr-3 px-3 py-1.5 text-sm font-medium text-white bg-gray-900 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
-            Assistente IA
-          </span>
         </button>
       )}
 

@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { toast } from 'sonner';
+import { useAuth } from '../contexts/AuthContext';
+import { auditService } from '../services/auditService';
 
 // Helpers for phone masking
 const maskPhone = (value: string) => {
@@ -17,6 +19,7 @@ const unmaskPhone = (value: string) => {
 const WEBHOOK_URL = 'https://consentient-bridger-pyroclastic.ngrok-free.dev/webhook/transferir-contato';
 
 export const TransferContacts: React.FC = () => {
+  const { user } = useAuth();
   const [contactName, setContactName] = useState('');
   const [companyName, setCompanyName] = useState('');
   const [phone, setPhone] = useState('');
@@ -48,6 +51,19 @@ export const TransferContacts: React.FC = () => {
 
       if (response.ok) {
         toast.success('Contato transferido com sucesso!');
+        
+        if(user?.email) {
+          auditService.createLog({
+            userEmail: user.email,
+            actionType: 'contact_transfer',
+            status: 'success',
+            metadata: {
+              contact_name: contactName,
+              company_name: companyName,
+            }
+          });
+        }
+
         setContactName('');
         setCompanyName('');
         setPhone('');

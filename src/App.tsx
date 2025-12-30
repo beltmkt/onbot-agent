@@ -9,6 +9,7 @@ import { Teams } from './components/Teams';
 import { TransferContacts } from './components/TransferContacts';
 import { Audit } from './components/Audit';
 import { Settings } from './components/Settings';
+import { RemaxRequests } from './components/RemaxRequests';
 
 
 const ProtectedRoutesLayout: React.FC = () => {
@@ -41,6 +42,7 @@ const AppRoutes: React.FC = () => {
           <Route path="/transfer-contacts" element={<TransferContacts />} />
           <Route path="/audit" element={<Audit />} />
           <Route path="/settings" element={<Settings />} />
+          <Route path="/remax-requests" element={<RemaxRequests />} />
         </Route>
 
         <Route path="/" element={<Navigate to="/home" replace />} />
