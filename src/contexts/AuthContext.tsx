@@ -21,6 +21,7 @@ interface AuthContextType {
   // Funções adicionais
   recoverPassword: (email: string) => Promise<{ success: boolean; message: string }>;
   resetPassword: (token: string, newPassword: string) => Promise<{ success: boolean; message: string }>;
+  updateUser: (data: { name?: string; phone?: string }) => Promise<{ error?: string }>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -344,6 +345,19 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
+  const updateUser = async (data: { name?: string; phone?: string }): Promise<{ error?: string }> => {
+    const { error } = await supabase.auth.updateUser({ data });
+    if (error) {
+      console.error("Error updating user:", error);
+      return { error: error.message };
+    }
+    // The onAuthStateChange listener will automatically update the user state,
+    // but we trigger a manual refresh of the user object here for immediate feedback.
+    const { data: { user } } = await supabase.auth.getUser();
+    setUser(user);
+    return {};
+  };
+
   // Context value
   const contextValue: AuthContextType = {
     user,
@@ -357,6 +371,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     isAuthorizedDomain,
     recoverPassword,
     resetPassword,
+    updateUser,
   };
 
   return (
