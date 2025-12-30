@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase';
 export interface AuditLogData {
   userEmail: string;
   userId?: string;
-  actionType: 'csv_upload' | 'token_validation' | 'user_creation' | 'login' | 'logout' | 'export_data' | 'login_attempt' | 'profile_update';
+  actionType: 'csv_upload' | 'token_validation' | 'user_creation' | 'login' | 'logout' | 'export_data' | 'login_attempt' | 'profile_update' | 'session_restored';
   fileName?: string;
   fileSize?: number;
   status: 'success' | 'error' | 'pending';

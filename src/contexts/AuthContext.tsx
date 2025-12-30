@@ -1,5 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
+import { type User } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
+import { auditService } from '../services/auditService';
 import { C2S_USERS_DB } from '../data/c2sUsers';
 
 interface AuthUser extends User {

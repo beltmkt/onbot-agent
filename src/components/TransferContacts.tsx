@@ -1,14 +1,19 @@
-import React, { useState } from 'react';
-import { toast } from 'sonner';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { auditService } from '../services/auditService';
+import { XCircle, CheckCircle, AlertTriangle } from 'lucide-react';
+
+type TransferStatus = {
+  status: 'success' | 'warning' | 'error';
+  message: string;
+};
 
 // Helpers for phone masking
 const maskPhone = (value: string) => {
   if (!value) return "";
   value = value.replace(/\D/g, '');
-  value = value.replace(/^(\d{2})(\d)/g, '($1) $2');
-  value = value.replace(/(\d{5})(\d)/, '$1-$2');
+  value = value.replace(/^(\d{2})(\d)/g, '() $2');
+  value = value.replace(/(\d{5})(\d)/, '-$2');
   return value.slice(0, 15); // (XX) XXXXX-XXXX
 };
 
@@ -24,12 +29,24 @@ export const TransferContacts: React.FC = () => {
   const [companyName, setCompanyName] = useState('');
   const [phone, setPhone] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [transferStatus, setTransferStatus] = useState<TransferStatus | null>(null);
+
+  // Clear status when user starts typing again
+  useEffect(() => {
+    if (contactName || companyName || phone) {
+      setTransferStatus(null);
+    }
+  }, [contactName, companyName, phone]);
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    setTransferStatus(null); // Clear previous status on new submission
 
     if (!contactName || !companyName || !phone) {
-      toast.error('Todos os campos são obrigatórios.');
+        setTransferStatus({
+            status: 'error',
+            message: 'Todos os campos são obrigatórios.',
+        });
       return;
     }
 
@@ -50,11 +67,20 @@ export const TransferContacts: React.FC = () => {
         body: JSON.stringify(payload),
       });
 
+      // Check if the response is JSON, otherwise treat as an error
+      const contentType = response.headers.get("content-type");
+      if (!contentType || !contentType.includes("application/json")) {
+        throw new Error("Resposta inválida do servidor. O n8n pode estar offline ou com erro interno.");
+      }
+
       const data = await response.json();
 
+      setTransferStatus({
+        status: data.status || 'error',
+        message: data.message || 'Resposta inesperada do servidor.',
+      });
+
       if (data.status === 'success') {
-        toast.success(data.message);
-        
         if(user?.email) {
           auditService.createLog({
             userEmail: user.email,
@@ -66,25 +92,44 @@ export const TransferContacts: React.FC = () => {
             }
           });
         }
-
         setContactName('');
         setCompanyName('');
         setPhone('');
-      } else if (data.status === 'warning') {
-        toast.warning(data.message);
-      } else if (data.status === 'error') {
-        toast.error(data.message || 'Erro ao processar a solicitação.');
-      } else {
-        // Fallback for unexpected responses
-        toast.error('Resposta inesperada do servidor.');
       }
     } catch (error) {
       console.error('Erro ao enviar webhook:', error);
-      toast.error('Erro de conexão. Não foi possível contatar o servidor.');
+      const errorMessage = error instanceof Error ? error.message : 'Erro de conexão. Não foi possível contatar o servidor.';
+      setTransferStatus({
+        status: 'error',
+        message: errorMessage,
+      });
     } finally {
       setIsLoading(false);
     }
   };
+  
+  const getStatusIcon = (status: TransferStatus['status']) => {
+    switch (status) {
+      case 'success':
+        return <CheckCircle className="h-5 w-5 text-green-400" />;
+      case 'warning':
+        return <AlertTriangle className="h-5 w-5 text-yellow-400" />;
+      case 'error':
+        return <XCircle className="h-5 w-5 text-red-400" />;
+    }
+  };
+
+  const getStatusColorClass = (status: TransferStatus['status']) => {
+    switch (status) {
+      case 'success':
+        return 'bg-green-900/50 border-green-500';
+      case 'warning':
+        return 'bg-yellow-900/50 border-yellow-500';
+      case 'error':
+        return 'bg-red-900/50 border-red-500';
+    }
+  }
+
 
   return (
     <div className="p-8 bg-gray-900 text-white min-h-screen">
@@ -141,6 +186,14 @@ export const TransferContacts: React.FC = () => {
             {isLoading ? 'Processando...' : 'Transferir'}
           </button>
         </form>
+        
+        {transferStatus && (
+          <div className={`mt-6 p-4 rounded-lg border flex items-start space-x-3 ${getStatusColorClass(transferStatus.status)}`}>
+            <div>{getStatusIcon(transferStatus.status)}</div>
+            <p className="text-sm">{transferStatus.message}</p>
+          </div>
+        )}
+
       </div>
     </div>
   );

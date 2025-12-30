@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { Upload, FileText, X, Loader2, CheckCircle, AlertTriangle, Repeat, Home, Hash, Power } from 'lucide-react';
+import { Upload, FileText, X, Loader2, CheckCircle, AlertTriangle, Repeat, Home, Hash, Power, Download } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 type MessageType = 'success' | 'error' | 'info';
