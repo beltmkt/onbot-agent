@@ -71,8 +71,8 @@ const Login: React.FC = () => {
         setError(result.error);
       } else {
         setSuccess('Login realizado com sucesso!');
-        // Redirecionar para o dashboard
-        navigate('/dashboard');
+        // Redirecionar para a nova página Home
+        navigate('/home');
       }
     } catch (err) {
       setError('Erro inesperado. Tente novamente.');
