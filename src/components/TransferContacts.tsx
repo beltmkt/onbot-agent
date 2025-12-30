@@ -49,8 +49,10 @@ export const TransferContacts: React.FC = () => {
         body: JSON.stringify(payload),
       });
 
-      if (response.ok) {
-        toast.success('Contato transferido com sucesso!');
+      const data = await response.json();
+
+      if (data.status === 'success') {
+        toast.success(data.message);
         
         if(user?.email) {
           auditService.createLog({
@@ -67,9 +69,13 @@ export const TransferContacts: React.FC = () => {
         setContactName('');
         setCompanyName('');
         setPhone('');
+      } else if (data.status === 'warning') {
+        toast.warning(data.message);
+      } else if (data.status === 'error') {
+        toast.error(data.message || 'Erro ao processar a solicitação.');
       } else {
-        const errorData = await response.json().catch(() => null);
-        toast.error(`Falha na transferência: ${errorData?.message || response.statusText}`);
+        // Fallback for unexpected responses
+        toast.error('Resposta inesperada do servidor.');
       }
     } catch (error) {
       console.error('Erro ao enviar webhook:', error);
@@ -131,7 +137,7 @@ export const TransferContacts: React.FC = () => {
             disabled={isLoading}
             className="w-full bg-gradient-to-r from-cyan-500 to-purple-600 hover:from-cyan-600 hover:to-purple-700 text-white px-4 py-3 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-wait"
           >
-            {isLoading ? 'Enviando...' : 'Transferir'}
+            {isLoading ? 'Processando...' : 'Transferir'}
           </button>
         </form>
       </div>
