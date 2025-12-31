@@ -8,17 +8,29 @@ type TransferStatus = {
   message: string;
 };
 
-// Helpers for phone masking
-const maskPhone = (value: string) => {
+// Helper for phone masking
+const formatPhone = (value: string): string => {
   if (!value) return "";
-  value = value.replace(/\D/g, '');
-  value = value.replace(/^(\d{2})(\d)/g, '() $2');
-  value = value.replace(/(\d{5})(\d)/, '-$2');
-  return value.slice(0, 15); // (XX) XXXXX-XXXX
-};
 
-const unmaskPhone = (value: string) => {
-  return value.replace(/\D/g, '');
+  // 1. Remove tudo que não for dígito (0-9)
+  let cleanedValue = value.replace(/\D/g, '');
+
+  // 2. Limita a 11 números (DDD + 9 dígitos)
+  cleanedValue = cleanedValue.substring(0, 11);
+
+  // 3. Aplica a formatação visual progressiva: (XX) XXXXX-XXXX
+  let formattedValue = cleanedValue;
+  if (cleanedValue.length > 0) {
+    formattedValue = `(${cleanedValue.substring(0, 2)}`;
+  }
+  if (cleanedValue.length >= 3) {
+    formattedValue += `) ${cleanedValue.substring(2, 7)}`;
+  }
+  if (cleanedValue.length >= 8) {
+    formattedValue += `-${cleanedValue.substring(7, 11)}`;
+  }
+
+  return formattedValue;
 };
 
 const WEBHOOK_URL = 'https://consentient-bridger-pyroclastic.ngrok-free.dev/webhook/transferir-contato';
@@ -54,7 +66,7 @@ export const TransferContacts: React.FC = () => {
 
     const payload = {
       nome: `${contactName} | ${companyName}`,
-      telefone: unmaskPhone(phone),
+      telefone: phone.replace(/\D/g, ''),
       userEmail: user?.email,
     };
 
@@ -169,10 +181,10 @@ export const TransferContacts: React.FC = () => {
               Telefone
             </label>
             <input
-              type="text"
+              type="tel"
               id="phone"
               value={phone}
-              onChange={(e) => setPhone(maskPhone(e.target.value))}
+              onChange={(e) => setPhone(formatPhone(e.target.value))}
               required
               className="w-full pl-4 pr-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-cyan-500"
               placeholder="(XX) XXXXX-XXXX"
