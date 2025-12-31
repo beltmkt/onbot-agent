@@ -50,9 +50,39 @@ export const CreateUsers: React.FC = () => {
       const result = await uploadCSVToN8N(file, token);
 
       if (result.success) {
-        setUploadMessage(result.mensagem || 'Arquivo processado com sucesso!');
-        setUploadMessageType('success');
-        toast.success(result.mensagem || 'CSV enviado com sucesso!');
+        let messageContent = result.mensagem || 'Arquivo processado com sucesso!';
+        let type: MessageType = 'success';
+
+        if (result.parsedResponse && result.parsedResponse.content) {
+          messageContent = result.parsedResponse.content;
+        }
+
+        const lowerCaseMessage = messageContent.toLowerCase();
+        if (
+          lowerCaseMessage.includes('erro') ||
+          lowerCaseMessage.includes('já estão no sistema') ||
+          lowerCaseMessage.includes('problemas') ||
+          lowerCaseMessage.includes('tente novamente') ||
+          lowerCaseMessage.includes('falha')
+        ) {
+          type = 'error';
+        } else if (
+          lowerCaseMessage.includes('workflow iniciado') ||
+          lowerCaseMessage.includes('sucesso')
+        ) {
+          type = 'success';
+        }
+
+        const formattedMessage = messageContent.replace(/\n/g, '<br />');
+
+        setUploadMessage(formattedMessage);
+        setUploadMessageType(type);
+
+        if (type === 'success') {
+          toast.success(formattedMessage, { dangerouslySetInnerHTML: true });
+        } else {
+          toast.error(formattedMessage, { dangerouslySetInnerHTML: true });
+        }
 
         await auditService.logCSVUpload(
           user.email,
@@ -61,12 +91,36 @@ export const CreateUsers: React.FC = () => {
           file.size,
           'success',
           undefined,
-          { completed_at: new Date().toISOString() }
+          { completed_at: new Date().toISOString(), response_message: formattedMessage }
         );
       } else {
-        setUploadMessage(result.mensagem || 'Falha no envio do arquivo.');
-        setUploadMessageType('error');
-        toast.error(result.mensagem || 'Erro ao enviar CSV');
+        let messageContent = result.mensagem || 'Falha no envio do arquivo.';
+        let type: MessageType = 'error';
+
+        if (result.parsedResponse && result.parsedResponse.content) {
+          messageContent = result.parsedResponse.content;
+        } else if (result.rawResponse) {
+          messageContent = result.rawResponse;
+        }
+
+        const lowerCaseMessage = messageContent.toLowerCase();
+        if (
+          lowerCaseMessage.includes('workflow iniciado') ||
+          lowerCaseMessage.includes('sucesso')
+        ) {
+          type = 'success'; // Pode ser um sucesso com uma mensagem de atenção, mas ainda assim considerado sucesso pela API
+        }
+
+        const formattedMessage = messageContent.replace(/\n/g, '<br />');
+
+        setUploadMessage(formattedMessage);
+        setUploadMessageType(type);
+
+        if (type === 'success') {
+          toast.success(formattedMessage, { dangerouslySetInnerHTML: true });
+        } else {
+          toast.error(formattedMessage, { dangerouslySetInnerHTML: true });
+        }
 
         await auditService.logCSVUpload(
           user.email,
@@ -74,15 +128,16 @@ export const CreateUsers: React.FC = () => {
           file.name,
           file.size,
           'error',
-          result.mensagem
+          formattedMessage
         );
       }
     } catch (error) {
       console.error('Erro no upload:', error);
       const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
-      setUploadMessage(`Erro de conexão: ${errorMessage}`);
+      const formattedErrorMessage = errorMessage.replace(/\n/g, '<br />');
+      setUploadMessage(`Erro de conexão: ${formattedErrorMessage}`);
       setUploadMessageType('error');
-      toast.error('Erro de conexão');
+      toast.error('Erro de conexão', { dangerouslySetInnerHTML: true, description: formattedErrorMessage });
 
       await auditService.logCSVUpload(
         user.email,

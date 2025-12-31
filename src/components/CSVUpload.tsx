@@ -137,7 +137,7 @@ export const CSVUpload = ({
                     >
                       {uploadMessageType === 'success' && <CheckCircle className="w-4 h-4" />}
                       {uploadMessageType === 'error' && <AlertTriangle className="w-4 h-4" />}
-                      <span>{uploadMessage}</span>
+                      <span dangerouslySetInnerHTML={{ __html: uploadMessage }}></span>
                     </motion.div>
                   )}
                   <div className="flex flex-col gap-3 mt-6">
@@ -217,7 +217,7 @@ export const CSVUpload = ({
                     className={`flex items-center justify-center gap-2 text-sm ${getMessageColor()}`}
                   >
                     {isUploading && <Loader2 className="w-4 h-4 animate-spin" />}
-                    <span>{uploadMessage}</span>
+                    <span dangerouslySetInnerHTML={{ __html: uploadMessage }}></span>
                   </motion.div>
                 )}
               </div>
