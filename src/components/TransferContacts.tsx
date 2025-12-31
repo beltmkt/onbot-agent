@@ -79,26 +79,83 @@ export const TransferContacts: React.FC = () => {
         body: JSON.stringify(payload),
       });
 
-      const responseText = await response.text();
-      console.log("Resposta bruta do n8n:", responseText); // Log da resposta bruta
+      const response = await fetch(WEBHOOK_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
 
-      let data;
-      try {
-        data = JSON.parse(responseText);
-      } catch (jsonError) {
-        // Se não for JSON, exibe um alerta com o texto cru e seta um status de erro
+      // Se a resposta não for OK (ex: 4xx, 5xx), lança um erro para ser pego pelo catch
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Erro do servidor (${response.status}): ${errorText || response.statusText}`);
+      }
+
+      const data = await response.json(); // O usuário confirmou que é JSON válido
+
+      // console.log('Resposta do Webhook do n8n (depois de ok check):', data); // Para depuração, se necessário
+
+      // Lógica flexível para interpretar a resposta
+      if (data.status) {
+        // Formato antigo/esperado: { status: 'success' | 'error', message: '...' }
+        setTransferStatus({
+          status: data.status,
+          message: data.message || 'Resposta inesperada do servidor.',
+        });
+        if (data.status === 'success') {
+          // Limpa o formulário e loga apenas se for sucesso no formato antigo
+          if(user?.email) {
+            auditService.createLog({
+              userEmail: user.email,
+              actionType: 'contact_transfer',
+              status: 'success',
+              metadata: {
+                contact_name: contactName,
+                company_name: companyName,
+                response_message: data.message,
+              }
+            });
+          }
+          setContactName('');
+          setCompanyName('');
+          setPhone('');
+        }
+      } else if (data.content) {
+        // Novo formato detectado: { content: ' **Contato transferido com sucesso!** ... ' }
+        const cleanedContent = data.content.replace(/\*\*(.*?)\*\*/g, '$1'); // Remove asteriscos de Markdown
+        setTransferStatus({
+          status: 'success', // Considera como sucesso se tiver content
+          message: cleanedContent,
+        });
+        toast.success(cleanedContent); // Exibe no Toast de sucesso
+        // Limpa o formulário
+        setContactName('');
+        setCompanyName('');
+        setPhone('');
+
+        // Log da ação para sucesso no novo formato (se user.email estiver disponível)
+        if(user?.email) {
+          auditService.createLog({
+            userEmail: user.email,
+            actionType: 'contact_transfer',
+            status: 'success',
+            metadata: {
+              contact_name: contactName,
+              company_name: companyName,
+              response_content: data.content, // Opcional: logar o content original
+            }
+          });
+        }
+      } else {
+        // Resposta inesperada sem status nem content
         setTransferStatus({
           status: 'error',
-          message: `O servidor retornou uma resposta não JSON. Conteúdo: ${responseText}`,
+          message: 'Resposta do servidor com formato inesperado. Não possui "status" nem "content".',
         });
-        console.error("Erro ao parsear JSON:", jsonError, "Resposta recebida:", responseText);
-        return; // Sai da função após exibir o alerta de não-JSON
+        toast.error('Resposta do servidor com formato inesperado.');
       }
-      
-      setTransferStatus({
-        status: data.status || 'error',
-        message: data.message || 'Resposta inesperada do servidor.',
-      });
 
       if (data.status === 'success') {
         if(user?.email) {
