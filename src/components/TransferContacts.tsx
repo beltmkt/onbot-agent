@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { auditService } from '../services/auditService';
 import { XCircle, CheckCircle, AlertTriangle } from 'lucide-react';
+import { toast } from 'sonner';
 
 type TransferStatus = {
   status: 'success' | 'warning' | 'error';
@@ -79,21 +80,13 @@ export const TransferContacts: React.FC = () => {
         body: JSON.stringify(payload),
       });
 
-      const response = await fetch(WEBHOOK_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(payload),
-      });
-
       // Se a resposta não for OK (ex: 4xx, 5xx), lança um erro para ser pego pelo catch
       if (!response.ok) {
         const errorText = await response.text();
         throw new Error(`Erro do servidor (${response.status}): ${errorText || response.statusText}`);
       }
 
-      const data = await response.json(); // O usuário confirmou que é JSON válido
+      const data: any = await response.json(); // O usuário confirmou que é JSON válido
 
       // console.log('Resposta do Webhook do n8n (depois de ok check):', data); // Para depuração, se necessário
 
@@ -157,22 +150,6 @@ export const TransferContacts: React.FC = () => {
         toast.error('Resposta do servidor com formato inesperado.');
       }
 
-      if (data.status === 'success') {
-        if(user?.email) {
-          auditService.createLog({
-            userEmail: user.email,
-            actionType: 'contact_transfer',
-            status: 'success',
-            metadata: {
-              contact_name: contactName,
-              company_name: companyName,
-            }
-          });
-        }
-        setContactName('');
-        setCompanyName('');
-        setPhone('');
-      }
     } catch (error) {
       console.error('Erro ao enviar webhook:', error);
       const errorMessage = error instanceof Error ? error.message : 'Erro de conexão. Não foi possível contatar o servidor.';
