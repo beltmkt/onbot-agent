@@ -79,15 +79,22 @@ export const TransferContacts: React.FC = () => {
         body: JSON.stringify(payload),
       });
 
-      // Check if the response is JSON, otherwise treat as an error
-      const contentType = response.headers.get("content-type");
-      if (!contentType || !contentType.includes("application/json")) {
-        throw new Error("Resposta inválida do servidor. O n8n pode estar offline ou com erro interno.");
+      const responseText = await response.text();
+      console.log("Resposta bruta do n8n:", responseText); // Log da resposta bruta
+
+      let data;
+      try {
+        data = JSON.parse(responseText);
+      } catch (jsonError) {
+        // Se não for JSON, exibe um alerta com o texto cru e seta um status de erro
+        setTransferStatus({
+          status: 'error',
+          message: `O servidor retornou uma resposta não JSON. Conteúdo: ${responseText}`,
+        });
+        console.error("Erro ao parsear JSON:", jsonError, "Resposta recebida:", responseText);
+        return; // Sai da função após exibir o alerta de não-JSON
       }
-
-      const data = await response.json();
-      console.log('Resposta do Webhook do n8n:', data); // Adicionado para depuração
-
+      
       setTransferStatus({
         status: data.status || 'error',
         message: data.message || 'Resposta inesperada do servidor.',
