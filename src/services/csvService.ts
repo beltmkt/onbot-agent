@@ -51,7 +51,7 @@ export interface UploadCompleteResponse {
 // ==========================
 // Função de upload de CSV ajustada com headers
 // ==========================
-export const uploadCSVToN8N = async (file: File, token: string): Promise<{ success: boolean; mensagem?: string }> => {
+export const uploadCSVToN8N = async (file: File, token: string): Promise<{ success: boolean; rawResponse: string; parsedResponse?: any }> => {
   try {
     console.log('📤 Iniciando upload do CSV para N8N...');
 
@@ -62,7 +62,6 @@ export const uploadCSVToN8N = async (file: File, token: string): Promise<{ succe
     formData.append('uploaded_at', new Date().toISOString());
     formData.append('token', token);
 
-    // 🔹 Envio para webhook SEM headers manuais (deixar navegador definir multipart/form-data automaticamente)
     const response = await fetch(
       import.meta.env.VITE_N8N_WEBHOOK_URL,
       {
@@ -71,32 +70,25 @@ export const uploadCSVToN8N = async (file: File, token: string): Promise<{ succe
       }
     );
 
+    const rawResponse = await response.text();
+    console.log('✅ Upload realizado. Resposta bruta:', rawResponse);
+
+    let parsedResponse;
+    try {
+      parsedResponse = JSON.parse(rawResponse);
+    } catch (jsonError) {
+      // Não é JSON, então parsedResponse permanece undefined
+    }
+
     if (response.ok) {
-      const text = await response.text();
-      console.log('✅ Upload realizado. Resposta:', text);
-
-      if (text.toUpperCase().includes('WORKFLOW WAS STARTED')) {
-        return { success: true, mensagem: 'Arquivo enviado com sucesso' };
-      }
-
-      try {
-        const result = JSON.parse(text);
-        if (result.success) {
-          return { success: true, mensagem: result.mensagem || 'Arquivo enviado com sucesso' };
-        } else {
-          return { success: false, mensagem: result.mensagem || 'Erro no processamento do arquivo' };
-        }
-      } catch {
-        return { success: true, mensagem: 'Arquivo enviado com sucesso (resposta não JSON)' };
-      }
+      return { success: true, rawResponse, parsedResponse };
     } else {
-      const errorText = await response.text();
-      console.error('❌ Erro do servidor:', response.status, errorText);
-      return { success: false, mensagem: `Erro ${response.status}: ${errorText}` };
+      console.error('❌ Erro do servidor:', response.status, rawResponse);
+      return { success: false, rawResponse, parsedResponse };
     }
   } catch (error) {
     console.error('❌ Erro ao enviar arquivo:', error);
-    return { success: false, mensagem: error instanceof Error ? error.message : 'Erro de conexão' };
+    return { success: false, rawResponse: error instanceof Error ? error.message : 'Erro de conexão' };
   }
 };
 

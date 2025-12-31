@@ -124,7 +124,7 @@ export const Dashboard: React.FC = () => {
     setSelectedFile(file);
     setIsUploading(true);
     setFinished(false);
-    setUploadMessage('Enviando arquivo para o servidor...');
+    // setUploadMessage('Enviando arquivo para o servidor...'); // Removido, feedback será via toast
 
     await auditService.logCSVUpload(
       user.email,
@@ -137,38 +137,57 @@ export const Dashboard: React.FC = () => {
     );
 
     try {
-      const result = await uploadCSVToN8N(file, token);
+      const result = await uploadCSVToN8N(file, token); // result agora contém rawResponse e parsedResponse
 
-      if (result.success) {
-        setUploadMessage(`Arquivo processado com sucesso!`);
-        toast.success('CSV enviado com sucesso!');
+      let displayMessage: string;
+      let isSuccess: boolean;
+      let auditStatus: 'success' | 'error' | 'pending' = 'error'; // Default para erro
 
-        await auditService.logCSVUpload(
-          user.email,
-          user.id,
-          file.name,
-          file.size,
-          'success',
-          undefined,
-          { completed_at: new Date().toISOString() }
-        );
+      // Tenta obter a mensagem do JSON parseado ou usa a rawResponse
+      const responseContent = (result.parsedResponse?.message || result.parsedResponse?.content || result.rawResponse || '').toLowerCase();
+      
+      // Classificação da mensagem
+      const errorKeywords = ['problema', 'erro', 'inválido', 'falha', 'verifique'];
+      const successKeywords = ['sucesso', 'criado', 'workflow'];
+
+      if (errorKeywords.some(keyword => responseContent.includes(keyword))) {
+        isSuccess = false;
+        auditStatus = 'error';
+      } else if (successKeywords.some(keyword => responseContent.includes(keyword))) {
+        isSuccess = true;
+        auditStatus = 'success';
       } else {
-        setUploadMessage(`Falha no envio do arquivo`);
-        toast.error('Erro ao enviar CSV');
-
-        await auditService.logCSVUpload(
-          user.email,
-          user.id,
-          file.name,
-          file.size,
-          'error',
-          result.mensagem
-        );
+        // Se não encontrar palavras-chave, baseia-se no `response.ok` que o `uploadCSVToN8N` retornou
+        isSuccess = result.success;
+        auditStatus = result.success ? 'success' : 'error';
       }
+
+      // Limpa a mensagem de asteriscos Markdown, se houver
+      displayMessage = (result.parsedResponse?.message || result.parsedResponse?.content || result.rawResponse || '').replace(/\*\*(.*?)\*\*/g, '$1');
+
+      if (isSuccess) {
+        toast.success(displayMessage);
+        // setUploadMessage(displayMessage); // Feedback visual principal será via toast
+      } else {
+        toast.error(displayMessage);
+        // setUploadMessage(displayMessage); // Feedback visual principal será via toast
+      }
+
+      await auditService.logCSVUpload(
+        user.email,
+        user.id,
+        file.name,
+        file.size,
+        auditStatus,
+        isSuccess ? undefined : displayMessage, // error_message apenas se for erro
+        { completed_at: new Date().toISOString(), n8n_response: result.rawResponse }
+      );
+
     } catch (error) {
       console.error('Erro no upload:', error);
-      setUploadMessage('Erro de conexão. Tente novamente.');
-      toast.error('Erro de conexão');
+      const errorMessage = error instanceof Error ? error.message : 'Erro de conexão. Tente novamente.';
+      toast.error(errorMessage);
+      // setUploadMessage('Erro de conexão. Tente novamente.'); // Feedback visual principal será via toast
 
       await auditService.logCSVUpload(
         user.email,
@@ -176,13 +195,13 @@ export const Dashboard: React.FC = () => {
         file.name,
         file.size,
         'error',
-        error instanceof Error ? error.message : 'Erro desconhecido'
+        errorMessage
       );
     } finally {
       setIsUploading(false);
       setFinished(true);
     }
-  }, [user, token, setSelectedFile, setIsUploading, setFinished, setUploadMessage]);
+  }, [user, token, setSelectedFile, setIsUploading, setFinished]);
 
   const handleRemoveFile = React.useCallback(() => {
     setSelectedFile(null);
