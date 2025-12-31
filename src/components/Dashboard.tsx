@@ -111,11 +111,11 @@ export const Dashboard: React.FC = () => {
     }
   };
 
-  const handleTokenConfirm = () => {
+  const handleTokenConfirm = React.useCallback(() => {
     setTokenConfirmed(true);
-  };
+  }, []);
 
-  const handleFileUpload = async (file: File) => {
+  const handleFileUpload = React.useCallback(async (file: File) => {
     if (!user?.email) {
       toast.error('Usuário não autenticado');
       return;
@@ -182,22 +182,22 @@ export const Dashboard: React.FC = () => {
       setIsUploading(false);
       setFinished(true);
     }
-  };
+  }, [user, token, setSelectedFile, setIsUploading, setFinished, setUploadMessage]);
 
-  const handleRemoveFile = () => {
+  const handleRemoveFile = React.useCallback(() => {
     setSelectedFile(null);
     setIsUploading(false);
     setUploadMessage(null);
     setFinished(false);
-  };
+  }, [setSelectedFile, setIsUploading, setUploadMessage, setFinished]);
 
-  const handleFinishAndHome = () => {
+  const handleFinishAndHome = React.useCallback(() => {
     handleRemoveFile();
     setTokenConfirmed(false);
     setToken('');
-  };
+  }, [handleRemoveFile, setTokenConfirmed, setToken]);
 
-  const handleUpdateProfile = async () => {
+  const handleUpdateProfile = React.useCallback(async () => {
     if (!user) return;
 
     setUpdatingProfile(true);
@@ -225,18 +225,18 @@ export const Dashboard: React.FC = () => {
     } finally {
       setUpdatingProfile(false);
     }
-  };
+  }, [user, userEmail, userName, setUpdatingProfile]);
 
-  const handleLogout = async () => {
+  const handleLogout = React.useCallback(async () => {
     try {
       await logout();
       toast.success('Logout realizado com sucesso');
     } catch (error) {
       toast.error('Erro ao fazer logout');
     }
-  };
+  }, [logout]);
 
-  const tabs = [
+  const tabs = React.useMemo(() => [
     { id: 'create-users' as TabType, label: 'Criar Usuários', icon: Users, active: true },
     { id: 'teams' as TabType, label: 'Criar Equipe', icon: UserCheck, active: true },
     { id: 'logs' as TabType, label: 'Logs', icon: Activity, active: true },
@@ -247,7 +247,7 @@ export const Dashboard: React.FC = () => {
     { id: 'future3' as TabType, label: 'Futuro 3', icon: Star, active: false },
     { id: 'future4' as TabType, label: 'Futuro 4', icon: Target, active: false },
     { id: 'future5' as TabType, label: 'Futuro 5', icon: Rocket, active: false },
-  ];
+  ], [isAdmin]);
 
   const renderTabContent = () => {
     switch (activeTab) {
