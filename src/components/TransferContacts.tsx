@@ -86,6 +86,7 @@ export const TransferContacts: React.FC = () => {
       }
 
       const data = await response.json();
+      console.log('Resposta do Webhook do n8n:', data); // Adicionado para depuração
 
       setTransferStatus({
         status: data.status || 'error',
