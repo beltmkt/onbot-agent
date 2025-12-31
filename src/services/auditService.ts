@@ -26,13 +26,13 @@ export const auditService = {
       });
 
       if (error) {
-        console.error('Erro ao criar log de auditoria:', error);
+        console.error('Erro ao criar log de auditoria:', error.message);
         return { success: false, error: error.message };
       }
 
       return { success: true };
     } catch (error) {
-      console.error('Erro ao criar log de auditoria:', error);
+      console.error('Erro ao criar log de auditoria:', error instanceof Error ? error.message : 'Erro desconhecido');
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Erro desconhecido'
@@ -50,13 +50,13 @@ export const auditService = {
         .limit(100);
 
       if (error) {
-        console.error('Erro ao buscar logs:', error);
+        console.error('Erro ao buscar logs:', error.message);
         return { data: null, error: error.message };
       }
 
       return { data };
     } catch (error) {
-      console.error('Erro ao buscar logs:', error);
+      console.error('Erro ao buscar logs:', error instanceof Error ? error.message : 'Erro desconhecido');
       return {
         data: null,
         error: error instanceof Error ? error.message : 'Erro desconhecido'
