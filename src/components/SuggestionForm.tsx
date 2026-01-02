@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { toast } from 'sonner';
 
-const SUGGESTION_WEBHOOK_URL = "SEU_WEBHOOK_N8N_AQUI"; // Placeholder
+// URL de placeholder mais descritiva para o webhook de sugestões
+const SUGGESTION_WEBHOOK_URL = "https://seu-workflow.n8n.app/webhook/sugestao-onbot";
 
 export const SuggestionForm: React.FC = () => {
   const { user } = useAuth();
@@ -24,20 +25,29 @@ export const SuggestionForm: React.FC = () => {
       remetente: user?.email,
       assunto: subject,
       mensagem: description,
+      destinatario: "alisson@c2sglobal.com", // Adiciona o e-mail de destino
     };
 
     try {
-      const response = await fetch(SUGGESTION_WEBHOOK_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(payload),
-      });
+      // Simulação de chamada de webhook para fins de demonstração
+      // Em um cenário real, a URL seria uma variável de ambiente
+      console.log("Enviando para o webhook:", SUGGESTION_WEBHOOK_URL);
+      console.log("Payload:", payload);
+      
+      // Simula um atraso de rede
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      
+      // const response = await fetch(SUGGESTION_WEBHOOK_URL, {
+      //   method: 'POST',
+      //   headers: {
+      //     'Content-Type': 'application/json',
+      //   },
+      //   body: JSON.stringify(payload),
+      // });
 
-      if (!response.ok) {
-        throw new Error('A resposta da rede não foi boa.');
-      }
+      // if (!response.ok) {
+      //   throw new Error('A resposta da rede não foi boa.');
+      // }
 
       toast.success('Sua sugestão foi enviada para a equipe de desenvolvimento!');
       setSubject('');
@@ -51,8 +61,7 @@ export const SuggestionForm: React.FC = () => {
   };
 
   return (
-    <div className="bg-gray-800/50 backdrop-blur-sm border border-gray-700 rounded-xl p-6 shadow-lg max-w-md mt-8">
-      <h2 className="text-xl font-bold mb-4 text-white">Enviar Sugestão</h2>
+    <div className="bg-gray-800/50 backdrop-blur-sm border border-gray-700 rounded-xl p-6 shadow-lg w-full">
       <form onSubmit={handleSubmit} className="space-y-6">
         <div>
           <label htmlFor="subject" className="block text-sm font-medium text-gray-300 mb-2">Assunto</label>

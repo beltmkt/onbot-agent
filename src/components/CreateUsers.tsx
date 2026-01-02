@@ -6,6 +6,7 @@ import { uploadCSVToN8N } from '../services/csvService';
 import { auditService } from '../services/auditService';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
+import { validateCompanyToken } from '../services/tokenService'; // Importa a função
 
 type MessageType = 'success' | 'error' | 'info';
 
