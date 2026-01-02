@@ -3,12 +3,13 @@ import { supabase } from '../lib/supabase';
 export interface AuditLogData {
   userEmail: string;
   userId?: string;
-  actionType: 'csv_upload' | 'token_validation' | 'user_creation' | 'login' | 'logout' | 'export_data' | 'login_attempt' | 'profile_update' | 'session_restored';
+  actionType: 'csv_upload' | 'token_validation' | 'user_creation' | 'login' | 'logout' | 'export_data' | 'login_attempt' | 'profile_update' | 'session_restored' | 'team_creation';
   fileName?: string;
   fileSize?: number;
   status: 'success' | 'error' | 'pending';
   errorMessage?: string;
   metadata?: Record<string, any>;
+  duration_seconds?: number;
 }
 
 export const auditService = {
@@ -23,6 +24,7 @@ export const auditService = {
         status: data.status,
         error_message: data.errorMessage,
         metadata: data.metadata || {},
+        duration_seconds: data.duration_seconds,
       });
 
       if (error) {

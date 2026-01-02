@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase';
+import { auditService } from './auditService';
 
 export interface TokenValidationResult {
   success: boolean;
@@ -13,12 +14,15 @@ export interface TokenValidationResult {
 /**
  * Valida um token de empresa
  * @param token - Token a ser validado
+ * @param userEmail - Email do usuário que está validando o token
  * @returns Promise<TokenValidationResult>
  */
-export const validateCompanyToken = async (token: string): Promise<TokenValidationResult> => {
+export const validateCompanyToken = async (token: string, userEmail: string): Promise<TokenValidationResult> => {
+  const tokenLast4 = token.slice(-4);
   try {
     // Validação básica do formato do token
     if (!token || typeof token !== 'string') {
+      await auditService.createLog({ userEmail, actionType: 'token_validation', status: 'error', errorMessage: 'Token é obrigatório', metadata: { token_last4: tokenLast4 } });
       return {
         success: false,
         error: 'Token é obrigatório'
@@ -28,6 +32,7 @@ export const validateCompanyToken = async (token: string): Promise<TokenValidati
     const trimmedToken = token.trim();
 
     if (trimmedToken.length < 5) {
+      await auditService.createLog({ userEmail, actionType: 'token_validation', status: 'error', errorMessage: 'Token muito curto', metadata: { token_last4: tokenLast4 } });
       return {
         success: false,
         error: 'Token muito curto'
@@ -35,6 +40,7 @@ export const validateCompanyToken = async (token: string): Promise<TokenValidati
     }
 
     if (!/^[a-zA-Z0-9-_]+$/.test(trimmedToken)) {
+      await auditService.createLog({ userEmail, actionType: 'token_validation', status: 'error', errorMessage: 'Token contém caracteres inválidos', metadata: { token_last4: tokenLast4 } });
       return {
         success: false,
         error: 'Token contém caracteres inválidos'
@@ -51,6 +57,7 @@ export const validateCompanyToken = async (token: string): Promise<TokenValidati
 
     if (error) {
       console.error('Database error validating token:', error);
+      await auditService.createLog({ userEmail, actionType: 'token_validation', status: 'error', errorMessage: 'Erro interno do servidor', metadata: { token_last4: tokenLast4 } });
       return {
         success: false,
         error: 'Erro interno do servidor'
@@ -58,6 +65,7 @@ export const validateCompanyToken = async (token: string): Promise<TokenValidati
     }
 
     if (!data) {
+      await auditService.createLog({ userEmail, actionType: 'token_validation', status: 'error', errorMessage: 'Token inválido ou expirado', metadata: { token_last4: tokenLast4 } });
       return {
         success: false,
         error: 'Token inválido ou expirado'
@@ -70,6 +78,7 @@ export const validateCompanyToken = async (token: string): Promise<TokenValidati
       const now = new Date();
 
       if (expirationDate < now) {
+        await auditService.createLog({ userEmail, actionType: 'token_validation', status: 'error', errorMessage: 'Token expirado', metadata: { token_last4: tokenLast4 } });
         return {
           success: false,
           error: 'Token expirado'
@@ -77,6 +86,7 @@ export const validateCompanyToken = async (token: string): Promise<TokenValidati
       }
     }
 
+    await auditService.createLog({ userEmail, actionType: 'token_validation', status: 'success', metadata: { token_last4: tokenLast4, company_id: data.company_id, company_name: data.company_name } });
     return {
       success: true,
       data: {
@@ -88,12 +98,14 @@ export const validateCompanyToken = async (token: string): Promise<TokenValidati
 
   } catch (error) {
     console.error('Error validating company token:', error);
+    await auditService.createLog({ userEmail, actionType: 'token_validation', status: 'error', errorMessage: 'Erro interno do servidor', metadata: { token_last4: tokenLast4 } });
     return {
       success: false,
       error: 'Erro interno do servidor'
     };
   }
 };
+
 
 /**
  * Verifica se um token é válido (validação síncrona básica)

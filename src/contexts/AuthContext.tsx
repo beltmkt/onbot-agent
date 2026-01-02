@@ -36,6 +36,7 @@ const AUTHORIZED_DOMAIN = '@c2sglobal.com';
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [loginTime, setLoginTime] = useState<number | null>(null);
 
   // Inicialização - Verifica sessão do Supabase
   useEffect(() => {
@@ -46,6 +47,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         setUser(session?.user ?? null);
         setIsLoading(false);
 
+        if (_event === 'SIGNED_IN' || _event === 'INITIAL_SESSION') {
+          setLoginTime(Date.now());
+        }
+
         // Log restoration of a session on page load
         if (_event === 'INITIAL_SESSION' && session?.user) {
           console.log('Attempting to log session restoration...');
@@ -54,7 +59,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
               userEmail: session.user.email!,
               actionType: 'session_restored',
               status: 'success',
-              metadata: { user_id: session.user.id }
+              metadata: { user_id: session.user.id, name: session.user.user_metadata.name }
             });
             console.log('Session restoration log attempted for:', session.user.email);
           } catch (error) {
@@ -168,11 +173,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
       if (data.user) {
         setUser(data.user);
+        setLoginTime(Date.now());
         const logResult = await auditService.createLog({
           userEmail: email,
           actionType: 'login',
           status: 'success',
-          metadata: { user_id: data.user.id }
+          metadata: { user_id: data.user.id, name: data.user.user_metadata.name }
         });
         console.log('Audit log created for login:', logResult);
         return {}; // Sucesso
@@ -356,6 +362,16 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   // Função de logout
   const logout = async (): Promise<void> => {
+    if (user && loginTime) {
+      const duration = Math.round((Date.now() - loginTime) / 1000);
+      await auditService.createLog({
+        userEmail: user.email!,
+        actionType: 'logout',
+        status: 'success',
+        metadata: { user_id: user.id, name: user.user_metadata.name },
+        duration_seconds: duration,
+      });
+    }
     try {
       const { error } = await supabase.auth.signOut();
       if (error) {

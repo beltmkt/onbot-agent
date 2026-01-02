@@ -8,6 +8,9 @@ interface AuditLog {
   user_email: string;
   action_type: string;
   metadata: any;
+  duration_seconds?: number;
+  status: string;
+  error_message?: string;
 }
 
 export const Audit: React.FC = () => {
@@ -41,11 +44,28 @@ export const Audit: React.FC = () => {
     return action.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
   };
 
-  const formatMetadata = (metadata: any) => {
-    if (!metadata) return '-';
-    // Exclui campos que não queremos mostrar
-    const { token, ...rest } = metadata;
-    return JSON.stringify(rest);
+  const formatDuration = (seconds?: number) => {
+    if (seconds === undefined || seconds === null) return '-';
+    if (seconds < 60) return `${seconds}s`;
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = seconds % 60;
+    return `${minutes}m ${remainingSeconds}s`;
+  };
+
+  const formatMetadata = (log: AuditLog) => {
+    let details = '';
+    if (log.metadata) {
+      const { name, token_last4, ...rest } = log.metadata;
+      if (name) details += `Nome: ${name}\n`;
+      if (token_last4) details += `Token (final): ${token_last4}\n`;
+      if (Object.keys(rest).length > 0) {
+        details += JSON.stringify(rest, null, 2);
+      }
+    }
+    if (log.error_message) {
+      details += `\nErro: ${log.error_message}`;
+    }
+    return details || '-';
   }
 
   return (
@@ -58,24 +78,28 @@ export const Audit: React.FC = () => {
               <th scope="col" className="px-6 py-3">Data/Hora</th>
               <th scope="col" className="px-6 py-3">Usuário</th>
               <th scope="col" className="px-6 py-3">Ação</th>
+              <th scope="col" className="px-6 py-3">Status</th>
+              <th scope="col" className="px-6 py-3">Duração</th>
               <th scope="col" className="px-6 py-3">Detalhes</th>
             </tr>
           </thead>
           <tbody>
             {isLoading ? (
               <tr>
-                <td colSpan={4} className="text-center p-8">Carregando logs...</td>
+                <td colSpan={6} className="text-center p-8">Carregando logs...</td>
               </tr>
             ) : logs.length > 0 ? logs.map((log) => (
               <tr key={log.id} className="bg-gray-800 border-b border-gray-700 hover:bg-gray-700/50">
                 <td className="px-6 py-4 whitespace-nowrap">{new Date(log.created_at).toLocaleString('pt-BR')}</td>
                 <td className="px-6 py-4">{log.user_email}</td>
                 <td className="px-6 py-4">{formatActionType(log.action_type)}</td>
-                <td className="px-6 py-4 text-xs font-mono">{formatMetadata(log.metadata)}</td>
+                <td className="px-6 py-4">{log.status}</td>
+                <td className="px-6 py-4">{formatDuration(log.duration_seconds)}</td>
+                <td className="px-6 py-4 text-xs font-mono whitespace-pre-wrap">{formatMetadata(log)}</td>
               </tr>
             )) : (
               <tr>
-                <td colSpan={4} className="text-center p-8">Nenhum log encontrado.</td>
+                <td colSpan={6} className="text-center p-8">Nenhum log encontrado.</td>
               </tr>
             )}
           </tbody>

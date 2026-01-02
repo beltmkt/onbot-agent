@@ -20,8 +20,17 @@ export const CreateUsers: React.FC = () => {
   const [uploadMessageType, setUploadMessageType] = useState<MessageType>('info');
   const [finished, setFinished] = useState(false);
 
-  const handleTokenConfirm = () => {
-    setTokenConfirmed(true);
+  const handleTokenConfirm = async () => {
+    if (!user?.email) {
+      toast.error('Usuário não autenticado');
+      return;
+    }
+    const result = await validateCompanyToken(token, user.email);
+    if (result.success) {
+      setTokenConfirmed(true);
+    } else {
+      toast.error(result.error || 'Token inválido');
+    }
   };
 
   const handleFileUpload = async (file: File) => {
