@@ -1,6 +1,4 @@
-// src/components/OnBotChat.tsx - VERSÃO COM PLANILHA INTEGRADA
-import React, { useState, useEffect, useRef } from 'react';
-import { X, Send, RefreshCw, Bot, User, Maximize2, Minimize2, Upload, FileText } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
 import { sendMessageToOnbot, testOnbotConnection, processPlanilha } from '../services/onbotService';
 import onbotAvatar from '/onbot-avatar.png';
 
@@ -19,10 +17,11 @@ interface ChatMessage {
 }
 
 export const OnBotChat: React.FC<OnBotChatProps> = ({ onClose }) => {
+  const { user } = useAuth();
   const [messages, setMessages] = useState<ChatMessage[]>([
-    { 
+    {
       id: 'welcome',
-      sender: 'bot', 
+      sender: 'bot',
       text: '👋 Olá! Sou o OnBot e vou te ajudar a criar novos usuários.\n\n📊 **Posso processar:**\n• Token de acesso\n• Dados de usuários em texto\n• Planilhas CSV\n• Múltiplos usuários de uma vez\n\n🔑 Para começar, me envie o token de acesso da sua empresa.',
       timestamp: new Date()
     }
@@ -40,7 +39,7 @@ export const OnBotChat: React.FC<OnBotChatProps> = ({ onClose }) => {
     const checkConnection = async () => {
       setConnectionStatus('checking');
       try {
-        const result = await testOnbotConnection();
+        const result = await testOnbotConnection(user?.email || 'anonymous');
         if (result.status === 'success') {
           setConnectionStatus('connected');
         } else {
@@ -52,11 +51,11 @@ export const OnBotChat: React.FC<OnBotChatProps> = ({ onClose }) => {
     };
 
     checkConnection();
-  }, []);
+  }, [user]);
 
   // Scroll automático para novas mensagens
   useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ 
+    chatEndRef.current?.scrollIntoView({
       behavior: 'smooth',
       block: 'end'
     });
@@ -80,16 +79,16 @@ export const OnBotChat: React.FC<OnBotChatProps> = ({ onClose }) => {
       const interval = setInterval(() => {
         if (index < message.length) {
           currentText += message[index];
-          setMessages(prev => prev.map(msg => 
-            msg.id === typingMessageId 
+          setMessages(prev => prev.map(msg =>
+            msg.id === typingMessageId
               ? { ...msg, text: currentText }
               : msg
           ));
           index++;
         } else {
           clearInterval(interval);
-          setMessages(prev => prev.map(msg => 
-            msg.id === typingMessageId 
+          setMessages(prev => prev.map(msg =>
+            msg.id === typingMessageId
               ? { ...msg, isTyping: false }
               : msg
           ));
@@ -107,7 +106,7 @@ export const OnBotChat: React.FC<OnBotChatProps> = ({ onClose }) => {
     // Validar tipo de arquivo
     const validTypes = ['.csv', '.xlsx', '.xls', 'text/csv', 'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'];
 
-    
+
     if (!validTypes.some(type => file.name.toLowerCase().includes(type) || file.type.includes(type))) {
       await addTypingEffect('❌ Formato não suportado. Use CSV.');
       return;
@@ -117,25 +116,25 @@ export const OnBotChat: React.FC<OnBotChatProps> = ({ onClose }) => {
 
     try {
       // Mensagem do usuário mostrando o arquivo
-      const userMessage: ChatMessage = { 
+      const userMessage: ChatMessage = {
         id: `file_${Date.now()}`,
-        sender: 'user', 
+        sender: 'user',
         text: `📎 Enviando planilha: ${file.name}`,
         timestamp: new Date(),
         hasPlanilha: true
       };
-      
+
       setMessages(prev => [...prev, userMessage]);
 
       // Ler arquivo como texto (simulação - em produção você processaria o CSV/Excel)
       const text = await file.text();
       const linhas = text.split('\n').filter(line => line.trim()).map(line => line.split(',').map(cell => cell.trim()));
-      
+
       console.log('📊 Planilha processada:', { linhas: linhas.length, file: file.name });
 
       // Enviar para processamento
-      const resultado = await processPlanilha(linhas, sessionId);
-      
+      const resultado = await processPlanilha(linhas, sessionId, user?.email || 'anonymous');
+
       await addTypingEffect(resultado);
 
     } catch (error) {
@@ -159,37 +158,38 @@ export const OnBotChat: React.FC<OnBotChatProps> = ({ onClose }) => {
     setLoading(true);
 
     // Mensagem do usuário
-    const userMessage: ChatMessage = { 
+    const userMessage: ChatMessage = {
       id: `msg_${Date.now()}_user`,
-      sender: 'user', 
+      sender: 'user',
       text: userMessageText,
       timestamp: new Date()
     };
-    
+
     setMessages(prev => [...prev, userMessage]);
 
     try {
-      console.log('🚀 Enviando mensagem...', { 
-        message: userMessageText, 
+      console.log('🚀 Enviando mensagem...', {
+        message: userMessageText,
         sessionId
       });
-      
+
       const botResponse = await sendMessageToOnbot(
-        userMessageText, 
-        sessionId
+        userMessageText,
+        sessionId,
+        user?.email || 'anonymous'
       );
-      
+
       console.log('✅ Resposta recebida:', botResponse);
-      
+
       // ✅ ADICIONA RESPOSTA COM EFEITO DE DIGITAÇÃO
       await addTypingEffect(botResponse);
-      
+
     } catch (error) {
       console.error('❌ Erro na comunicação:', error);
-      
+
       // ✅ MENSAGEM DE ERRO SIMPLES
       let errorMessage = '❌ Desculpe, ocorreu um erro. Tente novamente.';
-      
+
       if (error instanceof Error) {
         if (error.message.includes('Failed to fetch')) {
           errorMessage = '🌐 Erro de conexão. Verifique sua internet.';
@@ -199,9 +199,9 @@ export const OnBotChat: React.FC<OnBotChatProps> = ({ onClose }) => {
           errorMessage = '⏰ Tempo esgotado. Tente novamente.';
         }
       }
-      
+
       await addTypingEffect(errorMessage);
-      
+
     } finally {
       setLoading(false);
     }

@@ -1,3 +1,5 @@
+import { auditService } from './auditService';
+
 // src/services/onbotService.ts
 // ✅ VERSÃO 13.0 - SEGURA E COM RESPOSTAS FORMATADAS
 
@@ -167,7 +169,7 @@ const formatAgentResponse = (response: any): string => {
 /**
  * 🔍 VALIDAR SE n8n ESTÁ RETORNANDO JSON VÁLIDO
  */
-const validateN8nResponse = async (): Promise<void> => {
+const validateN8nResponse = async (userEmail: string): Promise<void> => {
   const testPayload = {
     sessionId: "health_check",
     chatInput: "health_check",
@@ -203,6 +205,7 @@ const validateN8nResponse = async (): Promise<void> => {
 
   } catch (error) {
     console.error('❌ Validação n8n falhou');
+    await auditService.createLog({ userEmail, actionType: 'test_connection', status: 'error', errorMessage: error instanceof Error ? error.message : 'Erro desconhecido' });
     throw new Error(`Configuração n8n incorreta: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
   }
 };
@@ -214,7 +217,8 @@ const validateN8nResponse = async (): Promise<void> => {
  */
 export const sendMessageToOnbot = async (
   message: string, 
-  sessionId: string
+  sessionId: string,
+  userEmail: string,
 ): Promise<string> => {
   try {
     // ✅ LOG SEGURO
@@ -229,11 +233,15 @@ export const sendMessageToOnbot = async (
     // ✅ DEBUG SEGURO
     debugPayloadToN8n(payload);
     
+    await auditService.createLog({ userEmail, actionType: 'chat_message', status: 'pending', metadata: { message: message } });
     const response = await makeSecureRequestWithRetry(payload);
-    return await parseN8nResponse(response);
+    const responseText = await parseN8nResponse(response);
+    await auditService.createLog({ userEmail, actionType: 'chat_message', status: 'success', metadata: { message: message, response: responseText } });
+    return responseText;
 
   } catch (error) {
     console.error('❌ Erro ao enviar mensagem');
+    await auditService.createLog({ userEmail, actionType: 'chat_message', status: 'error', errorMessage: error instanceof Error ? error.message : 'Erro desconhecido', metadata: { message: message } });
     return handleDynamicError(error);
   }
 };
@@ -298,6 +306,7 @@ const createPayloadByMessageType = (message: string, sessionId: string): Webhook
 export const processPlanilha = async (
   dadosPlanilha: string[][],
   sessionId: string,
+  userEmail: string,
   empresaSelecionada?: string
 ): Promise<string> => {
   try {
@@ -325,11 +334,15 @@ export const processPlanilha = async (
 
     debugPayloadToN8n(payload);
     
+    await auditService.createLog({ userEmail, actionType: 'process_spreadsheet', status: 'pending', metadata: { file_name: 'planilha.csv', lines: dadosPlanilha.length } });
     const response = await makeSecureRequestWithRetry(payload);
-    return await parseN8nResponse(response);
+    const responseText = await parseN8nResponse(response);
+    await auditService.createLog({ userEmail, actionType: 'process_spreadsheet', status: 'success', metadata: { file_name: 'planilha.csv', lines: dadosPlanilha.length, response: responseText } });
+    return responseText;
 
   } catch (error) {
     console.error('❌ Erro ao processar planilha');
+    await auditService.createLog({ userEmail, actionType: 'process_spreadsheet', status: 'error', errorMessage: error instanceof Error ? error.message : 'Erro desconhecido', metadata: { file_name: 'planilha.csv' } });
     return handleDynamicError(error);
   }
 };
@@ -542,13 +555,14 @@ const handleDynamicError = (error: any): string => {
 
 // ==================== SERVIÇOS ADICIONAIS ====================
 
-export const testConnection = async (): Promise<{ 
+export const testConnection = async (userEmail: string): Promise<{ 
   status: 'success' | 'error';
   message: string;
   timestamp: string;
 }> => {
   try {
-    await validateN8nResponse();
+    await validateN8nResponse(userEmail);
+    await auditService.createLog({ userEmail, actionType: 'test_connection', status: 'success' });
     
     return {
       status: 'success',
@@ -557,6 +571,7 @@ export const testConnection = async (): Promise<{
     };
 
   } catch (error) {
+    await auditService.createLog({ userEmail, actionType: 'test_connection', status: 'error', errorMessage: error instanceof Error ? error.message : 'Erro desconhecido' });
     return {
       status: 'error', 
       message: `❌ Falha na conexão`,
