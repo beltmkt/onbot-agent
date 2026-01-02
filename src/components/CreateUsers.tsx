@@ -15,6 +15,7 @@ export const CreateUsers: React.FC = () => {
   const navigate = useNavigate();
   const [token, setToken] = useState('');
   const [tokenConfirmed, setTokenConfirmed] = useState(false);
+  const [tokenError, setTokenError] = useState<string | null>(null); // Novo estado para erro do token
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadMessage, setUploadMessage] = useState<string | null>(null);
@@ -26,10 +27,13 @@ export const CreateUsers: React.FC = () => {
       toast.error('Usuário não autenticado');
       return;
     }
+    setTokenError(null); // Limpa erros anteriores
     const result = await validateCompanyToken(token, user.email);
     if (result.success) {
       setTokenConfirmed(true);
+      setTokenError(null);
     } else {
+      setTokenError(result.error || 'Token inválido');
       toast.error(result.error || 'Token inválido');
     }
   };
@@ -174,6 +178,7 @@ export const CreateUsers: React.FC = () => {
     handleRepeat();
     setTokenConfirmed(false);
     setToken('');
+    setTokenError(null); // Limpa o erro ao iniciar nova ação
   };
 
   const handleFinish = () => {
@@ -188,6 +193,7 @@ export const CreateUsers: React.FC = () => {
             token={token}
             onTokenChange={setToken}
             onConfirm={handleTokenConfirm}
+            errorMessage={tokenError} // Passa o erro para o TokenInput
             />
         ) : (
             <CSVUpload

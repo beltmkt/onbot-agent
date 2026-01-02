@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Key, CheckCircle, AlertCircle, ArrowRight } from 'lucide-react';
 
@@ -6,6 +6,7 @@ interface TokenInputProps {
   token: string;
   onTokenChange: (token: string) => void;
   onConfirm: () => void;
+  errorMessage: string | null; // Adiciona prop para mensagem de erro externa
 }
 
 const messageVariants = {
@@ -14,22 +15,13 @@ const messageVariants = {
   exit: { opacity: 0, y: -10 },
 };
 
-export const TokenInput = ({ token, onTokenChange, onConfirm }: TokenInputProps) => {
-  const [error, setError] = useState<string | null>(null);
-
+export const TokenInput = ({ token, onTokenChange, onConfirm, errorMessage }: TokenInputProps) => {
   const isValid = useMemo(() => {
-    return token.length > 0;
-  }, [token]);
+    return token.length > 0 && !errorMessage; // Considera o erro externo na validação
+  }, [token, errorMessage]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newToken = e.target.value;
-    onTokenChange(newToken);
-
-    if (newToken.length === 0) {
-      setError('Token é obrigatório');
-    } else {
-      setError(null);
-    }
+    onTokenChange(e.target.value);
   };
 
   const handleConfirm = () => {
@@ -37,6 +29,8 @@ export const TokenInput = ({ token, onTokenChange, onConfirm }: TokenInputProps)
       onConfirm();
     }
   };
+
+  const displayError = errorMessage || (token.length === 0 ? 'Token é obrigatório' : null);
 
   return (
     <motion.div
@@ -53,7 +47,6 @@ export const TokenInput = ({ token, onTokenChange, onConfirm }: TokenInputProps)
         </div>
       </div>
 
-      {/* ✅ TÍTULO AJUSTADO PARA CONSISTÊNCIA */}
       <h2 className="text-2xl font-bold text-white mb-2 tracking-tighter">
         <span className="text-blue-500">C2S</span> – Create Sellers
       </h2>
@@ -74,21 +67,21 @@ export const TokenInput = ({ token, onTokenChange, onConfirm }: TokenInputProps)
             autoComplete="off"
             spellCheck="false"
             className={`w-full pl-12 pr-10 py-3 bg-black/40 border rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-1 transition-all duration-200 ${
-              error
+              displayError
                 ? 'border-red-500/50 focus:border-red-500 focus:ring-red-500/50'
-                : isValid
+                : isValid && token.length > 0
                 ? 'border-green-500/50 focus:border-green-500 focus:ring-green-500/50'
                 : 'border-gray-700 focus:border-blue-500 focus:ring-blue-500'
             }`}
           />
           <div className="absolute right-3.5 top-1/2 -translate-y-1/2">
             <AnimatePresence>
-              {error && (
+              {displayError && (
                 <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }}>
                   <AlertCircle className="w-5 h-5 text-red-400" />
                 </motion.div>
               )}
-              {isValid && (
+              {isValid && token.length > 0 && ( // Verifica token.length > 0 para mostrar CheckCircle apenas quando há input e é válido
                 <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }}>
                   <CheckCircle className="w-5 h-5 text-green-400" />
                 </motion.div>
@@ -99,7 +92,7 @@ export const TokenInput = ({ token, onTokenChange, onConfirm }: TokenInputProps)
 
         <div className="h-12 pt-1">
           <AnimatePresence mode="wait">
-            {error && (
+            {displayError && (
               <motion.div
                 key="error"
                 variants={messageVariants}
@@ -109,7 +102,7 @@ export const TokenInput = ({ token, onTokenChange, onConfirm }: TokenInputProps)
                 className="bg-red-500/10 border border-red-500/30 rounded-xl p-3 flex items-center gap-2"
               >
                 <AlertCircle className="w-4 h-4 text-red-400 flex-shrink-0" />
-                <span className="text-red-400 text-sm">{error}</span>
+                <span className="text-red-400 text-sm">{displayError}</span>
               </motion.div>
             )}
           </AnimatePresence>
@@ -117,7 +110,7 @@ export const TokenInput = ({ token, onTokenChange, onConfirm }: TokenInputProps)
 
         <motion.button
           onClick={handleConfirm}
-          disabled={!isValid}
+          disabled={!isValid || token.length === 0} // Desabilita se não for válido ou se o token estiver vazio
           className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed"
           whileTap={{ scale: 0.98 }}
         >
