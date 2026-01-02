@@ -55,9 +55,6 @@ export const Sidebar: React.FC = () => {
   return (
     <aside className="sidebar">
       <div className="sidebar-header">
-         <div className="w-12 h-12 bg-gradient-to-r from-cyan-500 to-purple-600 rounded-lg flex items-center justify-center">
-             <img src="/onbot-avatar.png" alt="OnBot" className="w-8 h-8" />
-         </div>
         <h1 className="text-xl font-bold text-white">Onboarding Tools</h1>
       </div>
       <nav>
