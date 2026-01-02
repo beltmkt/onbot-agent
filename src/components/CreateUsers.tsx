@@ -77,14 +77,10 @@ export const CreateUsers: React.FC = () => {
       const result = await uploadCSVToN8N(file, token);
 
       if (result.success) {
-        let messageContent = result.mensagem || 'Arquivo processado com sucesso!';
+        const feedbackMessage = result.parsedResponse?.content || result.parsedResponse?.message || result.mensagem || 'Arquivo processado com sucesso!';
         let type: MessageType = 'success';
 
-        if (result.parsedResponse && result.parsedResponse.content) {
-          messageContent = result.parsedResponse.content;
-        }
-
-        const lowerCaseMessage = messageContent.toLowerCase();
+        const lowerCaseMessage = feedbackMessage.toLowerCase();
         if (
           lowerCaseMessage.includes('erro') ||
           lowerCaseMessage.includes('já estão no sistema') ||
@@ -100,7 +96,7 @@ export const CreateUsers: React.FC = () => {
           type = 'success';
         }
 
-        const formattedMessage = messageContent.replace(/\n/g, '<br />');
+        const formattedMessage = feedbackMessage.replace(/\n/g, '<br />');
 
         setUploadMessage(formattedMessage);
         setUploadMessageType(type);
@@ -121,24 +117,18 @@ export const CreateUsers: React.FC = () => {
           { completed_at: new Date().toISOString(), response_message: formattedMessage }
         );
       } else {
-        let messageContent = result.mensagem || 'Falha no envio do arquivo.';
+        const feedbackMessage = result.parsedResponse?.content || result.parsedResponse?.message || result.mensagem || 'Falha no envio do arquivo.';
         let type: MessageType = 'error';
 
-        if (result.parsedResponse && result.parsedResponse.content) {
-          messageContent = result.parsedResponse.content;
-        } else if (result.rawResponse) {
-          messageContent = result.rawResponse;
-        }
-
-        const lowerCaseMessage = messageContent.toLowerCase();
+        const lowerCaseMessage = feedbackMessage.toLowerCase();
         if (
           lowerCaseMessage.includes('workflow iniciado') ||
           lowerCaseMessage.includes('sucesso')
         ) {
-          type = 'success';
+          type = 'success'; // Pode ser um sucesso com uma mensagem de atenção, mas ainda assim considerado sucesso pela API
         }
 
-        const formattedMessage = messageContent.replace(/\n/g, '<br />');
+        const formattedMessage = feedbackMessage.replace(/\n/g, '<br />');
 
         setUploadMessage(formattedMessage);
         setUploadMessageType(type);
