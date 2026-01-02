@@ -1,5 +1,7 @@
 import React from 'react';
-import { useAuth } from '../contexts/AuthContext'; // Ajuste o caminho conforme necessário
+import { useAuth } from '../contexts/AuthContext';
+import { UserPlus, Users, ArrowRightLeft } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 const toTitleCase = (str: string) => {
   if (!str) return '';
@@ -16,17 +18,56 @@ export const Home: React.FC = () => {
 
   return (
     <div className="flex flex-col p-8 bg-gray-900 text-white min-h-screen">
-      <h1 className="text-3xl font-bold mb-4 text-white">
+      {/* Topo: Saudação */}
+      <h1 className="text-4xl font-extrabold mb-8 text-white">
         Olá, {userName}
       </h1>
-      <div className="bg-gray-800/50 backdrop-blur-sm border border-gray-700 rounded-xl p-6 shadow-lg">
-        <p className="text-lg text-gray-300">
-          Esta é uma ferramenta para uso do Onboarding com o objetivo de facilitar atividades repetitivas, melhorando a experiência do cliente e a otimização do tempo do agente.
-        </p>
+
+      {/* Cards de Métricas */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+        {/* Card 1: Usuários Criados */}
+        <div className="bg-gray-800/50 backdrop-blur-sm border border-gray-700 rounded-xl p-6 shadow-lg hover:border-blue-500 transition-all duration-300">
+          <div className="flex items-center mb-3">
+            <UserPlus className="text-blue-400 mr-3" size={24} />
+            <h2 className="text-xl font-semibold text-gray-100">Usuários Criados</h2>
+          </div>
+          <p className="text-3xl font-bold text-white">12 <span className="text-lg font-normal text-gray-400">este mês</span></p>
+        </div>
+
+        {/* Card 2: Equipes Ativas */}
+        <div className="bg-gray-800/50 backdrop-blur-sm border border-gray-700 rounded-xl p-6 shadow-lg hover:border-green-500 transition-all duration-300">
+          <div className="flex items-center mb-3">
+            <Users className="text-green-400 mr-3" size={24} />
+            <h2 className="text-xl font-semibold text-gray-100">Equipes Ativas</h2>
+          </div>
+          <p className="text-3xl font-bold text-white">5 <span className="text-lg font-normal text-gray-400">equipes</span></p>
+        </div>
+
+        {/* Card 3: Transferências */}
+        <div className="bg-gray-800/50 backdrop-blur-sm border border-gray-700 rounded-xl p-6 shadow-lg hover:border-purple-500 transition-all duration-300">
+          <div className="flex items-center mb-3">
+            <ArrowRightLeft className="text-purple-400 mr-3" size={24} />
+            <h2 className="text-xl font-semibold text-gray-100">Transferências</h2>
+          </div>
+          <p className="text-3xl font-bold text-white">34 <span className="text-lg font-normal text-gray-400">realizadas</span></p>
+        </div>
       </div>
-      <div className="flex-grow mt-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {/* Espaço reservado para futuros cards de métricas ou informações */}
+
+      {/* Ações Rápidas */}
+      <div className="bg-gray-800/50 backdrop-blur-sm border border-gray-700 rounded-xl p-6 shadow-lg mb-10">
+        <h2 className="text-2xl font-semibold text-gray-100 mb-5">O que você deseja fazer?</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <Link to="/create-users" className="flex items-center justify-center px-6 py-4 bg-blue-600 rounded-lg shadow-md hover:bg-blue-700 transition-colors duration-300 text-white text-lg font-bold">
+            <UserPlus className="mr-3" size={20} /> Criar Novo Usuário
+          </Link>
+          <Link to="/transfer-contacts" className="flex items-center justify-center px-6 py-4 bg-green-600 rounded-lg shadow-md hover:bg-green-700 transition-colors duration-300 text-white text-lg font-bold">
+            <ArrowRightLeft className="mr-3" size={20} /> Transferir Contato
+          </Link>
+        </div>
       </div>
+
+      {/* Espaço para futuros componentes ou informações adicionais */}
+      <div className="flex-grow"></div> 
     </div>
   );
 };
