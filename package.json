@@ -12,6 +12,7 @@
     "start:relay": "node relay-server.js"
   },
   "dependencies": {
+    "@google/generative-ai": "^0.24.1",
     "@supabase/supabase-js": "^2.57.4",
     "@types/react-datepicker": "^6.2.0",
     "class-variance-authority": "^0.7.1",

@@ -39,13 +39,20 @@ class RealtimeService {
     }
   }
 
-  async sendMessage(message: string, sessionId: string, userId: string, messageId: string): Promise<void> {
+  async sendMessage(
+    message: string, 
+    sessionId: string, 
+    userId: string, 
+    messageId: string,
+    history: { role: string; parts: { text: string }[] }[] // Adiciona o parâmetro de histórico
+  ): Promise<void> {
     const payload: SendMessagePayload = {
-        message_id: messageId,
-        session_id: sessionId,
-        user_id: userId,
-        text: message,
-        ts: new Date().toISOString(),
+      message_id: messageId,
+      session_id: sessionId,
+      user_id: userId,
+      text: message,
+      history: history, // Inclui o histórico no payload
+      ts: new Date().toISOString(),
     };
     
     console.log('Sending message to relay:', payload);

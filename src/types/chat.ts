@@ -1,17 +1,10 @@
 // src/types/chat.ts
 export interface SseEvent {
-  event: 'typing' | 'delta' | 'final' | 'error' | 'ping';
+  event: 'typing' | 'chunk' | 'final' | 'error' | 'ping';
   data: {
     message_id?: string;
     content?: string;
-    partial?: boolean;
     role?: 'assistant' | 'user' | 'system';
-    usage?: {
-      prompt_tokens: number;
-      completion_tokens: number;
-      total_tokens: number;
-    };
-    latency_ms?: number;
     code?: string;
     detail?: string;
   };
@@ -30,5 +23,6 @@ export interface SendMessagePayload {
   session_id: string;
   user_id: string;
   text: string;
+  history?: { role: string; parts: { text: string }[] }[];
   ts?: string;
 }

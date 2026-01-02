@@ -3,79 +3,66 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { realtimeService } from '../services/realtimeService';
 import { SseEvent, ChatMessage } from '../types/chat';
 
+// Converte as mensagens do chat para o formato de histórico do Gemini
+const toGeminiHistory = (messages: ChatMessage[]) => {
+  return messages.map(msg => ({
+    role: msg.role === 'assistant' ? 'model' : 'user',
+    parts: [{ text: msg.content }],
+  }));
+};
+
 export const useRealtimeChat = (sessionId: string, userId: string) => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isTyping, setIsTyping] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Referência para a última mensagem do usuário
   const lastUserMessageId = useRef<string | null>(null);
 
-  // Processa eventos SSE
   const handleEvent = useCallback((event: SseEvent) => {
-    console.log('Evento SSE recebido:', event);
+    // console.log('Evento SSE recebido:', event);
     
     switch (event.event) {
       case 'typing':
         setIsTyping(true);
         break;
 
-      case 'delta':
-        // Atualização parcial (streaming)
+      case 'chunk':
+        setIsTyping(true);
         if (event.data.message_id && event.data.content) {
           setMessages(prev => {
-            const newMessages = [...prev];
-            const lastMessage = newMessages[newMessages.length - 1];
-            
-            if (lastMessage?.role === 'assistant' && lastMessage.id === event.data.message_id) {
-              // Atualiza mensagem existente
-              lastMessage.content += event.data.content;
+            const existingMsgIndex = prev.findIndex(msg => msg.id === event.data.message_id);
+            if (existingMsgIndex !== -1) {
+              // Atualiza a mensagem de assistente existente
+              const newMessages = [...prev];
+              newMessages[existingMsgIndex].content += event.data.content;
+              return newMessages;
             } else {
-              // Cria nova mensagem parcial
-              newMessages.push({
-                id: event.data.message_id || '',
+              // Cria uma nova mensagem de assistente se não existir
+              return [...prev, {
+                id: event.data.message_id,
                 role: 'assistant',
-                content: event.data.content || '',
+                content: event.data.content,
                 timestamp: new Date(),
-                status: 'sent'
-              });
+                status: 'sending' // "sending" indica que está em progresso
+              }];
             }
-            
-            return newMessages;
           });
         }
         break;
 
       case 'final':
         setIsTyping(false);
-        
-        if (event.data.message_id && event.data.content) {
-          setMessages(prev => {
-            // Remove mensagens parciais e adiciona a final
-            const filtered = prev.filter(msg => 
-              !(msg.id === event.data.message_id && msg.role === 'assistant')
-            );
-            
-            return [
-              ...filtered,
-              {
-                id: event.data.message_id || '',
-                role: 'assistant',
-                content: event.data.content || '',
-                timestamp: new Date(),
-                status: 'sent'
-              }
-            ];
-          });
+        if (event.data.message_id) {
+          setMessages(prev => prev.map(msg =>
+            msg.id === event.data.message_id ? { ...msg, status: 'sent' } : msg
+          ));
         }
         break;
 
       case 'error':
         setIsTyping(false);
         setError(event.data.detail || `Erro: ${event.data.code}`);
-        
-        // Marca a última mensagem do usuário como erro
         if (lastUserMessageId.current) {
           setMessages(prev => prev.map(msg =>
             msg.id === lastUserMessageId.current ? { ...msg, status: 'error' } : msg
@@ -84,17 +71,15 @@ export const useRealtimeChat = (sessionId: string, userId: string) => {
         break;
 
       case 'ping':
-        // Mantém conexão ativa
+        // Mantém a conexão ativa, nenhum estado precisa ser alterado
         break;
     }
   }, []);
 
-  // Envia mensagem
   const sendMessage = useCallback(async (text: string) => {
     const messageId = crypto.randomUUID();
     lastUserMessageId.current = messageId;
 
-    // Adiciona mensagem do usuário imediatamente
     const userMessage: ChatMessage = {
       id: messageId,
       role: 'user',
@@ -103,28 +88,28 @@ export const useRealtimeChat = (sessionId: string, userId: string) => {
       status: 'sending'
     };
 
+    // Prepara o histórico antes de adicionar a nova mensagem
+    const historyForApi = toGeminiHistory(messages);
+
     setMessages(prev => [...prev, userMessage]);
 
     try {
-      await realtimeService.sendMessage(text, sessionId, userId, messageId);
+      // Envia a mensagem e o histórico
+      await realtimeService.sendMessage(text, sessionId, userId, messageId, historyForApi);
       
-      // Atualiza status para enviado
       setMessages(prev => prev.map(msg =>
         msg.id === messageId ? { ...msg, status: 'sent' } : msg
       ));
-
     } catch (err) {
       console.error('Erro ao enviar mensagem:', err);
       setError(err instanceof Error ? err.message : 'Erro desconhecido');
       
-      // Marca mensagem como erro
       setMessages(prev => prev.map(msg =>
         msg.id === messageId ? { ...msg, status: 'error' } : msg
       ));
     }
-  }, [sessionId, userId]);
+  }, [sessionId, userId, messages]);
 
-  // Conecta ao SSE quando o componente monta
   useEffect(() => {
     const cleanup = realtimeService.connect(sessionId, handleEvent);
     setIsConnected(true);
