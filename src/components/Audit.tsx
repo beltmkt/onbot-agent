@@ -1,9 +1,8 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { supabase } from '../lib/supabase';
-import { toast } from 'sonner';
+import React from 'react';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import { Download } from 'lucide-react';
+import { useRealtimeAudit } from '../hooks/useRealtimeAudit';
 
 interface AuditLog {
   id: string;
@@ -17,50 +16,12 @@ interface AuditLog {
 }
 
 export const Audit: React.FC = () => {
-  const [logs, setLogs] = useState<AuditLog[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [filters, setFilters] = useState({
+  const { logs, isLoading, filters, setFilters } = useRealtimeAudit({
     userEmail: '',
     actionType: '',
-    startDate: null as Date | null,
-    endDate: null as Date | null,
+    startDate: null,
+    endDate: null,
   });
-
-  const fetchLogs = useCallback(async () => {
-    setIsLoading(true);
-    let query = supabase
-      .from('activity_logs')
-      .select('*')
-      .order('created_at', { ascending: false });
-
-    if (filters.userEmail) {
-      query = query.ilike('user_email', `%${filters.userEmail}%`);
-    }
-    if (filters.actionType) {
-      query = query.eq('action_type', filters.actionType);
-    }
-    if (filters.startDate) {
-      query = query.gte('created_at', filters.startDate.toISOString());
-    }
-    if (filters.endDate) {
-      query = query.lte('created_at', filters.endDate.toISOString());
-    }
-
-    const { data, error } = await query.limit(100);
-
-    if (error) {
-      console.error("Erro ao buscar logs de auditoria:", error);
-      toast.error("Falha ao carregar os logs.");
-      setLogs([]);
-    } else {
-      setLogs(data || []);
-    }
-    setIsLoading(false);
-  }, [filters]);
-
-  useEffect(() => {
-    fetchLogs();
-  }, [fetchLogs]);
 
   const handleFilterChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
