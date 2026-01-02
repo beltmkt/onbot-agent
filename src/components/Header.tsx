@@ -2,7 +2,7 @@ import React from 'react';
 import { NavLink } from 'react-router-dom';
 import { ThemeToggle } from './ThemeToggle';
 import { Menu } from 'lucide-react';
-import { navigationData } from '../data/navigation';
+import { navigationData } from '../data/navigation.tsx';
 
 interface HeaderProps {
   onMenuClick: () => void;

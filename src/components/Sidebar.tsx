@@ -4,7 +4,7 @@ import { LogOut } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import './Sidebar.css';
 import { toast } from 'sonner';
-import { navigationData, NavSectionType, NavItemType } from '../data/navigation';
+import { navigationData, NavSectionType, NavItemType } from '../data/navigation.tsx';
 
 const NavItem: React.FC<{ item: NavItemType }> = ({ item }) => {
   const { to, icon, text, disabled } = item;
