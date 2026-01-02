@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { toast } from 'sonner';
 import { ResetPasswordModal } from './ResetPasswordModal';
+import { SuggestionForm } from './SuggestionForm'; // Importa o novo componente
 
 const phoneMask = (value: string) => {
   if (!value) return "";
@@ -32,15 +33,13 @@ export const Settings: React.FC = () => {
     e.preventDefault();
     setIsSaving(true);
     
-    // The user wants the page to "reload" - we will interpret this as
-    // providing clear feedback without a disruptive browser refresh.
     const { error } = await updateUser({
       name: fullName,
       phone: phone.replace(/\D/g, ''),
     });
 
     if (error) {
-      toast.error(`Erro ao salvar: ${error}`);
+      toast.error(`Erro ao salvar: ${error.message}`);
     } else {
       toast.success('Perfil atualizado com sucesso!');
     }
@@ -51,7 +50,10 @@ export const Settings: React.FC = () => {
     <>
       <div className="p-8 bg-gray-900 text-white min-h-screen">
         <h1 className="text-3xl font-bold mb-6 text-white">Configurações</h1>
+        
+        {/* Formulário de Perfil */}
         <div className="bg-gray-800/50 backdrop-blur-sm border border-gray-700 rounded-xl p-6 shadow-lg max-w-md">
+          <h2 className="text-xl font-bold mb-4 text-white">Meu Perfil</h2>
           <form onSubmit={handleSave} className="space-y-6">
             <div>
               <label htmlFor="fullName" className="block text-sm font-medium text-gray-300 mb-2">Nome Completo</label>
@@ -104,6 +106,10 @@ export const Settings: React.FC = () => {
             </div>
           </form>
         </div>
+
+        {/* Formulário de Sugestão */}
+        <SuggestionForm />
+
       </div>
       {isResetModalOpen && <ResetPasswordModal onClose={() => setIsResetModalOpen(false)} />}
     </>
