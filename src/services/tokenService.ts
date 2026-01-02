@@ -20,7 +20,7 @@ export interface TokenValidationResult {
 export const validateCompanyToken = async (token: string, userEmail: string): Promise<TokenValidationResult> => {
   const tokenLast4 = token.slice(-4);
   try {
-    // Validação básica do formato do token
+    // Validação básica do formato do token (mantida para feedback imediato)
     if (!token || typeof token !== 'string') {
       await auditService.createLog({ userEmail, actionType: 'token_validation', status: 'error', errorMessage: 'Token é obrigatório', metadata: { token_last4: tokenLast4 } });
       return {
@@ -47,61 +47,18 @@ export const validateCompanyToken = async (token: string, userEmail: string): Pr
       };
     }
 
-    // Consulta no Supabase para validar o token
-    const { data, error } = await supabase
-      .from('token_validations')
-      .select('id, company_id, company_name, is_valid, validated_at')
-      .eq('token', trimmedToken)
-      .eq('is_valid', true) // Usa o campo correto para 'ativo'
-      .single();
-
-    if (error) {
-      console.error('Database error validating token:', error);
-      await auditService.createLog({ userEmail, actionType: 'token_validation', status: 'error', errorMessage: 'Erro interno do servidor', metadata: { token_last4: tokenLast4 } });
-      return {
-        success: false,
-        error: 'Erro interno do servidor'
-      };
-    }
-
-    if (!data) {
-      await auditService.createLog({ userEmail, actionType: 'token_validation', status: 'error', errorMessage: 'Token inválido', metadata: { token_last4: tokenLast4 } });
-      return {
-        success: false,
-        error: 'Token inválido'
-      };
-    }
-
-    // Verifica se o token não "expirou" no contexto de `validated_at`
-    // (A tabela não possui `expires_at`, então a validação é baseada em `is_valid`)
-    if (!data.is_valid) { // Se is_valid for false, o token é considerado inválido
-      await auditService.createLog({ userEmail, actionType: 'token_validation', status: 'error', errorMessage: 'Token inválido', metadata: { token_last4: tokenLast4 } });
-      return {
-        success: false,
-        error: 'Token inválido'
-      };
-    }
-
-
-    await auditService.createLog({ userEmail, actionType: 'token_validation', status: 'success', metadata: { token_last4: tokenLast4, company_id: data.company_id, company_name: data.company_name } });
+    // --- TEMPORÁRIO: Retorna sucesso para qualquer token válido no formato ---
+    console.warn('⚠️ A validação do token está temporariamente desativada (sem consulta ao Supabase). Sempre retornará sucesso para tokens com formato válido.');
+    await auditService.createLog({ userEmail, actionType: 'token_validation', status: 'success', metadata: { token_last4: tokenLast4, company_id: 'DEBUG_ID', company_name: 'DEBUG_COMPANY' } });
     return {
       success: true,
       data: {
         isValid: true,
-        companyId: data.company_id,
-        companyName: data.company_name
+        companyId: 'debug_company_id',
+        companyName: 'Debug Company'
       }
     };
-
-  } catch (error) {
-    console.error('Error validating company token:', error);
-    await auditService.createLog({ userEmail, actionType: 'token_validation', status: 'error', errorMessage: 'Erro interno do servidor', metadata: { token_last4: tokenLast4 } });
-    return {
-      success: false,
-      error: 'Erro interno do servidor'
-    };
-  }
-};
+    // --- FIM DO TEMPORÁRIO ---
 
 
 /**

@@ -63,7 +63,7 @@ export const uploadCSVToN8N = async (file: File, token: string): Promise<{ succe
     formData.append('token', token);
 
     const response = await fetch(
-      import.meta.env.VITE_N8N_CSV_WEBHOOK_URL,
+      "https://consentient-bridger-pyroclastic.ngrok-free.dev/webhook/criar_conta_final",
       {
         method: 'POST',
         body: formData,
