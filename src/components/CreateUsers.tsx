@@ -77,7 +77,7 @@ export const CreateUsers: React.FC = () => {
       const result = await uploadCSVToN8N(file, token);
 
       if (result.success) {
-        const feedbackMessage = result.parsedResponse?.content || result.parsedResponse?.message || result.mensagem || 'Arquivo processado com sucesso!';
+        const feedbackMessage = result.parsedResponse?.Content || result.parsedResponse?.content || result.parsedResponse?.message || result.mensagem || 'Arquivo processado com sucesso!';
         let type: MessageType = 'success';
 
         const lowerCaseMessage = feedbackMessage.toLowerCase();
@@ -117,7 +117,7 @@ export const CreateUsers: React.FC = () => {
           { completed_at: new Date().toISOString(), response_message: formattedMessage }
         );
       } else {
-        const feedbackMessage = result.parsedResponse?.content || result.parsedResponse?.message || result.mensagem || 'Falha no envio do arquivo.';
+        const feedbackMessage = result.parsedResponse?.Content || result.parsedResponse?.content || result.parsedResponse?.message || result.mensagem || 'Falha no envio do arquivo.';
         let type: MessageType = 'error';
 
         const lowerCaseMessage = feedbackMessage.toLowerCase();
