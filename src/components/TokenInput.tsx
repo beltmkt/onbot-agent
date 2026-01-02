@@ -110,11 +110,11 @@ export const TokenInput = ({ token, onTokenChange, onConfirm, errorMessage }: To
 
         <motion.button
           onClick={handleConfirm}
-          disabled={!isValid || token.length === 0} // Desabilita se não for válido ou se o token estiver vazio
+          disabled={!isValid}
           className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed"
           whileTap={{ scale: 0.98 }}
         >
-          Avançar <ArrowRight className="w-4 h-4" />
+          Validar Token
         </motion.button>
       </div>
     </motion.div>

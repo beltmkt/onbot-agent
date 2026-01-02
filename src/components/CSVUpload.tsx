@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { Upload, FileText, X, Loader2, CheckCircle, AlertTriangle, Repeat, Home, Hash, Power, Download } from 'lucide-react';
+import { Upload, FileText, X, Loader2, CheckCircle, AlertTriangle, Repeat, Home, Lock } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 type MessageType = 'success' | 'error' | 'info';
@@ -14,6 +14,7 @@ interface CSVUploadProps {
   uploadMessage: string | null;
   uploadMessageType: MessageType;
   finished: boolean;
+  isDisabled: boolean; // Nova prop
 }
 
 const panelVariants = {
@@ -31,7 +32,8 @@ export const CSVUpload = ({
   isUploading,
   uploadMessage,
   uploadMessageType,
-  finished
+  finished,
+  isDisabled // Desestruturar a nova prop
 }: CSVUploadProps) => {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -73,23 +75,24 @@ export const CSVUpload = ({
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: -100 }}
       transition={{ duration: 0.3, ease: 'circOut' }}
-      className="w-full max-w-lg mx-auto"
+      className={`w-full max-w-lg mx-auto relative ${isDisabled ? 'opacity-50 pointer-events-none' : ''}`}
     >
+      {isDisabled && (
+        <div className="absolute inset-0 bg-gray-900/80 rounded-xl flex items-center justify-center z-10">
+          <div className="flex flex-col items-center text-gray-400">
+            <Lock size={48} className="mb-4" />
+            <p className="text-lg font-semibold">Valide o token primeiro</p>
+          </div>
+        </div>
+      )}
       <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2 tracking-tight">
-        <span className="text-blue-600 dark:text-blue-500">C2S</span> Create Sellers
+        <span className="text-blue-600 dark:text-blue-500">Upload</span> de Dados
       </h2>
       <p className="text-gray-600 dark:text-gray-400 text-sm mb-6">
         Envie sua planilha CSV para criar vendedores na plataforma.
       </p>
 
-      <a
-        href="https://docs.google.com/spreadsheets/d/1IwOyAPOmJVd9jhk5KBUmzHcqS8VoJ-sql0zADDUXmUo/export?format=csv&id=1IwOyAPOmJVd9jhk5KBUmzHcqS8VoJ-sql0zADDUXmUo&gid=0"
-        download="modelo_c2s.csv"
-        className="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg text-xs text-blue-600 dark:text-blue-400 bg-gray-50 dark:bg-gray-800 hover:bg-blue-50 dark:hover:bg-blue-500/10 hover:border-blue-300 dark:hover:border-blue-700 transition-all mb-8"
-      >
-        <Download className="w-4 h-4" />
-        Baixar modelo CSV
-      </a>
+      {/* Download do modelo CSV movido para o componente pai se necessário */}
 
       <div className="min-h-[250px] flex flex-col justify-center">
         <AnimatePresence mode="wait">

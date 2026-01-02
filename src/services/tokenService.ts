@@ -47,42 +47,61 @@ export const validateCompanyToken = async (token: string, userEmail: string): Pr
       };
     }
 
-    // --- TEMPORÁRIO: Retorna sucesso para qualquer token válido no formato ---
-    console.warn('⚠️ A validação do token está temporariamente desativada (sem consulta ao Supabase). Sempre retornará sucesso para tokens com formato válido.');
-    await auditService.createLog({ userEmail, actionType: 'token_validation', status: 'success', metadata: { token_last4: tokenLast4, company_id: 'DEBUG_ID', company_name: 'DEBUG_COMPANY' } });
-    return {
-      success: true,
-      data: {
-        isValid: true,
-        companyId: 'debug_company_id',
-        companyName: 'Debug Company'
+        // Consulta no Supabase para validar o token
+        const { data, error } = await supabase
+          .from('token_validations')
+          .select('id, company_id, company_name, is_valid, validated_at')
+          .eq('token', trimmedToken)
+          .eq('is_valid', true) // Usa o campo correto para 'ativo'
+          .single();
+    
+        if (error) {
+          console.error('Database error validating token:', error);
+          await auditService.createLog({ userEmail, actionType: 'token_validation', status: 'error', errorMessage: 'Erro interno do servidor', metadata: { token_last4: tokenLast4 } });
+          return {
+            success: false,
+            error: 'Erro interno do servidor'
+          };
+        }
+    
+        if (!data) {
+          await auditService.createLog({ userEmail, actionType: 'token_validation', status: 'error', errorMessage: 'Token inválido', metadata: { token_last4: tokenLast4 } });
+          return {
+            success: false,
+            error: 'Token inválido'
+          };
+        }
+    
+        // Verifica se o token é válido
+        if (!data.is_valid) { // Se is_valid for false, o token é considerado inválido
+          await auditService.createLog({ userEmail, actionType: 'token_validation', status: 'error', errorMessage: 'Token inválido', metadata: { token_last4: tokenLast4 } });
+          return {
+            success: false,
+            error: 'Token inválido'
+          };
+        }
+    
+    
+        await auditService.createLog({ userEmail, actionType: 'token_validation', status: 'success', metadata: { token_last4: tokenLast4, company_id: data.company_id, company_name: data.company_name } });
+        return {
+          success: true,
+          data: {
+            isValid: true,
+            companyId: data.company_id,
+            companyName: data.company_name
+          }
+        };
+    
+      } catch (error) {
+        console.error('Error validating company token:', error);
+        await auditService.createLog({ userEmail, actionType: 'token_validation', status: 'error', errorMessage: 'Erro interno do servidor', metadata: { token_last4: tokenLast4 } });
+        return {
+          success: false,
+          error: 'Erro interno do servidor'
+        };
       }
     };
-    // --- FIM DO TEMPORÁRIO ---
 
-
-/**
- * Verifica se um token é válido (validação síncrona básica)
- * @param token - Token a ser verificado
- * @returns boolean
- */
-export const isTokenFormatValid = (token: string): boolean => {
-  if (!token || typeof token !== 'string') {
-    return false;
-  }
-
-  const trimmedToken = token.trim();
-
-  if (trimmedToken.length < 5) {
-    return false;
-  }
-
-  if (!/^[a-zA-Z0-9-_]+$/.test(trimmedToken)) {
-    return false;
-  }
-
-  return true;
-};
 
 /**
  * Gera um token temporário para testes (apenas desenvolvimento)
