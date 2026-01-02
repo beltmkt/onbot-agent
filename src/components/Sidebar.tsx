@@ -62,12 +62,12 @@ export const Sidebar: React.FC = () => {
         <NavSection title="OPERACIONAL">
           <NavItem to="/home" icon={<Home size={20} />}>Início</NavItem>
           <NavItem to="/create-users" icon={<Users size={20} />}>Criar Usuários</NavItem>
-          <NavItem to="/teams" icon={<UserPlus size={20} />}>Criar Equipes</NavItem>
           <NavItem to="/transfer-contacts" icon={<ArrowRightLeft size={20} />}>Transferir Contatos</NavItem>
         </NavSection>
 
-        <NavSection title="FUTURO">
-          <NavItem to="/remax-requests" icon={<Archive size={20} />}>Solicitações Remax</NavItem>
+        <NavSection title="EM BREVE">
+        <NavItem to="/teams" icon={<UserPlus size={20} />} disabled>Criar Equipes</NavItem>
+          <NavItem to="/remax-requests" icon={<Archive size={20} />} disabled>Solicitações Remax</NavItem>
         </NavSection>
 
         <NavSection title="ADMINISTRATIVO">
