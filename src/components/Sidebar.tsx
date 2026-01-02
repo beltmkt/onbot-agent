@@ -1,20 +1,20 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { 
-  Home, Users, LogOut, UserPlus, ArrowRightLeft, 
-  Archive, DollarSign, AreaChart, History, Settings 
-} from 'lucide-react';
+import { LogOut } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import './Sidebar.css';
 import { toast } from 'sonner';
+import { navigationData, NavSectionType, NavItemType } from '../data/navigation';
 
-const NavItem: React.FC<{ to: string; icon: React.ReactNode; children: React.ReactNode; disabled?: boolean }> = ({ to, icon, children, disabled }) => {
+const NavItem: React.FC<{ item: NavItemType }> = ({ item }) => {
+  const { to, icon, text, disabled } = item;
+
   if (disabled) {
     return (
       <li className="nav-item disabled">
         <div className="nav-link">
           {icon}
-          <span>{children}</span>
+          <span>{text}</span>
           <span className="coming-soon-badge">Em Breve</span>
         </div>
       </li>
@@ -25,16 +25,18 @@ const NavItem: React.FC<{ to: string; icon: React.ReactNode; children: React.Rea
     <li className="nav-item">
       <NavLink to={to} className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
         {icon}
-        <span>{children}</span>
+        <span>{text}</span>
       </NavLink>
     </li>
   );
 };
 
-const NavSection: React.FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => (
+const NavSection: React.FC<{ section: NavSectionType }> = ({ section }) => (
   <div className="nav-section">
-    <h3 className="nav-section-title">{title}</h3>
-    <ul>{children}</ul>
+    <h3 className="nav-section-title">{section.title}</h3>
+    <ul>
+      {section.items.map(item => <NavItem key={item.to} item={item} />)}
+    </ul>
   </div>
 );
 
@@ -53,27 +55,13 @@ export const Sidebar: React.FC = () => {
   return (
     <aside className="sidebar">
       <div className="sidebar-header">
-        <div className="w-8 h-8 bg-gradient-to-r from-cyan-500 to-purple-600 rounded-lg flex items-center justify-center">
-            <Users className="w-4 h-4 text-white" />
-        </div>
+         <div className="w-12 h-12 bg-gradient-to-r from-cyan-500 to-purple-600 rounded-lg flex items-center justify-center">
+             <img src="/onbot-avatar.png" alt="OnBot" className="w-8 h-8" />
+         </div>
         <h1 className="text-xl font-bold text-white">Onboarding Tools</h1>
       </div>
       <nav>
-        <NavSection title="OPERACIONAL">
-          <NavItem to="/home" icon={<Home size={20} />}>Início</NavItem>
-          <NavItem to="/create-users" icon={<Users size={20} />}>Criar Usuários</NavItem>
-          <NavItem to="/transfer-contacts" icon={<ArrowRightLeft size={20} />}>Transferir Contatos</NavItem>
-        </NavSection>
-
-        <NavSection title="EM BREVE">
-        <NavItem to="/teams" icon={<UserPlus size={20} />} disabled>Criar Equipes</NavItem>
-          <NavItem to="/remax-requests" icon={<Archive size={20} />} disabled>Solicitações Remax</NavItem>
-        </NavSection>
-
-        <NavSection title="ADMINISTRATIVO">
-          <NavItem to="/audit" icon={<History size={20} />}>Auditoria</NavItem>
-          <NavItem to="/settings" icon={<Settings size={20} />}>Configurações</NavItem>
-        </NavSection>
+        {navigationData.map(section => <NavSection key={section.title} section={section} />)}
       </nav>
       <div className="sidebar-footer">
         <span className="text-gray-300 text-sm">Olá, {user?.user_metadata?.name || user?.email}</span>
