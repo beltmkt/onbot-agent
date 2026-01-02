@@ -186,9 +186,9 @@ export const TransferContacts: React.FC = () => {
 
 
   return (
-    <div className="p-8 bg-gray-900 text-white min-h-screen">
-      <h1 className="text-3xl font-bold mb-6 text-white">Transferir Contatos</h1>
-      <div className="bg-gray-800/50 backdrop-blur-sm border border-gray-700 rounded-xl p-6 shadow-lg max-w-md">
+    <div className="flex flex-col items-center justify-center min-h-screen bg-gray-900 text-white p-4 sm:p-6 lg:p-8">
+      <h1 className="text-3xl font-bold mb-6 text-white text-center">Transferir Contatos</h1>
+      <div className="bg-gray-800/50 backdrop-blur-sm border border-gray-700 rounded-xl p-6 shadow-lg w-full max-w-2xl">
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
             <label htmlFor="contactName" className="block text-sm font-medium text-gray-300 mb-2">
@@ -242,9 +242,9 @@ export const TransferContacts: React.FC = () => {
         </form>
         
         {transferStatus && (
-          <div className={`mt-6 p-4 rounded-lg border flex items-start space-x-3 ${getStatusColorClass(transferStatus.status)}`}>
+          <div className={`mt-6 w-full p-6 rounded-lg border flex items-start space-x-3 ${getStatusColorClass(transferStatus.status)}`}>
             <div>{getStatusIcon(transferStatus.status)}</div>
-            <p className="text-sm">{transferStatus.message}</p>
+            <p className="text-sm break-words whitespace-pre-line">{transferStatus.message}</p>
           </div>
         )}
 
