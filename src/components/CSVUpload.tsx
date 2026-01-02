@@ -62,7 +62,7 @@ export const CSVUpload = ({
 
   const getMessageColor = () => {
     // Palavras-chave que indicam erro, independentemente do tipo de mensagem recebido
-    const errorKeywords = ['erro', 'falha', 'inválido', 'duplicado'];
+    const errorKeywords = ['erro', 'falha', 'inválido', 'duplicado', 'tente novamente']; // Adicionado "tente novamente"
     const messageContainsError = uploadMessage && errorKeywords.some(keyword => uploadMessage.toLowerCase().includes(keyword));
 
     if (finished) {
@@ -71,6 +71,23 @@ export const CSVUpload = ({
     }
     return 'text-blue-400'; // Cor padrão antes de finalizar
   };
+
+  const getFeedbackIcon = (type: MessageType) => {
+    // A logica de erro ja foi tratada pelo getMessageColor, entao aqui so precisamos do CheckCircle para sucesso
+    // e AlertTriangle para erros/warnings
+    if (getMessageColor() === 'text-green-400') {
+      return <CheckCircle className="h-5 w-5 text-green-400" />;
+    }
+    return <AlertTriangle className="h-5 w-5 text-red-400" />; // Default para erro ou info se getMessageColor não for verde
+  };
+
+  const getFeedbackColorClass = (type: MessageType) => {
+    // A logica de erro ja foi tratada pelo getMessageColor
+    if (getMessageColor() === 'text-green-400') {
+      return 'bg-green-900/50 border-green-500';
+    }
+    return 'bg-red-900/50 border-red-500'; // Default para erro ou info
+  }
 
   return (
     <motion.div
@@ -140,11 +157,10 @@ export const CSVUpload = ({
                     <motion.div
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
-                      className={`flex items-center justify-center gap-2 text-sm p-4 rounded-lg ${getMessageColor().replace('text-', 'bg-').replace('-400', '/10')} ${getMessageColor()}`}
+                      className={`mt-6 w-full p-6 rounded-lg border flex items-start space-x-3 ${getFeedbackColorClass(uploadMessageType)}`}
                     >
-                      {uploadMessageType === 'success' && <CheckCircle className="w-4 h-4" />}
-                      {uploadMessageType === 'error' && <AlertTriangle className="w-4 h-4" />}
-                      <span className="whitespace-pre-line" dangerouslySetInnerHTML={{ __html: uploadMessage }}></span>
+                      <div>{getFeedbackIcon(uploadMessageType)}</div>
+                      <p className="text-sm whitespace-pre-line text-left">{uploadMessage}</p>
                     </motion.div>
                   )}
                   <div className="flex flex-col gap-3 mt-6">
