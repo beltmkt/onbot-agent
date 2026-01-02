@@ -129,23 +129,27 @@ export const Home: React.FC = () => {
       </div>
 
       {/* Ações Rápidas */}
-      <div className="bg-gray-800/50 backdrop-blur-sm border border-gray-700 rounded-xl p-6 shadow-lg mb-10">
-        <h2 className="text-2xl font-semibold text-gray-100 mb-5">O que você deseja fazer?</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          <Link to="/create-users" className="flex items-center justify-center px-6 py-4 bg-blue-600 rounded-lg shadow-md hover:bg-blue-700 transition-colors duration-300 text-white text-lg font-bold">
-            <UserPlus className="mr-3" size={20} /> Criar Novo Usuário
-          </Link>
-          <Link to="/transfer-contacts" className="flex items-center justify-center px-6 py-4 bg-green-600 rounded-lg shadow-md hover:bg-green-700 transition-colors duration-300 text-white text-lg font-bold">
-            <ArrowRightLeft className="mr-3" size={20} /> Transferir Contato
-          </Link>
-          <Link to="/audit" className="flex items-center justify-center px-6 py-4 bg-yellow-600 rounded-lg shadow-md hover:bg-yellow-700 transition-colors duration-300 text-white text-lg font-bold">
-            <ScrollText className="mr-3" size={20} /> Ver Logs de Auditoria
-          </Link>
-          <Link to="/teams" className="flex items-center justify-center px-6 py-4 bg-purple-600 rounded-lg shadow-md hover:bg-purple-700 transition-colors duration-300 text-white text-lg font-bold">
-            <Users className="mr-3" size={20} /> Gerenciar Equipes
-          </Link>
-        </div>
-      </div>
+      import { navigationData } from '../data/navigation.tsx';
+
+// ... (resto do código, incluindo a função toTitleCase)
+
+// Ações Rápidas
+<div className="bg-gray-800/50 backdrop-blur-sm border border-gray-700 rounded-xl p-6 shadow-lg mb-10">
+  <h2 className="text-2xl font-semibold text-gray-100 mb-5">O que você deseja fazer?</h2>
+  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+    {navigationData
+      .find(section => section.title === 'OPERACIONAL')
+      ?.items.map(item => (
+        <Link
+          key={item.to}
+          to={item.to}
+          className="flex items-center justify-center px-6 py-4 bg-blue-600 rounded-lg shadow-md hover:bg-blue-700 transition-colors duration-300 text-white text-lg font-bold"
+        >
+          {item.icon} <span className="ml-3">{item.text}</span>
+        </Link>
+      ))}
+  </div>
+</div>
 
       {/* Espaço para futuros componentes ou informações adicionais */}
       <div className="flex-grow"></div> 

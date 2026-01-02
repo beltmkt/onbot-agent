@@ -281,7 +281,44 @@ export const OnBotChat: React.FC<OnBotChatProps> = ({ onClose }) => {
           </div>
         </div>
         
+        import { upgradeAiModel } from '../services/aiService';
+import { Settings, X, Maximize2, Minimize2, Bot, User, FileText, Upload, Send, RefreshCw } from 'lucide-react';
+
+// ... (imports existentes)
+
+// ... (dentro do componente OnBotChat)
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+
+// ... (resto do código)
+
+// No header, ao lado dos botões de expandir e fechar:
         <div className="flex items-center gap-2 relative z-10">
+          <div className="relative">
+            <button
+              onClick={() => setIsSettingsOpen(!isSettingsOpen)}
+              className="text-white hover:bg-white/20 rounded-lg p-2 transition-all duration-200 backdrop-blur-sm"
+              title="Configurações"
+            >
+              <Settings className="w-4 h-4" />
+            </button>
+            {isSettingsOpen && (
+              <div className="absolute top-full right-0 mt-2 w-48 bg-gray-800 border border-gray-700 rounded-lg shadow-lg z-20">
+                <ul>
+                  <li>
+                    <button
+                      onClick={() => {
+                        upgradeAiModel('gemini-1.5-pro-latest');
+                        setIsSettingsOpen(false);
+                      }}
+                      className="w-full text-left px-4 py-2 text-sm text-gray-300 hover:bg-gray-700"
+                    >
+                      Atualizar Modelo
+                    </button>
+                  </li>
+                </ul>
+              </div>
+            )}
+          </div>
           <button
             onClick={() => setIsExpanded(!isExpanded)}
             className="text-white hover:bg-white/20 rounded-lg p-2 transition-all duration-200 backdrop-blur-sm"
