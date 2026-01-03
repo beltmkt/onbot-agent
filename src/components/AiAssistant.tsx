@@ -24,13 +24,14 @@ export const AiAssistant: React.FC<AiAssistantProps> = ({ onClose }) => {
   const [inputMessage, setInputMessage] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const chatEndRef = useRef<HTMLDivElement>(null);
-  const [isExpanded, setIsExpanded] = useState(false); // Novo estado para controlar a expansão
-
-
-
-  // Mensagem de boas-vindas inicial
-  useEffect(() => {
+    const chatEndRef = useRef<HTMLDivElement>(null);
+    const [isExpanded, setIsExpanded] = useState(false); // Novo estado para controlar a expansão
+  
+    // Gerar um sessionId único ou usar o ID do usuário, mantendo-o estável
+    const sessionIdRef = useRef(user?.id || `anon-${uuidv4()}`);
+  
+    // Mensagem de boas-vindas inicial
+    useEffect(() => {
     setMessages([
       {
         id: uuidv4(),
@@ -69,7 +70,8 @@ export const AiAssistant: React.FC<AiAssistantProps> = ({ onClose }) => {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          message: messageToSend,
+          chatInput: messageToSend,
+          sessionId: sessionIdRef.current,
           userEmail: user?.email || "teste@c2s.com",
           userName: user?.user_metadata?.full_name || user?.user_metadata?.name || "Visitante",
         }),
