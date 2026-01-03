@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Send, Bot } from 'lucide-react';
+import { X, Send, Bot, Maximize2, Minimize2 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext'; // Para obter o user.email para sessionId
 import { v4 as uuidv4 } from 'uuid'; // Para gerar sessionId único se não houver email
 
@@ -25,9 +25,9 @@ export const AiAssistant: React.FC<AiAssistantProps> = ({ onClose }) => {
   const [isTyping, setIsTyping] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
+  const [isExpanded, setIsExpanded] = useState(false); // Novo estado para controlar a expansão
 
-  // Gerar um sessionId único ou usar o ID do usuário
-  const sessionId = user?.id || `anon-${uuidv4()}`;
+
 
   // Mensagem de boas-vindas inicial
   useEffect(() => {
@@ -70,9 +70,8 @@ export const AiAssistant: React.FC<AiAssistantProps> = ({ onClose }) => {
         },
         body: JSON.stringify({
           message: messageToSend,
-          userEmail: user?.email,
-          userName: user?.user_metadata?.full_name || user?.user_metadata?.name || "Usuário",
-          sessionId: user?.id || sessionId,
+          userEmail: user?.email || "teste@c2s.com",
+          userName: user?.user_metadata?.full_name || user?.user_metadata?.name || "Visitante",
         }),
       });
 
@@ -119,7 +118,10 @@ export const AiAssistant: React.FC<AiAssistantProps> = ({ onClose }) => {
   };
 
   return (
-    <div className="fixed bottom-20 right-4 w-80 h-[480px] bg-gray-800/80 backdrop-blur-lg rounded-xl shadow-2xl border border-gray-700 flex flex-col z-50 overflow-hidden">
+    <div
+      className={`fixed bg-gray-800/80 backdrop-blur-lg rounded-xl shadow-2xl border border-gray-700 flex flex-col z-50 overflow-hidden transition-all duration-300 ease-in-out
+        ${isExpanded ? 'top-4 left-4 right-4 bottom-4' : 'bottom-20 right-4 w-80 h-[480px]'}`}
+    >
       {/* Header */}
       <div className="flex items-center justify-between p-3 border-b border-gray-700 bg-gray-900/50">
         <div className="flex items-center gap-2">
@@ -135,13 +137,22 @@ export const AiAssistant: React.FC<AiAssistantProps> = ({ onClose }) => {
             </div>
           </div>
         </div>
-        <button
-          onClick={onClose}
-          className="text-gray-400 hover:text-white transition-colors"
-          aria-label="Fechar chat"
-        >
-          <X className="w-5 h-5" />
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setIsExpanded(!isExpanded)}
+            className="text-gray-400 hover:text-white transition-colors"
+            aria-label={isExpanded ? 'Minimizar chat' : 'Expandir chat'}
+          >
+            {isExpanded ? <Minimize2 className="w-5 h-5" /> : <Maximize2 className="w-5 h-5" />}
+          </button>
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-white transition-colors"
+            aria-label="Fechar chat"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
       </div>
 
       {/* Message Area */}
