@@ -40,35 +40,24 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   // Inicialização - Verifica sessão do Supabase
   useEffect(() => {
-    // onAuthStateChange is called on initial load and whenever the auth state changes.
-    // This is the most reliable way to get the session and avoid race conditions.
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
-        setUser(session?.user ?? null);
-        setIsLoading(false);
-
-        if (_event === 'SIGNED_IN' || _event === 'INITIAL_SESSION') {
-          setLoginTime(Date.now());
-        }
-
-        // Log restoration of a session on page load
-        if (_event === 'INITIAL_SESSION' && session?.user) {
-          console.log('Attempting to log session restoration...');
-          try {
-            auditService.createLog({
-              userEmail: session.user.email!,
-              actionType: 'session_restored',
-              status: 'success',
-              metadata: { user_id: session.user.id, name: session.user.user_metadata.name }
-            });
-            console.log('Session restoration log attempted for:', session.user.email);
-          } catch (error) {
-            console.error('Failed to log session restoration:', error);
-          }
-        }
-      }
-    );
-
+            // onAuthStateChange is called on initial load and whenever the auth state changes.
+            // This is the most reliable way to get the session and avoid race conditions.
+            const { data: { subscription } } = supabase.auth.onAuthStateChange(
+              (_event, session) => {
+                setUser(session?.user ?? null);
+                setIsLoading(false);
+    
+                if (_event === 'SIGNED_IN') {
+                  setLoginTime(Date.now());
+                  // Log restoration of a session on page load
+                  // The `login` action type is already handled in the signIn function,
+                  // so we don't need a separate log for INITIAL_SESSION here
+                  // unless we want to distinguish between active login and passive session restoration.
+                  // For now, based on the request "não registrar toda vez que a opágina for atualizada",
+                  // we remove logging for initial session load.
+                }
+              }
+            );
     // Cleanup subscription on unmount
     return () => {
       subscription.unsubscribe();
