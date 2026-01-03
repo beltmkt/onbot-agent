@@ -68,6 +68,7 @@ export const AiAssistant: React.FC<AiAssistantProps> = ({ onClose }) => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'ngrok-skip-browser-warning': 'true', // Adicionar esta linha crítica
         },
         body: JSON.stringify({
           chatInput: messageToSend,
