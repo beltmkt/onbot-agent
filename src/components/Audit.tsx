@@ -39,14 +39,25 @@ export const Audit: React.FC = () => {
     endDate: null,
   });
 
+  const [currentPage, setCurrentPage] = React.useState(1);
+  const itemsPerPage = 50;
+
+  // Lógica de paginação
+  const indexOfLastItem = currentPage * itemsPerPage;
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+  const currentLogs = logs.slice(indexOfFirstItem, indexOfLastItem);
+  const totalPages = Math.ceil(logs.length / itemsPerPage);
+
   const handleFilterChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFilters(prev => ({ ...prev, [name]: value }));
+    setCurrentPage(1); // Resetar para a primeira página ao aplicar filtros
   };
 
   const handleDateChange = (dates: [Date | null, Date | null]) => {
     const [start, end] = dates;
     setFilters(prev => ({ ...prev, startDate: start, endDate: end }));
+    setCurrentPage(1); // Resetar para a primeira página ao aplicar filtros
   };
   
   const formatActionType = (action: string) => {
@@ -138,7 +149,7 @@ export const Audit: React.FC = () => {
           <tbody>
             {isLoading ? (
               <tr><td colSpan={5} className="text-center p-8">Carregando...</td></tr>
-            ) : logs.length > 0 ? logs.map((log) => (
+            ) : currentLogs.length > 0 ? currentLogs.map((log) => (
               <tr key={log.id} className="border-b border-gray-700/50 hover:bg-gray-700/40">
                 <td className="px-6 py-4">{new Date(log.created_at).toLocaleString('pt-BR')}</td>
                 <td className="px-6 py-4">{log.user_email}</td>
@@ -159,6 +170,42 @@ export const Audit: React.FC = () => {
           </tbody>
         </table>
       </div>
+      {totalPages > 1 && (
+        <nav className="flex justify-center mt-4">
+          <ul className="flex items-center -space-x-px h-10 text-base">
+            <li>
+              <button
+                onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                disabled={currentPage === 1}
+                className="flex items-center justify-center px-4 h-10 ms-0 leading-tight border rounded-s-lg bg-gray-800 border-gray-700 text-gray-400 hover:bg-gray-700 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Anterior
+              </button>
+            </li>
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+              <li key={page}>
+                <button
+                  onClick={() => setCurrentPage(page)}
+                  className={`flex items-center justify-center px-4 h-10 leading-tight border bg-gray-800 border-gray-700 hover:bg-gray-700 hover:text-white ${
+                    currentPage === page ? 'text-white bg-blue-700 hover:bg-blue-800' : 'text-gray-400'
+                  }`}
+                >
+                  {page}
+                </button>
+              </li>
+            ))}
+            <li>
+              <button
+                onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                disabled={currentPage === totalPages}
+                className="flex items-center justify-center px-4 h-10 leading-tight border rounded-e-lg bg-gray-800 border-gray-700 text-gray-400 hover:bg-gray-700 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Próximo
+              </button>
+            </li>
+          </ul>
+        </nav>
+      )}
     </div>
   );
 };
