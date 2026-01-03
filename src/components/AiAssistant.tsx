@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Send, Bot, Loader2, Wifi, WifiOff, RefreshCw } from 'lucide-react';
+import { X, Send, Bot } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext'; // Para obter o user.email para sessionId
 import { v4 as uuidv4 } from 'uuid'; // Para gerar sessionId único se não houver email
 
@@ -26,8 +26,8 @@ export const AiAssistant: React.FC<AiAssistantProps> = ({ onClose }) => {
   const [error, setError] = useState<string | null>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
-  // Gerar um sessionId único ou usar o email do usuário
-  const sessionId = user?.email || `anon-${uuidv4()}`;
+  // Gerar um sessionId único ou usar o ID do usuário
+  const sessionId = user?.id || `anon-${uuidv4()}`;
 
   // Mensagem de boas-vindas inicial
   useEffect(() => {
@@ -68,7 +68,12 @@ export const AiAssistant: React.FC<AiAssistantProps> = ({ onClose }) => {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ message: newUserMessage.content, sessionId: sessionId }),
+        body: JSON.stringify({
+          message: messageToSend,
+          userEmail: user?.email,
+          userName: user?.user_metadata?.full_name || user?.user_metadata?.name || "Usuário",
+          sessionId: user?.id || sessionId,
+        }),
       });
 
       if (!response.ok) {
@@ -212,7 +217,7 @@ export const AiAssistant: React.FC<AiAssistantProps> = ({ onClose }) => {
             disabled={isTyping}
           />
           <button
-            onClick={handleSendMessage}
+            onClick={() => handleSendMessage()}
             disabled={!inputMessage.trim() || isTyping}
             className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed rounded-lg p-2 transition-colors"
             aria-label="Enviar mensagem"
