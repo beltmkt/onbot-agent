@@ -37,15 +37,36 @@ export const AiAssistant: React.FC<AiAssistantProps> = ({ onClose }) => {
       useEffect(() => {
         setMessages([
           {
-            id: uuidv4(),
+            id: 'welcome-message', // Usando um ID estático para facilitar a atualização
             role: 'assistant',
             content: `Olá, ${userName}! Sou o OnBot. Como posso ajudar com seus usuários ou contatos hoje?`,
             timestamp: new Date(),
           },
         ]);
-      }, [userName]); // Adicionado userName como dependência para atualização da mensagem
-  // Scroll automático para o final do chat
-  useEffect(() => {
+            }, [userName]); // Adicionado userName como dependência para atualização da mensagem
+      
+        // Adicione este Effect para atualizar a saudação dinamicamente
+        useEffect(() => {
+          if (user && user.user_metadata) {
+            // Pega o nome (full_name ou name) e extrai o primeiro nome
+            const fullName = user.user_metadata.full_name || user.user_metadata.name || "";
+            const firstName = fullName.split(' ')[0];
+      
+            if (firstName) {
+              setMessages((prevMessages) => {
+                // Encontra a mensagem de boas-vindas (ID 'welcome-message') e atualiza o texto
+                return prevMessages.map((msg) =>
+                  msg.id === 'welcome-message'
+                    ? { ...msg, content: `Olá, ${firstName}! Sou o OnBot. Como posso ajudar com seus usuários ou contatos hoje?` }
+                    : msg
+                );
+              });
+            }
+          }
+        }, [user]); // Dependência: executa sempre que o objeto 'user' mudar
+      
+        // Scroll automático para o final do chat
+        useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isTyping]);
 
