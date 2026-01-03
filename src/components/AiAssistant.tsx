@@ -25,23 +25,25 @@ export const AiAssistant: React.FC<AiAssistantProps> = ({ onClose }) => {
   const [isTyping, setIsTyping] = useState(false);
   const [error, setError] = useState<string | null>(null);
     const chatEndRef = useRef<HTMLDivElement>(null);
-    const [isExpanded, setIsExpanded] = useState(false); // Novo estado para controlar a expansão
-  
-    // Gerar um sessionId único ou usar o ID do usuário, mantendo-o estável
-    const sessionIdRef = useRef(user?.id || `anon-${uuidv4()}`);
-  
-    // Mensagem de boas-vindas inicial
-    useEffect(() => {
-    setMessages([
-      {
-        id: uuidv4(),
-        role: 'assistant',
-        content: 'Olá! Sou o OnBot, seu Agente Digital de Onboarding. Para começar, por favor, me diga o que você precisa! 🚀',
-        timestamp: new Date(),
-      },
-    ]);
-  }, []);
-
+      const [isExpanded, setIsExpanded] = useState(false); // Novo estado para controlar a expansão
+    
+      // Gerar um sessionId único ou usar o ID do usuário, mantendo-o estável
+      const sessionIdRef = useRef(user?.id || `anon-${uuidv4()}`);
+    
+      // Pegando contexto do usuário (ajuste conforme seu hook de auth)
+      const userName = user?.user_metadata?.full_name?.split(' ')[0] || "Visitante";
+    
+      // Mensagem de boas-vindas inicial
+      useEffect(() => {
+        setMessages([
+          {
+            id: uuidv4(),
+            role: 'assistant',
+            content: `Olá, ${userName}! Sou o OnBot. Como posso ajudar com seus usuários ou contatos hoje?`,
+            timestamp: new Date(),
+          },
+        ]);
+      }, [userName]); // Adicionado userName como dependência para atualização da mensagem
   // Scroll automático para o final do chat
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
