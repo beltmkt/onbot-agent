@@ -9,6 +9,7 @@ interface ChatMessage {
   role: 'user' | 'assistant' | 'error';
   content: string;
   timestamp: Date;
+  options?: { label: string; value: string; action?: string }[]; // Novo campo
 }
 
 const N8N_WEBHOOK_URL = 'https://consentient-bridger-pyroclastic.ngrok-free.dev/webhook/c3f08451-1847-461c-9ba0-a0f6d0bac603/chat';
@@ -45,18 +46,19 @@ export const AiAssistant: React.FC<AiAssistantProps> = ({ onClose }) => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isTyping]);
 
-  const handleSendMessage = async () => {
-    if (inputMessage.trim() === '') return;
+  const handleSendMessage = async (messageContent?: string) => {
+    const messageToSend = messageContent || inputMessage.trim();
+    if (messageToSend === '') return;
 
     const newUserMessage: ChatMessage = {
       id: uuidv4(),
       role: 'user',
-      content: inputMessage.trim(),
+      content: messageToSend,
       timestamp: new Date(),
     };
 
     setMessages((prevMessages) => [...prevMessages, newUserMessage]);
-    setInputMessage('');
+    setInputMessage(''); // Sempre limpa o input após enviar, seja manual ou quick reply
     setIsTyping(true);
     setError(null); // Limpar erro anterior
 
@@ -99,6 +101,10 @@ export const AiAssistant: React.FC<AiAssistantProps> = ({ onClose }) => {
     } finally {
       setIsTyping(false);
     }
+  };
+
+  const handleQuickReplyClick = (value: string) => {
+    handleSendMessage(value);
   };
 
   const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -150,6 +156,19 @@ export const AiAssistant: React.FC<AiAssistantProps> = ({ onClose }) => {
               }`}
             >
               <div className="whitespace-pre-wrap">{message.content}</div>
+              {message.role === 'assistant' && message.options && message.options.length > 0 && (
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {message.options.map((option, index) => (
+                    <button
+                      key={index}
+                      className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-full text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50"
+                      onClick={() => handleQuickReplyClick(option.value)}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+              )}
               <span className="absolute bottom-1 right-2 text-xs text-gray-400 opacity-60">
                 {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
               </span>
