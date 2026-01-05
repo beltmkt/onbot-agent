@@ -20,7 +20,7 @@ export const ChatPage: React.FC = () => {
   const { user } = useAuth(); // Obter informações do usuário
 
   // URL do seu Webhook de Chat no N8N
-  const WEBHOOK_URL = import.meta.env.VITE_N8N_WEBHOOK_URL || 'SUA_URL_DO_N8N_AQUI'; 
+  const WEBHOOK_URL = import.meta.env.VITE_N8N_WEBHOOK_URL || 'https://consentient-bridger-pyroclastic.ngrok-free.dev/webhook/c3f08451-1847-461c-9ba0-a0f6d0bac603/chat'; 
 
   // Efeito para carregar o prompt inicial da Dashboard
   useEffect(() => {
