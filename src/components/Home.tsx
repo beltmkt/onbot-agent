@@ -12,7 +12,7 @@ export const Home: React.FC = () => {
   const handleCommandSubmit = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
       if (commandInput.trim()) { // Only navigate if there's actual input
-        navigate('/onbot-chat', { state: { initialMessage: commandInput } });
+        navigate('/onbot-chat', { state: { initialPrompt: commandInput } });
         setCommandInput(''); // Clear input after submission
       } else {
         toast.info("Por favor, digite uma mensagem ou ação.");

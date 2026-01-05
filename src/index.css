@@ -99,4 +99,29 @@
   .form-footer .info-text {
     @apply text-xs text-gray-500 dark:text-gray-400 mt-3;
   }
+
+  /* Grid Pattern para backgrounds */
+  .grid-pattern {
+    background-size: 40px 40px;
+    background-image: radial-gradient(circle, #ffffff33 1px, transparent 1px);
+    opacity: 0.1; /* Ajuste para sutileza */
+  }
+
+  /* Custom Scrollbar Styles */
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.2);
+  }
 }
