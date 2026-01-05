@@ -20,11 +20,13 @@ interface AuthContextType {
   resetPassword: (token: string, newPassword: string) => Promise<{ success: boolean; message: string }>;
   updateUser: (data: { name?: string; phone?: string }) => Promise<{ error?: string }>;
   updatePassword: (newPassword: string) => Promise<{ error?: string }>;
+  signInWithGoogle: () => Promise<{ error?: string }>; // Adicionado
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const AUTHORIZED_DOMAIN = '@c2sglobal.com';
+const GOOGLE_HD_DOMAIN = 'c2sglobal.com'; // Domínio para queryParams do Google OAuth
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<(User & { c2sId?: string }) | null>(null);
@@ -290,6 +292,37 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     return {};
   };
 
+  // Nova função para login com Google
+  const signInWithGoogle = useCallback(async (): Promise<{ error?: string }> => {
+    setIsLoading(true);
+    try {
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent',
+            hd: GOOGLE_HD_DOMAIN, // Restringe ao domínio corporativo
+          },
+        },
+      });
+
+      if (error) {
+        console.error('Error signing in with Google:', error);
+        return { error: error.message };
+      }
+
+      // Supabase trata o redirecionamento automaticamente
+      return {};
+
+    } catch (error: any) {
+      console.error('Unexpected error signing in with Google:', error);
+      return { error: 'Erro inesperado ao tentar logar com o Google.' };
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
   const contextValue: AuthContextType = {
     user,
     login,
@@ -304,6 +337,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     resetPassword,
     updateUser,
     updatePassword,
+    signInWithGoogle, // Adicionado
   };
 
   return (
