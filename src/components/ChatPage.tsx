@@ -72,7 +72,7 @@ export const ChatPage: React.FC = () => {
         }
       };
 
-      console.log("Enviando Payload:", payload); // Log para debug antes de enviar
+      console.log("METADATA DEBUG:", JSON.stringify(payload.metadata, null, 2)); // Log para debug antes de enviar
 
       const response = await fetch(WEBHOOK_URL, {
         method: 'POST',
