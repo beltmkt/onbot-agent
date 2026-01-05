@@ -1,19 +1,27 @@
-import React, { useState } from 'react';
-import { Sparkles, UserPlus, ArrowRightLeft, Activity, Command } from 'lucide-react';
+import React, { useState, useRef } from 'react';
+import { Sparkles, UserPlus, ArrowRightLeft, ClipboardList, Command } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 
 export const Home: React.FC = () => {
   const navigate = useNavigate();
   const [commandInput, setCommandInput] = useState('');
+  const inputRef = useRef<HTMLInputElement>(null); // Ref para o input
   const userName = "Alisson"; // Pode conectar com seu contexto real depois
 
   const handleCommandSubmit = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
-      console.log('Command submitted:', commandInput);
-      toast.info(`Comando "${commandInput}" executado (simulado).`);
-      setCommandInput(''); // Clear input after "submission"
+      if (commandInput.trim()) { // Only navigate if there's actual input
+        navigate('/onbot-chat', { state: { initialMessage: commandInput } });
+        setCommandInput(''); // Clear input after submission
+      } else {
+        toast.info("Por favor, digite uma mensagem ou ação.");
+      }
     }
+  };
+
+  const handleSparklesClick = () => {
+    inputRef.current?.focus(); // Foca no input quando o ícone Sparkles é clicado
   };
 
   const handleCardClick = (path: string) => {
@@ -47,10 +55,16 @@ export const Home: React.FC = () => {
         <div className="w-full max-w-2xl relative group">
           <div className="absolute -inset-1 bg-gradient-to-r from-cyan-500 to-indigo-600 rounded-2xl opacity-30 group-hover:opacity-70 blur transition duration-500"></div>
           <div className="relative flex items-center bg-slate-900/80 backdrop-blur-xl border border-white/10 rounded-2xl p-4 shadow-2xl">
-            <Sparkles className="w-6 h-6 text-indigo-400 mr-4 animate-pulse" />
+            <div 
+              className="mr-4 cursor-pointer hover:text-cyan-400 transition-colors duration-200" 
+              onClick={handleSparklesClick}
+            >
+              <Sparkles className="w-6 h-6 text-indigo-400 animate-pulse" />
+            </div>
             <input 
+              ref={inputRef} // Atribui a ref ao input
               type="text" 
-              placeholder="Digite 'Transferir' ou 'Criar'..." 
+              placeholder="Converse com o OnBot ou digite uma ação..." 
               className="w-full bg-transparent border-none outline-none text-white placeholder-slate-500 text-lg"
               value={commandInput}
               onChange={(e) => setCommandInput(e.target.value)}
@@ -88,16 +102,16 @@ export const Home: React.FC = () => {
             <p className="text-sm text-slate-400 text-left mt-1">Mover contatos entre carteiras.</p>
           </div>
 
-          {/* Card: Status */}
+          {/* Card: Auditoria */}
           <div 
-            className="group p-6 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-emerald-500/50 rounded-2xl transition-all cursor-pointer hover:-translate-y-1"
+            className="group p-6 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-amber-500/50 rounded-2xl transition-all cursor-pointer hover:-translate-y-1"
             onClick={() => handleCardClick('/audit')}
           >
-            <div className="w-12 h-12 bg-emerald-500/20 rounded-lg flex items-center justify-center mb-4 group-hover:scale-110 transition">
-              <Activity className="text-emerald-400" />
+            <div className="w-12 h-12 bg-amber-500/20 rounded-lg flex items-center justify-center mb-4 group-hover:scale-110 transition">
+              <ClipboardList className="text-amber-400" />
             </div>
-            <h3 className="text-lg font-semibold text-left">Sistemas</h3>
-            <p className="text-sm text-slate-400 text-left mt-1">Todos os serviços online.</p>
+            <h3 className="text-lg font-semibold text-left">Auditoria</h3>
+            <p className="text-sm text-slate-400 text-left mt-1">Visualizar histórico de ações.</p>
           </div>
         </div>
 

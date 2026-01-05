@@ -47,9 +47,7 @@ export const TokenInput = ({ token, onTokenChange, onConfirm, errorMessage }: To
         </div>
       </div>
 
-      <h2 className="text-2xl font-bold text-white mb-2 tracking-tighter">
-        <span className="text-blue-500">C2S</span> – Create Sellers
-      </h2>
+
       <p className="text-gray-400 text-sm mb-8">
         Insira o token da empresa para continuar.
       </p>
