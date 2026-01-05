@@ -1,75 +1,76 @@
-import React from 'react';
-import { Sparkles, UserPlus, ArrowRightLeft, Activity, Command } from 'lucide-react';
+import React, { useState } from 'react';
+import { Outlet } from 'react-router-dom';
+import { Sidebar } from './Sidebar';
+import { Bot } from 'lucide-react';
+import { Header } from './Header';
+// import './MainLayout.css'; // This CSS file is no longer needed
+import { AiAssistant } from './AiAssistant';
 
 export const MainLayout: React.FC = () => {
-  const userName = "Alisson"; // Pode conectar com seu contexto real depois
+  const [isAssistantOpen, setIsAssistantOpen] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   return (
-    <div className="min-h-screen bg-[#0f172a] text-white flex flex-col items-center justify-center p-4 relative overflow-hidden">
-      
-      {/* 1. Background Effects (Manual CSS p/ garantir que apareça) */}
-      <div className="absolute top-[-20%] left-1/2 -translate-x-1/2 w-[800px] h-[800px] bg-indigo-600 rounded-full blur-[150px] opacity-20 pointer-events-none"></div>
-      <div className="absolute bottom-[-20%] right-[-10%] w-[600px] h-[600px] bg-cyan-500 rounded-full blur-[150px] opacity-10 pointer-events-none"></div>
+    <div className="relative min-h-screen"> {/* Main container for the layout, relative for positioning background elements */}
+      {/* Aurora Background - Global Glows */}
+      <div className="aurora-bg">
+        <div className="glow-1"></div>
+        <div className="glow-2"></div>
+      </div>
 
-      {/* 2. Main Container */}
-      <div className="relative z-10 w-full max-w-5xl flex flex-col items-center gap-12 text-center">
+      {/* Radial Gradient / Vignette Effect (as part of the background, applied subtly) */}
+      {/* This creates a central focus by subtly darkening the edges. */}
+      <div className="absolute inset-0 bg-gradient-to-t from-transparent via-slate-950/50 to-slate-950 z-0"></div>
+
+      {/* Main content wrapper, positioned above the background effects */}
+      <div className="relative z-10 flex min-h-screen">
+        {/* Sidebar para Desktop */}
+        {/* Hidden on small screens, shown on medium and larger screens */}
+        <div className="hidden md:block">
+          <Sidebar />
+        </div>
+
+        {/* Sidebar para Mobile (com overlay e transição) */}
+        {/* Overlay escuro que fecha a sidebar ao clicar fora */}
+        {isSidebarOpen && (
+          <div
+            className="fixed inset-0 bg-black bg-opacity-75 z-40 transition-opacity duration-300 md:hidden"
+            onClick={() => setIsSidebarOpen(false)}
+          ></div>
+        )}
+        {/* Sidebar móvel que desliza da esquerda */}
+        <div
+          className={`fixed inset-y-0 left-0 w-64 bg-slate-900 border-r border-white/10 z-50 transform ${
+            isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
+          } transition-transform duration-300 ease-in-out md:hidden`}
+        >
+          {/* Passa a prop onClose para permitir que a sidebar se feche */}
+          <Sidebar onClose={() => setIsSidebarOpen(false)} />
+        </div>
         
-        {/* Header Section */}
-        <div className="space-y-4">
-          <h1 className="text-5xl md:text-6xl font-bold tracking-tight">
-            Olá, <span className="bg-gradient-to-r from-cyan-400 to-indigo-500 bg-clip-text text-transparent">{userName}</span>
-          </h1>
-          <p className="text-slate-400 text-xl font-light max-w-2xl mx-auto">
-            Seu centro de comando está pronto. Qual automação vamos executar hoje?
-          </p>
+        {/* Área de conteúdo principal (Header e Outlet) */}
+        <div className="flex-1 flex flex-col"> {/* flex-1 para ocupar o espaço restante */}
+          <Header onMenuClick={() => setIsSidebarOpen(true)} />
+          <main className="flex-1 p-4 md:p-8 relative"> {/* flex-1 para o conteúdo ocupar a altura disponível */}
+            <Outlet />
+          </main>
         </div>
+      </div>
 
-        {/* 3. The Command Bar (Visual Key) */}
-        <div className="w-full max-w-2xl relative group">
-          <div className="absolute -inset-1 bg-gradient-to-r from-cyan-500 to-indigo-600 rounded-2xl opacity-30 group-hover:opacity-70 blur transition duration-500"></div>
-          <div className="relative flex items-center bg-slate-900/80 backdrop-blur-xl border border-white/10 rounded-2xl p-4 shadow-2xl">
-            <Sparkles className="w-6 h-6 text-indigo-400 mr-4 animate-pulse" />
-            <input 
-              type="text" 
-              placeholder="Digite 'Transferir' ou 'Criar'..." 
-              className="w-full bg-transparent border-none outline-none text-white placeholder-slate-500 text-lg"
-            />
-            <div className="hidden sm:flex items-center gap-1 px-2 py-1 bg-white/5 rounded border border-white/10 text-xs text-slate-500 font-mono">
-              <Command size={12} /> K
-            </div>
-          </div>
-        </div>
+      {/* Botão flutuante para abrir o assistente de IA */}
+      <div className="fixed bottom-4 right-4 z-50">
+        {!isAssistantOpen && (
+          <button
+            onClick={() => setIsAssistantOpen(true)}
+            className="relative flex items-center justify-center w-14 h-14 bg-gradient-to-r from-cyan-500 to-purple-600 hover:from-cyan-600 hover:to-purple-700 text-white rounded-full shadow-lg transition-all duration-300 ease-in-out transform hover:scale-110 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-cyan-500 group
+                       before:absolute before:inset-0 before:rounded-full before:bg-cyan-400 before:opacity-75 before:animate-ping before:group-hover:animate-none before:duration-700 before:ease-out"
+            aria-label="Abrir Assistente IA"
+          >
+            <Bot className="w-7 h-7 relative z-10" />
+          </button>
+        )}
 
-        {/* 4. Action Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full">
-          {/* Card: Criar */}
-          <div className="group p-6 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-indigo-500/50 rounded-2xl transition-all cursor-pointer hover:-translate-y-1">
-            <div className="w-12 h-12 bg-indigo-500/20 rounded-lg flex items-center justify-center mb-4 group-hover:scale-110 transition">
-              <UserPlus className="text-indigo-400" />
-            </div>
-            <h3 className="text-lg font-semibold text-left">Criar Usuário</h3>
-            <p className="text-sm text-slate-400 text-left mt-1">Adicionar novo membro ao time.</p>
-          </div>
-
-          {/* Card: Transferir */}
-          <div className="group p-6 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-cyan-500/50 rounded-2xl transition-all cursor-pointer hover:-translate-y-1">
-            <div className="w-12 h-12 bg-cyan-500/20 rounded-lg flex items-center justify-center mb-4 group-hover:scale-110 transition">
-              <ArrowRightLeft className="text-cyan-400" />
-            </div>
-            <h3 className="lg font-semibold text-left">Transferir Lead</h3>
-            <p className="text-sm text-slate-400 text-left mt-1">Mover contatos entre carteiras.</p>
-          </div>
-
-          {/* Card: Status */}
-          <div className="group p-6 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-emerald-500/50 rounded-2xl transition-all cursor-pointer hover:-translate-y-1">
-            <div className="w-12 h-12 bg-emerald-500/20 rounded-lg flex items-center justify-center mb-4 group-hover:scale-110 transition">
-              <Activity className="text-emerald-400" />
-            </div>
-            <h3 className="text-lg font-semibold text-left">Sistemas</h3>
-            <p className="text-sm text-slate-400 text-left mt-1">Todos os serviços online.</p>
-          </div>
-        </div>
-
+        {isAssistantOpen && <AiAssistant onClose={() => setIsAssistantOpen(false)} />}
       </div>
     </div>
   );

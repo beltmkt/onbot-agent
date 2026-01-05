@@ -1,9 +1,27 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Sparkles, UserPlus, ArrowRightLeft, Activity, Command } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
 
-// Se este for o componente principal, exporte como default
 export const Home: React.FC = () => {
+  const navigate = useNavigate();
+  const [commandInput, setCommandInput] = useState('');
   const userName = "Alisson"; // Pode conectar com seu contexto real depois
+
+  const handleCommandSubmit = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      console.log('Command submitted:', commandInput);
+      toast.info(`Comando "${commandInput}" executado (simulado).`);
+      setCommandInput(''); // Clear input after "submission"
+    }
+  };
+
+  const handleCardClick = (path: string) => {
+    if (path === '/audit') {
+      toast.success('Sistemas online e funcionando!');
+    }
+    navigate(path);
+  };
 
   return (
     <div className="min-h-screen bg-[#0f172a] text-white flex flex-col items-center justify-center p-4 relative overflow-hidden">
@@ -34,6 +52,9 @@ export const Home: React.FC = () => {
               type="text" 
               placeholder="Digite 'Transferir' ou 'Criar'..." 
               className="w-full bg-transparent border-none outline-none text-white placeholder-slate-500 text-lg"
+              value={commandInput}
+              onChange={(e) => setCommandInput(e.target.value)}
+              onKeyDown={handleCommandSubmit}
             />
             <div className="hidden sm:flex items-center gap-1 px-2 py-1 bg-white/5 rounded border border-white/10 text-xs text-slate-500 font-mono">
               <Command size={12} /> K
@@ -44,7 +65,10 @@ export const Home: React.FC = () => {
         {/* 4. Action Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full">
           {/* Card: Criar */}
-          <div className="group p-6 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-indigo-500/50 rounded-2xl transition-all cursor-pointer hover:-translate-y-1">
+          <div 
+            className="group p-6 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-indigo-500/50 rounded-2xl transition-all cursor-pointer hover:-translate-y-1"
+            onClick={() => handleCardClick('/create-users')}
+          >
             <div className="w-12 h-12 bg-indigo-500/20 rounded-lg flex items-center justify-center mb-4 group-hover:scale-110 transition">
               <UserPlus className="text-indigo-400" />
             </div>
@@ -53,16 +77,22 @@ export const Home: React.FC = () => {
           </div>
 
           {/* Card: Transferir */}
-          <div className="group p-6 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-cyan-500/50 rounded-2xl transition-all cursor-pointer hover:-translate-y-1">
+          <div 
+            className="group p-6 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-cyan-500/50 rounded-2xl transition-all cursor-pointer hover:-translate-y-1"
+            onClick={() => handleCardClick('/transfer-contacts')}
+          >
             <div className="w-12 h-12 bg-cyan-500/20 rounded-lg flex items-center justify-center mb-4 group-hover:scale-110 transition">
               <ArrowRightLeft className="text-cyan-400" />
             </div>
-            <h3 className="text-lg font-semibold text-left">Transferir Lead</h3>
+            <h3 className="lg font-semibold text-left">Transferir Lead</h3>
             <p className="text-sm text-slate-400 text-left mt-1">Mover contatos entre carteiras.</p>
           </div>
 
           {/* Card: Status */}
-          <div className="group p-6 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-emerald-500/50 rounded-2xl transition-all cursor-pointer hover:-translate-y-1">
+          <div 
+            className="group p-6 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-emerald-500/50 rounded-2xl transition-all cursor-pointer hover:-translate-y-1"
+            onClick={() => handleCardClick('/audit')}
+          >
             <div className="w-12 h-12 bg-emerald-500/20 rounded-lg flex items-center justify-center mb-4 group-hover:scale-110 transition">
               <Activity className="text-emerald-400" />
             </div>
@@ -74,4 +104,4 @@ export const Home: React.FC = () => {
       </div>
     </div>
   );
-}
+};
