@@ -10,6 +10,7 @@ import { TransferContacts } from './components/TransferContacts';
 import { Audit } from './components/Audit';
 import { Settings } from './components/Settings';
 import { RemaxRequests } from './components/RemaxRequests';
+import { OnBotChat } from './components/OnBotChat'; // Importe o novo componente de chat
 
 
 const ProtectedRoutesLayout: React.FC = () => {
@@ -43,6 +44,7 @@ const AppRoutes: React.FC = () => {
           <Route path="/audit" element={<Audit />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/remax-requests" element={<RemaxRequests />} />
+          <Route path="/onbot-chat" element={<OnBotChat />} /> {/* Nova rota para o chat */}
         </Route>
 
         <Route path="/" element={<Navigate to="/home" replace />} />
