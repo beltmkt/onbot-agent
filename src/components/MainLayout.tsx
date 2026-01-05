@@ -1,41 +1,64 @@
 import React, { useState } from 'react';
 import { Outlet } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
-import { Bot } from 'lucide-react'; // Importar o ícone Bot
+import { Bot } from 'lucide-react';
 import { Header } from './Header';
-import './MainLayout.css';
-import { AiAssistant } from './AiAssistant'; // Importar o novo componente AiAssistant
+// import './MainLayout.css'; // This CSS file is no longer needed
+import { AiAssistant } from './AiAssistant';
 
 export const MainLayout: React.FC = () => {
   const [isAssistantOpen, setIsAssistantOpen] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   return (
-    <div className="main-layout">
-      {/* Sidebar para Desktop */}
-      <div className="sidebar-desktop-container">
-        <Sidebar />
+    <div className="relative min-h-screen"> {/* Main container for the layout, relative for positioning background elements */}
+      {/* Aurora Background - Global Glows */}
+      <div className="aurora-bg">
+        <div className="glow-1"></div>
+        <div className="glow-2"></div>
       </div>
 
-      {/* Sidebar para Mobile (com overlay) */}
-      <div 
-        className={`sidebar-mobile-container ${isSidebarOpen ? 'open' : ''}`}
-        onClick={() => setIsSidebarOpen(false)}
-      >
-        <div className="sidebar-mobile-content" onClick={(e) => e.stopPropagation()}>
-            <Sidebar />
+      {/* Radial Gradient / Vignette Effect (as part of the background, applied subtly) */}
+      {/* This creates a central focus by subtly darkening the edges. */}
+      <div className="absolute inset-0 bg-gradient-to-t from-transparent via-slate-950/50 to-slate-950 z-0"></div>
+
+      {/* Main content wrapper, positioned above the background effects */}
+      <div className="relative z-10 flex min-h-screen">
+        {/* Sidebar para Desktop */}
+        {/* Hidden on small screens, shown on medium and larger screens */}
+        <div className="hidden md:block">
+          <Sidebar />
         </div>
-      </div>
-      
-      <div className="content-wrapper">
-        <Header onMenuClick={() => setIsSidebarOpen(true)} />
-        <main className="content p-4 md:p-8">
-          <Outlet />
-        </main>
+
+        {/* Sidebar para Mobile (com overlay e transição) */}
+        {/* Overlay escuro que fecha a sidebar ao clicar fora */}
+        {isSidebarOpen && (
+          <div
+            className="fixed inset-0 bg-black bg-opacity-75 z-40 transition-opacity duration-300 md:hidden"
+            onClick={() => setIsSidebarOpen(false)}
+          ></div>
+        )}
+        {/* Sidebar móvel que desliza da esquerda */}
+        <div
+          className={`fixed inset-y-0 left-0 w-64 bg-slate-900 border-r border-white/10 z-50 transform ${
+            isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
+          } transition-transform duration-300 ease-in-out md:hidden`}
+        >
+          {/* Passa a prop onClose para permitir que a sidebar se feche */}
+          <Sidebar onClose={() => setIsSidebarOpen(false)} />
+        </div>
+        
+        {/* Área de conteúdo principal (Header e Outlet) */}
+        <div className="flex-1 flex flex-col"> {/* flex-1 para ocupar o espaço restante */}
+          <Header onMenuClick={() => setIsSidebarOpen(true)} />
+          <main className="flex-1 p-4 md:p-8 relative"> {/* flex-1 para o conteúdo ocupar a altura disponível */}
+            <Outlet />
+          </main>
+        </div>
       </div>
 
       {/* Botão flutuante para abrir o assistente de IA */}
-      <div className="fixed bottom-4 right-4 z-50"> {/* Container para o FAB e o Chat */}
+      <div className="fixed bottom-4 right-4 z-50">
         {!isAssistantOpen && (
           <button
             onClick={() => setIsAssistantOpen(true)}
@@ -43,11 +66,10 @@ export const MainLayout: React.FC = () => {
                        before:absolute before:inset-0 before:rounded-full before:bg-cyan-400 before:opacity-75 before:animate-ping before:group-hover:animate-none before:duration-700 before:ease-out"
             aria-label="Abrir Assistente IA"
           >
-            <Bot className="w-7 h-7 relative z-10" /> {/* Ícone de Robô */}
+            <Bot className="w-7 h-7 relative z-10" />
           </button>
         )}
 
-        {/* O novo componente AiAssistant (que será o chat) será posicionado aqui, relativo ao FAB */}
         {isAssistantOpen && <AiAssistant onClose={() => setIsAssistantOpen(false)} />}
       </div>
     </div>

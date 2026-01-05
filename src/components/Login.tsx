@@ -2,9 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Mail, Rocket, User, Eye, EyeOff, AlertCircle, CheckCircle, ArrowRight, Key } from 'lucide-react';
-import './Login.css';
-
+import { Mail, Rocket, User, Eye, EyeOff, AlertCircle, CheckCircle, ArrowRight, Key, Loader2 } from 'lucide-react';
+// import './Login.css'; // Remover este import
+import { Card } from './ui/Card'; // Importar o novo Card component
+import { Input } from './ui/Input'; // Importar o novo Input component
+import { Button } from './ui/Button'; // Importar o novo Button component
 
 
 interface LoginFormData {
@@ -23,15 +25,11 @@ const Login: React.FC = () => {
   const { signIn, signUp, recoverPassword } = useAuth();
   const navigate = useNavigate();
 
-  // Estados para controle de abas
   const [activeTab, setActiveTab] = useState<'login' | 'register'>('login');
-
-  // Estados para formulários
   const [loginData, setLoginData] = useState<LoginFormData>({
     email: '',
     password: '',
   });
-
   const [registerData, setRegisterData] = useState<RegisterFormData>({
     name: '',
     email: '',
@@ -39,7 +37,6 @@ const Login: React.FC = () => {
     confirmPassword: '',
   });
 
-  // Estados de UI
   const [error, setError] = useState<string>('');
   const [success, setSuccess] = useState<string>('');
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -48,32 +45,28 @@ const Login: React.FC = () => {
   const [showForgotPassword, setShowForgotPassword] = useState<boolean>(false);
   const [forgotEmail, setForgotEmail] = useState<string>('');
 
-  // Debug: log quando o componente monta
   useEffect(() => {
     console.log('Login component mounted');
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.get('error') === 'unauthorized_domain') {
-      setError('Domínio não autorizado. Use seu e-mail @c2sglobal.com.');
+      setError('Domínio não autorizado. Use seu e-mail corporativo.');
     }
   }, []);
 
-  // Limpa mensagens quando muda de aba
   useEffect(() => {
     setError('');
     setSuccess('');
   }, [activeTab]);
 
 
-
-  // Handler para login
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setSuccess('');
     setIsLoading(true);
 
-    if (!loginData.email.endsWith('@c2sglobal.com')) {
-      setError('Acesso restrito apenas para contas corporativas (@c2sglobal.com)');
+    if (!loginData.email.endsWith('@LABELTSERVICOSDIGITAIS.COM.BR') && !loginData.email.endsWith('@c2sglobal.com')) {
+      setError('Acesso restrito apenas para contas corporativas.');
       setIsLoading(false);
       return;
     }
@@ -85,7 +78,6 @@ const Login: React.FC = () => {
         setError(result.error);
       } else {
         setSuccess('Login realizado com sucesso!');
-        // Redirecionar para a nova página Home
         navigate('/home');
       }
     } catch (err) {
@@ -95,21 +87,19 @@ const Login: React.FC = () => {
     }
   };
 
-  // Handler para cadastro
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setSuccess('');
     setIsLoading(true);
 
-    if (!registerData.email.endsWith('@c2sglobal.com')) {
-      setError('Acesso restrito apenas para contas corporativas (@c2sglobal.com)');
+    if (!registerData.email.endsWith('@LABELTSERVICOSDIGITAIS.COM.BR') && !registerData.email.endsWith('@c2sglobal.com')) {
+      setError('Acesso restrito apenas para contas corporativas.');
       setIsLoading(false);
       return;
     }
 
     try {
-      // Validações adicionais
       if (registerData.password !== registerData.confirmPassword) {
         setError('As senhas não coincidem');
         setIsLoading(false);
@@ -128,7 +118,6 @@ const Login: React.FC = () => {
         setError(result.error);
       } else {
         setSuccess('Conta criada com sucesso! Verifique seu email para confirmação.');
-        // Limpa formulário
         setRegisterData({
           name: '',
           email: '',
@@ -143,7 +132,6 @@ const Login: React.FC = () => {
     }
   };
 
-  // Handler para recuperação de senha
   const handleForgotPassword = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -167,11 +155,6 @@ const Login: React.FC = () => {
     }
   };
 
-  // Animações
-  const tabVariants = {
-    inactive: { opacity: 0.7, scale: 0.95 },
-    active: { opacity: 1, scale: 1 },
-  };
 
   const formVariants = {
     hidden: { opacity: 0, x: -20 },
@@ -179,316 +162,254 @@ const Login: React.FC = () => {
   };
 
   return (
-    <div className="login-container">
+    // O container principal não precisa de 'login-container' CSS, Tailwind resolve
+    <div className="flex items-center justify-center min-h-screen p-4 relative z-10">
       <motion.div
-        className="login-card"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
       >
-        {/* Header */}
-        <div className="login-header">
-          <motion.div
-            className="logo-section"
-            initial={{ scale: 0 }}
-            animate={{ scale: 1 }}
-            transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
-          >
-            <div className="logo-icon">
-              <Rocket className="w-8 h-8" />
-            </div>
-            <h1 className="logo-text">C2S Onboarding Tools</h1>
-          </motion.div>
-          <p className="login-subtitle">Central de Ações e Setup</p>
-        </div>
-
-
-
-        {/* Tabs */}
-        <div className="tabs-container">
-          <motion.button
-            className={`tab-button ${activeTab === 'login' ? 'active' : ''}`}
-            onClick={() => setActiveTab('login')}
-            variants={tabVariants}
-            animate={activeTab === 'login' ? 'active' : 'inactive'}
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-          >
-            Login com Email
-          </motion.button>
-          <motion.button
-            className={`tab-button ${activeTab === 'register' ? 'active' : ''}`}
-            onClick={() => setActiveTab('register')}
-            variants={tabVariants}
-            animate={activeTab === 'register' ? 'active' : 'inactive'}
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-          >
-            Cadastro
-          </motion.button>
-        </div>
-
-        {/* Formulários */}
-        <AnimatePresence mode="wait">
-          {activeTab === 'login' ? (
-            <motion.form
-              key="login"
-              className="login-form"
-              onSubmit={handleLogin}
-              variants={formVariants}
-              initial="hidden"
-              animate="animate"
-              exit="hidden"
-              transition={{ duration: 0.3 }}
-            >
-              <div className="form-group">
-                <label className="form-label">Email Corporativo <Mail className="input-icon-label" /></label>
-                <div className="input-wrapper">
-                  <input
-                    type="email"
-                    value={loginData.email}
-                    onChange={(e) => setLoginData({ ...loginData, email: e.target.value })}
-                    placeholder="seu.email@c2sglobal.com"
-                    className="form-input pl-14"
-                    required
-                  />
-                </div>
-              </div>
-
-              <div className="form-group">
-                <label className="form-label">Senha <Key className="input-icon-label" /></label>
-                <div className="input-wrapper">
-                  <input
-                    type={showPassword ? 'text' : 'password'}
-                    value={loginData.password}
-                    onChange={(e) => setLoginData({ ...loginData, password: e.target.value })}
-                    placeholder="Digite sua senha"
-                    className="form-input"
-                    required
-                  />
-                  <button
-                    type="button"
-                    className="password-toggle"
-                    onClick={() => setShowPassword(!showPassword)}
-                  >
-                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </button>
-                </div>
-              </div>
-
-              <motion.button
-                type="submit"
-                className="submit-button"
-                disabled={isLoading}
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-              >
-                {isLoading ? (
-                  <div className="loading-spinner" />
-                ) : (
-                  <>
-                    Entrar
-                    <ArrowRight className="w-4 h-4 ml-2" />
-                  </>
-                )}
-              </motion.button>
-
-              <button
-                type="button"
-                className="forgot-password-link"
-                onClick={() => setShowForgotPassword(true)}
-              >
-                Esqueceu sua senha?
-              </button>
-            </motion.form>
-          ) : (
-            <motion.form
-              key="register"
-              className="login-form"
-              onSubmit={handleRegister}
-              variants={formVariants}
-              initial="hidden"
-              animate="animate"
-              exit="hidden"
-              transition={{ duration: 0.3 }}
-            >
-              <div className="form-group">
-                <label className="form-label">Nome <User className="input-icon-label" /></label>
-                <div className="input-wrapper">
-                  <input
-                    type="text"
-                    value={registerData.name}
-                    onChange={(e) => setRegisterData({ ...registerData, name: e.target.value })}
-                    placeholder="Seu nome completo"
-                    className="form-input"
-                    required
-                  />
-                </div>
-              </div>
-
-              <div className="form-group">
-                <label className="form-label">Email Corporativo <Mail className="input-icon-label" /></label>
-                <div className="input-wrapper">
-                  <input
-                    type="email"
-                    value={registerData.email}
-                    onChange={(e) => setRegisterData({ ...registerData, email: e.target.value })}
-                    placeholder="seu.email@c2sglobal.com"
-                    className="form-input pl-14"
-                    required
-                  />
-                </div>
-              </div>
-
-              <div className="form-group">
-                <label className="form-label">Senha <Key className="input-icon-label" /></label>
-                <div className="input-wrapper">
-                  <input
-                    type={showPassword ? 'text' : 'password'}
-                    value={registerData.password}
-                    onChange={(e) => setRegisterData({ ...registerData, password: e.target.value })}
-                    placeholder="Mínimo 6 caracteres"
-                    className="form-input"
-                    required
-                  />
-                  <button
-                    type="button"
-                    className="password-toggle"
-                    onClick={() => setShowPassword(!showPassword)}
-                  >
-                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </button>
-                </div>
-              </div>
-
-              <div className="form-group">
-                <label className="form-label">Confirmar Senha <Key className="input-icon-label" /></label>
-                <div className="input-wrapper">
-                  <input
-                    type={showConfirmPassword ? 'text' : 'password'}
-                    value={registerData.confirmPassword}
-                    onChange={(e) => setRegisterData({ ...registerData, confirmPassword: e.target.value })}
-                    placeholder="Digite a senha novamente"
-                    className="form-input"
-                    required
-                  />
-                  <button
-                    type="button"
-                    className="password-toggle"
-                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  >
-                    {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </button>
-                </div>
-              </div>
-
-              <motion.button
-                type="submit"
-                className="submit-button register-button"
-                disabled={isLoading}
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-              >
-                {isLoading ? (
-                  <div className="loading-spinner" />
-                ) : (
-                  <>
-                    Criar Conta
-                    <ArrowRight className="w-4 h-4 ml-2" />
-                  </>
-                )}
-              </motion.button>
-            </motion.form>
-          )}
-        </AnimatePresence>
-
-        {/* Mensagens */}
-        <AnimatePresence>
-          {error && (
+        {/* Usando o novo componente Card */}
+        <Card className="w-full max-w-md mx-auto relative z-10">
+          {/* Header */}
+          <div className="text-center mb-8">
             <motion.div
-              className="message error-message"
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
+              className="flex flex-col items-center justify-center mb-4"
+              initial={{ scale: 0 }}
+              animate={{ scale: 1 }}
+              transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
             >
-              <AlertCircle className="w-4 h-4" />
-              <span>{error}</span>
+              <div className="bg-white/5 p-3 rounded-full mb-3 border border-white/10 shadow-glass">
+                <Rocket className="w-8 h-8 text-indigo-400" />
+              </div>
+              <h1 className="text-2xl font-bold text-white tracking-wide">Onboarding Tools</h1>
             </motion.div>
-          )}
+            <p className="text-sm text-slate-400">Central de Ações e Setup</p>
+          </div>
 
-          {success && (
-            <motion.div
-              className="message success-message"
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
+          {/* Tabs */}
+          <div className="flex justify-center gap-2 mb-8">
+            <Button
+              variant={activeTab === 'login' ? 'primary-neon' : 'secondary-glass'}
+              size="sm"
+              onClick={() => setActiveTab('login')}
+              disabled={isLoading}
             >
-              <CheckCircle className="w-4 h-4" />
-              <span>{success}</span>
-            </motion.div>
-          )}
-        </AnimatePresence>
+              Login com Email
+            </Button>
+            <Button
+              variant={activeTab === 'register' ? 'primary-neon' : 'secondary-glass'}
+              size="sm"
+              onClick={() => setActiveTab('register')}
+              disabled={isLoading}
+            >
+              Cadastro
+            </Button>
+          </div>
 
-        {/* Modal de Esqueci Senha */}
-        <AnimatePresence>
-          {showForgotPassword && (
-            <motion.div
-              className="modal-overlay"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setShowForgotPassword(false)}
-            >
+          {/* Formulários */}
+          <AnimatePresence mode="wait">
+            {activeTab === 'login' ? (
+              <motion.form
+                key="login"
+                className="space-y-4" // Use Tailwind for spacing
+                onSubmit={handleLogin}
+                variants={formVariants}
+                initial="hidden"
+                animate="animate"
+                exit="hidden"
+                transition={{ duration: 0.3 }}
+              >
+                <Input
+                  label="Email Corporativo"
+                  type="email"
+                  value={loginData.email}
+                  onChange={(e) => setLoginData({ ...loginData, email: e.target.value })}
+                  placeholder="seu.email@LABELTSERVICOSDIGITAIS.COM.BR"
+                  icon={<Mail className="w-5 h-5 text-slate-400" />} // Ícone dentro do Input
+                  required
+                />
+
+                <Input
+                  label="Senha"
+                  type={showPassword ? 'text' : 'password'}
+                  value={loginData.password}
+                  onChange={(e) => setLoginData({ ...loginData, password: e.target.value })}
+                  placeholder="Digite sua senha"
+                  icon={<Key className="w-5 h-5 text-slate-400" />} // Ícone dentro do Input
+                  passwordToggle // Adiciona prop para o toggle de senha
+                  onTogglePassword={() => setShowPassword(!showPassword)}
+                  showPassword={showPassword}
+                  required
+                />
+                
+                <Button
+                  type="submit"
+                  variant="primary-neon"
+                  size="lg"
+                  className="w-full"
+                  disabled={isLoading}
+                >
+                  {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <>Entrar <ArrowRight className="w-4 h-4 ml-2" /></>}
+                </Button>
+
+                <Button
+                  type="button"
+                  variant="ghost" // Usar variante ghost para link
+                  className="w-full text-sm text-slate-400 hover:text-white"
+                  onClick={() => setShowForgotPassword(true)}
+                >
+                  Esqueceu sua senha?
+                </Button>
+              </motion.form>
+            ) : (
+              <motion.form
+                key="register"
+                className="space-y-4" // Use Tailwind for spacing
+                onSubmit={handleRegister}
+                variants={formVariants}
+                initial="hidden"
+                animate="animate"
+                exit="hidden"
+                transition={{ duration: 0.3 }}
+              >
+                <Input
+                  label="Nome"
+                  type="text"
+                  value={registerData.name}
+                  onChange={(e) => setRegisterData({ ...registerData, name: e.target.value })}
+                  placeholder="Seu nome completo"
+                  icon={<User className="w-5 h-5 text-slate-400" />} // Ícone dentro do Input
+                  required
+                />
+
+                <Input
+                  label="Email Corporativo"
+                  type="email"
+                  value={registerData.email}
+                  onChange={(e) => setRegisterData({ ...registerData, email: e.target.value })}
+                  placeholder="seu.email@LABELTSERVICOSDIGITAIS.COM.BR"
+                  icon={<Mail className="w-5 h-5 text-slate-400" />} // Ícone dentro do Input
+                  required
+                />
+
+                <Input
+                  label="Senha"
+                  type={showPassword ? 'text' : 'password'}
+                  value={registerData.password}
+                  onChange={(e) => setRegisterData({ ...registerData, password: e.target.value })}
+                  placeholder="Mínimo 6 caracteres"
+                  icon={<Key className="w-5 h-5 text-slate-400" />} // Ícone dentro do Input
+                  passwordToggle
+                  onTogglePassword={() => setShowPassword(!showPassword)}
+                  showPassword={showPassword}
+                  required
+                />
+
+                <Input
+                  label="Confirmar Senha"
+                  type={showConfirmPassword ? 'text' : 'password'}
+                  value={registerData.confirmPassword}
+                  onChange={(e) => setRegisterData({ ...registerData, confirmPassword: e.target.value })}
+                  placeholder="Digite a senha novamente"
+                  icon={<Key className="w-5 h-5 text-slate-400" />} // Ícone dentro do Input
+                  passwordToggle
+                  onTogglePassword={() => setShowConfirmPassword(!showConfirmPassword)}
+                  showPassword={showConfirmPassword}
+                  required
+                />
+
+                <Button
+                  type="submit"
+                  variant="primary-neon"
+                  size="lg"
+                  className="w-full"
+                  disabled={isLoading}
+                >
+                  {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <>Criar Conta <ArrowRight className="w-4 h-4 ml-2" /></>}
+                </Button>
+              </motion.form>
+            )}
+          </AnimatePresence>
+
+          {/* Mensagens */}
+          <AnimatePresence>
+            {error && (
               <motion.div
-                className="modal-content"
-                initial={{ scale: 0.8, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                exit={{ scale: 0.8, opacity: 0 }}
-                onClick={(e) => e.stopPropagation()}
+                className="mt-6 flex items-center gap-2 text-sm bg-red-500/20 text-red-300 p-3 rounded-lg border border-red-400/50"
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
               >
-                <h3 className="modal-title">Recuperar Senha</h3>
-                <p className="modal-description">
-                  Digite seu email corporativo para receber instruções de recuperação.
-                </p>
-
-                <form onSubmit={handleForgotPassword} className="modal-form">
-                  <div className="form-group">
-                    <div className="input-wrapper">
-                      <Mail className="input-icon" />
-                      <input
-                        type="email"
-                        value={forgotEmail}
-                        onChange={(e) => setForgotEmail(e.target.value)}
-                        placeholder="seu.email@c2sglobal.com"
-                        className="form-input pl-12"
-                        required
-                      />
-                    </div>
-                  </div>
-
-                  <div className="modal-actions">
-                    <button
-                      type="button"
-                      className="cancel-button"
-                      onClick={() => setShowForgotPassword(false)}
-                    >
-                      Cancelar
-                    </button>
-                    <motion.button
-                      type="submit"
-                      className="submit-button"
-                      disabled={isLoading}
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
-                    >
-                      {isLoading ? <div className="loading-spinner" /> : 'Enviar'}
-                    </motion.button>
-                  </div>
-                </form>
+                <AlertCircle className="w-4 h-4" />
+                <span>{error}</span>
               </motion.div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+            )}
+
+            {success && (
+              <motion.div
+                className="mt-6 flex items-center gap-2 text-sm bg-green-500/20 text-green-300 p-3 rounded-lg border border-green-400/50"
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+              >
+                <CheckCircle className="w-4 h-4" />
+                <span>{success}</span>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Modal de Esqueci Senha */}
+          <AnimatePresence>
+            {showForgotPassword && (
+              <motion.div
+                className="fixed inset-0 bg-black/70 flex items-center justify-center p-4 z-50"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={() => setShowForgotPassword(false)}
+              >
+                <Card
+                  className="w-full max-w-md relative"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <h3 className="text-xl font-bold text-white mb-4">Recuperar Senha</h3>
+                  <p className="text-sm text-slate-400 mb-6">
+                    Digite seu email corporativo para receber instruções de recuperação.
+                  </p>
+
+                  <form onSubmit={handleForgotPassword} className="space-y-4">
+                    <Input
+                      type="email"
+                      value={forgotEmail}
+                      onChange={(e) => setForgotEmail(e.target.value)}
+                      placeholder="seu.email@LABELTSERVICOSDIGITAIS.COM.BR"
+                      icon={<Mail className="w-5 h-5 text-slate-400" />}
+                      required
+                    />
+
+                    <div className="flex justify-end gap-3 mt-6">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        onClick={() => setShowForgotPassword(false)}
+                      >
+                        Cancelar
+                      </Button>
+                      <Button
+                        type="submit"
+                        variant="primary-neon"
+                        disabled={isLoading}
+                      >
+                        {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Enviar'}
+                      </Button>
+                    </div>
+                  </form>
+                </Card>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </Card>
       </motion.div>
     </div>
   );

@@ -3,27 +3,39 @@
 @tailwind utilities;
 
 @layer base {
-  :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
-  }
-
-  .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-  }
-}
-
-@layer base {
-  * {
-    @apply border-border;
-  }
+  /* Forçar Dark Mode: Aplicar fundo escuro e texto claro globalmente */
   body {
-    @apply bg-background text-foreground;
+    @apply bg-slate-950 text-slate-200 antialiased;
+  }
+
+  /* Garantir que todas as bordas adotem um tema sutil de vidro */
+  * {
+    @apply border-white/10;
   }
 }
 
 @layer components {
+  /* Aurora Background Utility Class para glows globais */
+  .aurora-bg {
+    @apply absolute inset-0 overflow-hidden pointer-events-none;
+  }
+
+  .aurora-bg > div {
+    /* Base para os glows individuais, animação definida no tailwind.config.js */
+    @apply absolute rounded-full mix-blend-multiply filter blur-[150px] opacity-30 animate-pulse-slow;
+  }
+
+  .aurora-bg .glow-1 {
+    /* Posição e cor para o primeiro glow */
+    @apply top-1/4 left-1/4 w-96 h-96 bg-gradient-to-r from-cyan-500 to-indigo-500;
+  }
+
+  .aurora-bg .glow-2 {
+    /* Posição e cor para o segundo glow */
+    @apply bottom-1/4 right-1/4 w-96 h-96 bg-gradient-to-l from-fuchsia-500 to-purple-500;
+  }
+
+  /* Existing login styles - will be refactored later */
   .login-container {
     @apply flex items-center justify-center min-h-screen px-4;
   }

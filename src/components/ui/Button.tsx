@@ -3,14 +3,14 @@ import { cn } from '../../lib/utils';
 import { Loader2 } from 'lucide-react';
 
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'default' | 'outline' | 'ghost' | 'danger';
+  variant?: 'primary-neon' | 'secondary-glass' | 'outline' | 'ghost' | 'danger';
   size?: 'sm' | 'md' | 'lg';
   loading?: boolean;
   children: React.ReactNode;
 }
 
 export const Button: React.FC<ButtonProps> = ({
-  variant = 'default',
+  variant = 'primary-neon', // Default to the new primary style
   size = 'md',
   loading = false,
   className,
@@ -18,13 +18,14 @@ export const Button: React.FC<ButtonProps> = ({
   disabled,
   ...props
 }) => {
-  const baseStyles = 'inline-flex items-center justify-center gap-2 rounded-lg font-medium transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed';
+  const baseStyles = 'inline-flex items-center justify-center gap-2 rounded-lg font-medium transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-950 disabled:opacity-50 disabled:cursor-not-allowed relative overflow-hidden';
 
   const variants = {
-    default: 'bg-blue-600 text-white hover:bg-blue-700 focus:ring-blue-500 dark:bg-blue-500 dark:hover:bg-blue-600',
-    outline: 'border-2 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 focus:ring-gray-500',
-    ghost: 'text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 focus:ring-gray-500',
-    danger: 'bg-red-600 text-white hover:bg-red-700 focus:ring-red-500 dark:bg-red-500 dark:hover:bg-red-600',
+    'primary-neon': 'bg-gradient-to-r from-cyan-500 to-indigo-600 text-white shadow-lg shadow-cyan-500/30 hover:shadow-cyan-500/50 hover:from-cyan-600 hover:to-indigo-700 focus:ring-cyan-500',
+    'secondary-glass': 'bg-white/5 border border-white/10 text-slate-200 backdrop-blur-md hover:bg-white/10 hover:border-white/20 focus:ring-white/30',
+    'outline': 'border border-slate-700 text-slate-200 hover:bg-white/5 hover:border-white/20 focus:ring-slate-500',
+    'ghost': 'text-slate-300 hover:bg-white/5 focus:ring-slate-500',
+    'danger': 'bg-red-600 text-white shadow-lg shadow-red-500/30 hover:bg-red-700 focus:ring-red-500',
   };
 
   const sizes = {
