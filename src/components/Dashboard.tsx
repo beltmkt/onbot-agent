@@ -7,92 +7,100 @@ export const Dashboard: React.FC = () => {
   const { user } = useAuth(); // Obter user do contexto
   const userName = user?.user_metadata?.name || user?.email || 'Usuário'; // Fallback para 'Usuário'
 
-  // As funções de navegação e tratamento de clique para os cards
-  // serão implementadas posteriormente, o foco agora é o design.
   const handleCardClick = (action: string) => {
     console.log(`Ação clicada: ${action}`);
     // Futuramente, aqui se navegaria para a tela específica ou abriria um modal
   };
 
   return (
-    <div className="min-h-[80vh] flex flex-col justify-center items-center bg-gray-900 text-gray-100 p-4">
-      {/* Header de Boas-vindas */}
-      <motion.div
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-        className="text-center mb-10"
-      >
-        <h1 className="text-5xl md:text-6xl font-bold text-white mb-2">
-          Olá, <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-purple-500">{userName}</span>!
-        </h1>
-        <p className="text-lg text-gray-400">O OnBot está pronto. Qual a missão de hoje?</p>
-      </motion.div>
+    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col items-center justify-center relative overflow-hidden p-4">
+      {/* Background Radial Gradient / Vignette Effect */}
+      <div className="absolute inset-0 bg-gradient-to-t from-transparent via-slate-950/50 to-slate-950 z-0"></div>
 
-      {/* Barra de Comando */}
-      <motion.div
-        initial={{ opacity: 0, scale: 0.9 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={{ duration: 0.5, delay: 0.2 }}
-        className="w-full max-w-2xl relative mb-12"
-      >
-        <Zap className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 w-6 h-6" />
-        <input
-          type="text"
-          placeholder="Digite um comando ou selecione uma ação..."
-          disabled
-          className="w-full pl-12 pr-4 py-4 bg-gray-800 border border-gray-700 rounded-xl shadow-lg
-                     text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-cyan-500
-                     transition-all duration-300 ease-in-out"
-        />
-      </motion.div>
+      {/* Aurora Glows */}
+      <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-gradient-to-r from-cyan-500 to-indigo-500 rounded-full mix-blend-multiply filter blur-[150px] opacity-30 animate-pulse-slow z-0"></div>
+      <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-gradient-to-l from-fuchsia-500 to-purple-500 rounded-full mix-blend-multiply filter blur-[150px] opacity-30 animate-pulse-slow delay-1000 z-0"></div>
 
-      {/* Grid de Ações Rápidas */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, delay: 0.4 }}
-        className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full max-w-4xl"
-      >
-        {/* Card A: Criar Usuário */}
+      {/* Main content */}
+      <div className="relative z-10 flex flex-col items-center justify-center w-full max-w-7xl px-4">
+        {/* Header de Boas-vindas */}
         <motion.div
-          className="bg-gray-800 border border-gray-700 rounded-xl p-6 flex flex-col items-center text-center cursor-pointer
-                     hover:bg-gray-700 hover:border-cyan-500 transition-all duration-300 ease-in-out
-                     shadow-md hover:shadow-lg"
-          whileHover={{ y: -5 }}
-          onClick={() => handleCardClick('Criar Usuário')}
+          initial={{ opacity: 0, y: -40 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.8 }}
+          className="text-center mb-16"
         >
-          <UserPlus className="w-12 h-12 text-cyan-400 mb-4" />
-          <h3 className="text-xl font-semibold text-white mb-2">Criar Usuário</h3>
-          <p className="text-gray-400 text-sm">Adicionar acesso ao sistema</p>
+          <h1 className="text-6xl md:text-7xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-purple-500 mb-4 leading-tight">
+            Olá, {userName}!
+          </h1>
+          <p className="text-xl text-slate-400">O OnBot está pronto. Qual a missão de hoje?</p>
         </motion.div>
 
-        {/* Card B: Transferir Lead */}
+        {/* Barra de Comando (O Hero Element) */}
         <motion.div
-          className="bg-gray-800 border border-gray-700 rounded-xl p-6 flex flex-col items-center text-center cursor-pointer
-                     hover:bg-gray-700 hover:border-purple-500 transition-all duration-300 ease-in-out
-                     shadow-md hover:shadow-lg"
-          whileHover={{ y: -5 }}
-          onClick={() => handleCardClick('Transferir Lead')}
+          initial={{ opacity: 0, scale: 0.8 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.8, delay: 0.2, ease: "easeOut" }}
+          className="w-full max-w-3xl relative mb-20"
         >
-          <ArrowRightLeft className="w-12 h-12 text-purple-400 mb-4" />
-          <h3 className="text-xl font-semibold text-white mb-2">Transferir Lead</h3>
-          <p className="text-gray-400 text-sm">Mover contato para sua carteira</p>
+          <Zap className="absolute left-5 top-1/2 -translate-y-1/2 text-indigo-400 w-7 h-7" />
+          <input
+            type="text"
+            placeholder="Digite um comando ou selecione uma ação..."
+            disabled
+            className="w-full pl-16 pr-6 py-5 bg-white/5 border border-white/10 rounded-2xl shadow-glass backdrop-blur-md
+                       text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/80 focus:border-indigo-500/80
+                       transition-all duration-300 ease-in-out text-lg"
+          />
         </motion.div>
 
-        {/* Card C: Status do Agente */}
+        {/* Grid de Ações Rápidas (Quick Actions) */}
         <motion.div
-          className="bg-gray-800 border border-gray-700 rounded-xl p-6 flex flex-col items-center text-center cursor-pointer
-                     hover:bg-gray-700 hover:border-green-500 transition-all duration-300 ease-in-out
-                     shadow-md hover:shadow-lg"
-          whileHover={{ y: -5 }}
-          onClick={() => handleCardClick('Status do Agente')}
+          initial={{ opacity: 0, y: 40 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.8, delay: 0.4, ease: "easeOut" }}
+          className="grid grid-cols-1 md:grid-cols-3 gap-8 w-full max-w-5xl"
         >
-          <Activity className="w-12 h-12 text-green-400 mb-4" />
-          <h3 className="text-xl font-semibold text-white mb-2">Status do Agente</h3>
-          <p className="text-gray-400 text-sm">Sistemas operacionais</p>
+          {/* Card A: Criar Usuário */}
+          <motion.div
+            className="bg-white/5 border border-white/10 rounded-2xl p-8 flex flex-col items-center text-center cursor-pointer relative overflow-hidden
+                       backdrop-blur-xl shadow-glass hover:bg-white/10 hover:border-indigo-500/50
+                       transition-all duration-300 ease-in-out"
+            whileHover={{ y: -5, scale: 1.02 }}
+            onClick={() => handleCardClick('Criar Usuário')}
+          >
+            <UserPlus className="w-14 h-14 text-indigo-400 mb-5" />
+            <h3 className="text-2xl font-bold text-white mb-2">Criar Usuário</h3>
+            <p className="text-sm text-slate-300">Adicionar acesso ao sistema</p>
+          </motion.div>
+
+          {/* Card B: Transferir Lead */}
+          <motion.div
+            className="bg-white/5 border border-white/10 rounded-2xl p-8 flex flex-col items-center text-center cursor-pointer relative overflow-hidden
+                       backdrop-blur-xl shadow-glass hover:bg-white/10 hover:border-fuchsia-500/50
+                       transition-all duration-300 ease-in-out"
+            whileHover={{ y: -5, scale: 1.02 }}
+            onClick={() => handleCardClick('Transferir Lead')}
+          >
+            <ArrowRightLeft className="w-14 h-14 text-fuchsia-400 mb-5" />
+            <h3 className="text-2xl font-bold text-white mb-2">Transferir Lead</h3>
+            <p className="text-sm text-slate-300">Mover contato para sua carteira</p>
+          </motion.div>
+
+          {/* Card C: Status do Agente */}
+          <motion.div
+            className="bg-white/5 border border-white/10 rounded-2xl p-8 flex flex-col items-center text-center cursor-pointer relative overflow-hidden
+                       backdrop-blur-xl shadow-glass hover:bg-white/10 hover:border-lime-500/50
+                       transition-all duration-300 ease-in-out"
+            whileHover={{ y: -5, scale: 1.02 }}
+            onClick={() => handleCardClick('Status do Agente')}
+          >
+            <Activity className="w-14 h-14 text-lime-400 mb-5" />
+            <h3 className="text-2xl font-bold text-white mb-2">Status do Agente</h3>
+            <p className="text-sm text-slate-300">Sistemas operacionais</p>
+          </motion.div>
         </motion.div>
-      </motion.div>
+      </div>
     </div>
   );
 };
