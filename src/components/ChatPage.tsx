@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Send, Sparkles, ArrowLeft, Bot, User } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { useAuth } from '../contexts/AuthContext'; // Importar useAuth
 
 interface Message {
   id: string; // Changed to string for sessionId
@@ -16,6 +17,7 @@ export const ChatPage: React.FC = () => {
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const { user } = useAuth(); // Obter informações do usuário
 
   // URL do seu Webhook de Chat no N8N
   const WEBHOOK_URL = import.meta.env.VITE_N8N_WEBHOOK_URL || 'SUA_URL_DO_N8N_AQUI'; 
@@ -60,7 +62,14 @@ export const ChatPage: React.FC = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
             chatInput: textToSend, 
-            sessionId: localStorage.getItem('chat_session_id') || Date.now().toString() // Ensure sessionId is always present
+            sessionId: localStorage.getItem('chat_session_id') || Date.now().toString(),
+            action: "sendMessage",
+            metadata: {
+              userName: user?.user_metadata?.name || user?.email || "Unknown User",
+              userEmail: user?.email || "unknown@example.com",
+              companyToken: localStorage.getItem('company_token') || undefined, // Assumindo que company_token está no localStorage
+              pageContext: "Dashboard" 
+            }
         })
       });
 
