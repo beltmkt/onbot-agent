@@ -67,7 +67,7 @@ export const ChatPage: React.FC = () => {
         metadata: {
           userName: user?.user_metadata?.name || user?.email || "Unknown User",
           userEmail: user?.email || "unknown@example.com",
-          companyToken: localStorage.getItem('company_token') || "SEU_TOKEN_DA_EMPRESA_AQUI", // Assumindo company_token está no localStorage
+          companyToken: localStorage.getItem('company_token') || null, // Envia null se não encontrar o token
           pageContext: "Chat" // Agora sempre "Chat"
         }
       };
