@@ -54,7 +54,7 @@ const AppRoutes: React.FC = () => {
           <Route path="/home" element={<Home />} />
           <Route path="/create-users" element={<CreateUsers />} />
           <Route path="/teams" element={<Teams />} />
-          <Route path="/transfer-contacts" />
+          <Route path="/transfer-contacts" element={<TransferContacts />} />
           <Route path="/audit" element={<Audit />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/remax-requests" element={<RemaxRequests />} />

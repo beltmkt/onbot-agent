@@ -57,20 +57,27 @@ export const ChatPage: React.FC = () => {
 
     try {
       // 2. Envia para o N8N
+      const sessionId = localStorage.getItem('chat_session_id') || (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Date.now().toString());
+      localStorage.setItem('chat_session_id', sessionId); // Ensure it's stored for persistence
+
+      const payload = {
+        chatInput: textToSend,
+        sessionId: sessionId,
+        action: "sendMessage",
+        metadata: {
+          userName: user?.user_metadata?.name || user?.email || "Unknown User",
+          userEmail: user?.email || "unknown@example.com",
+          companyToken: localStorage.getItem('company_token') || "SEU_TOKEN_DA_EMPRESA_AQUI", // Assumindo company_token está no localStorage
+          pageContext: "Chat" // Agora sempre "Chat"
+        }
+      };
+
+      console.log("Enviando Payload:", payload); // Log para debug antes de enviar
+
       const response = await fetch(WEBHOOK_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-            chatInput: textToSend, 
-            sessionId: localStorage.getItem('chat_session_id') || Date.now().toString(),
-            action: "sendMessage",
-            metadata: {
-              userName: user?.user_metadata?.name || user?.email || "Unknown User",
-              userEmail: user?.email || "unknown@example.com",
-              companyToken: localStorage.getItem('company_token') || undefined, // Assumindo que company_token está no localStorage
-              pageContext: "Dashboard" 
-            }
-        })
+        body: JSON.stringify(payload)
       });
 
       if (!response.ok) {

@@ -2,14 +2,29 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { UserPlus, ArrowRightLeft, Activity, Zap } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext'; // Importar useAuth
+import { useNavigate } from 'react-router-dom'; // Importar useNavigate
 
 export const Dashboard: React.FC = () => {
   const { user } = useAuth(); // Obter user do contexto
   const userName = user?.user_metadata?.name || user?.email || 'Usuário'; // Fallback para 'Usuário'
+  const navigate = useNavigate(); // Inicializar useNavigate
 
   const handleCardClick = (action: string) => {
-    console.log(`Ação clicada: ${action}`);
-    // Futuramente, aqui se navegaria para a tela específica ou abriria um modal
+    let initialPrompt = "";
+    switch (action) {
+      case 'Criar Usuário':
+        initialPrompt = "Quero criar um novo usuário.";
+        break;
+      case 'Transferir Lead':
+        initialPrompt = "Preciso transferir um lead.";
+        break;
+      case 'Status do Agente':
+        initialPrompt = "Qual é o status do agente?";
+        break;
+      default:
+        initialPrompt = "Olá, OnBot!";
+    }
+    navigate('/onbot-chat', { state: { initialPrompt } });
   };
 
   return (

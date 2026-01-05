@@ -14,7 +14,10 @@ const NavItem: React.FC<{ item: NavItemType; isCollapsed: boolean }> = ({ item, 
   if (disabled) {
     return (
       <li className="mb-2">
-        <div className={`flex items-center p-3 text-slate-400 cursor-not-allowed opacity-60 ${isCollapsed ? 'justify-center' : ''}`}>
+        <div
+          className={`flex items-center p-3 text-slate-400 cursor-not-allowed opacity-60 ${isCollapsed ? 'justify-center' : ''}`}
+          title={isCollapsed ? text : undefined} // Add title attribute here
+        >
           {React.cloneElement(icon as React.ReactElement, { className: iconClasses })}
           {!isCollapsed && <span>{text}</span>}
           {!isCollapsed && <span className="ml-auto text-xs bg-slate-700 text-slate-300 px-2 py-0.5 rounded-full">Em Breve</span>}
@@ -32,6 +35,7 @@ const NavItem: React.FC<{ item: NavItemType; isCollapsed: boolean }> = ({ item, 
           `${isActive ? 'bg-indigo-500/20 text-white' : 'text-slate-300 hover:bg-white/5 hover:text-white'} ` +
           `${isCollapsed ? 'justify-center' : ''}` // Center content when collapsed
         }
+        title={isCollapsed ? text : undefined} // Add title attribute here
       >
         {React.cloneElement(icon as React.ReactElement, { className: iconClasses })}
         {!isCollapsed && <span>{text}</span>}
