@@ -76,7 +76,7 @@ export const ChatPage: React.FC = () => {
       const botMsg: Message = { 
         id: Date.now().toString(), 
         sender: 'bot', 
-        content: data.output || data.message || data.text || data.response || JSON.stringify(data)
+        content: data.content || data.output || data.message || data.text || data.response || JSON.stringify(data)
       };
       setMessages(prev => [...prev, botMsg]);
 
