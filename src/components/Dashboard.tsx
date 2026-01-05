@@ -89,7 +89,7 @@ export const Dashboard: React.FC = () => {
             <p className="text-sm text-slate-300">Adicionar acesso ao sistema</p>
           </motion.div>
 
-          {/* Card B: Transferir Lead */}
+          {/* Card B: Transferir Contato */}
           <motion.div
             className="bg-white/5 border border-white/10 rounded-2xl p-8 flex flex-col items-center text-center cursor-pointer relative overflow-hidden
                        backdrop-blur-xl shadow-glass hover:bg-white/10 hover:border-fuchsia-500/50
@@ -98,8 +98,8 @@ export const Dashboard: React.FC = () => {
             onClick={() => handleCardClick('Transferir Lead')}
           >
             <ArrowRightLeft className="w-14 h-14 text-fuchsia-400 mb-5" />
-            <h3 className="text-2xl font-bold text-white mb-2">Transferir Lead</h3>
-            <p className="text-sm text-slate-300">Mover contato para sua carteira</p>
+            <h3 className="text-2xl font-bold text-white mb-2">Transferir Contato</h3>
+            <p className="text-sm text-slate-300">Transfira contatos no C2SGo.</p>
           </motion.div>
 
           {/* Card C: Status do Agente */}
