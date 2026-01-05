@@ -5,6 +5,16 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Mail, Rocket, User, Eye, EyeOff, AlertCircle, CheckCircle, ArrowRight, Key } from 'lucide-react';
 import './Login.css';
 
+// Adicione um ícone do Google
+const GoogleIcon = () => (
+  <svg className="w-5 h-5 mr-3" viewBox="0 0 48 48">
+    <path fill="#FFC107" d="M43.611 20.083H42V20H24v8h11.303c-1.649 4.657-6.08 8-11.303 8c-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4C12.955 4 4 12.955 4 24s8.955 20 20 20s20-8.955 20-20c0-1.341-.138-2.65-.389-3.917z" />
+    <path fill="#FF3D00" d="M6.306 14.691l6.571 4.819C14.655 15.108 18.961 12 24 12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4C16.318 4 9.656 8.337 6.306 14.691z" />
+    <path fill="#4CAF50" d="M24 44c5.166 0 9.86-1.977 13.409-5.192l-6.19-5.238C29.211 35.091 26.715 36 24 36c-5.202 0-9.619-3.317-11.283-7.946l-6.522 5.025C9.505 39.556 16.227 44 24 44z" />
+    <path fill="#1976D2" d="M43.611 20.083H24v8h11.303c-.792 2.237-2.231 4.166-4.087 5.571l6.19 5.238C42.012 35.244 44 30.027 44 24c0-1.341-.138-2.65-.389-3.917z" />
+  </svg>
+);
+
 interface LoginFormData {
   email: string;
   password: string;
@@ -18,7 +28,7 @@ interface RegisterFormData {
 }
 
 const Login: React.FC = () => {
-  const { signIn, signUp, recoverPassword } = useAuth();
+  const { signIn, signUp, recoverPassword, signInWithGoogle } = useAuth();
   const navigate = useNavigate();
 
   // Estados para controle de abas
@@ -49,6 +59,10 @@ const Login: React.FC = () => {
   // Debug: log quando o componente monta
   useEffect(() => {
     console.log('Login component mounted');
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('error') === 'unauthorized_domain') {
+      setError('Domínio não autorizado. Use seu e-mail @c2sglobal.com.');
+    }
   }, []);
 
   // Limpa mensagens quando muda de aba
@@ -56,6 +70,25 @@ const Login: React.FC = () => {
     setError('');
     setSuccess('');
   }, [activeTab]);
+
+  // Handler para login com Google
+  const handleGoogleLogin = async () => {
+    setError('');
+    setSuccess('');
+    setIsLoading(true);
+
+    try {
+      const result = await signInWithGoogle();
+      if (result.error) {
+        setError(result.error);
+        setIsLoading(false);
+      }
+      // O redirecionamento será tratado pelo AuthContext
+    } catch (err) {
+      setError('Erro inesperado ao tentar logar com o Google. Tente novamente.');
+      setIsLoading(false);
+    }
+  };
 
   // Handler para login
   const handleLogin = async (e: React.FormEvent) => {
@@ -194,6 +227,31 @@ const Login: React.FC = () => {
           <p className="login-subtitle">Central de Ações e Setup</p>
         </div>
 
+        {/* Botão de Login com Google */}
+        <div className="google-login-section">
+          <motion.button
+            onClick={handleGoogleLogin}
+            className="google-login-button"
+            disabled={isLoading}
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+          >
+            {isLoading ? (
+              <div className="loading-spinner" />
+            ) : (
+              <>
+                <GoogleIcon />
+                Entrar com Google
+              </>
+            )}
+          </motion.button>
+        </div>
+
+        {/* Divisor */}
+        <div className="divider">
+          <span>OU</span>
+        </div>
+
         {/* Tabs */}
         <div className="tabs-container">
           <motion.button
@@ -204,7 +262,7 @@ const Login: React.FC = () => {
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
           >
-            Login
+            Login com Email
           </motion.button>
           <motion.button
             className={`tab-button ${activeTab === 'register' ? 'active' : ''}`}

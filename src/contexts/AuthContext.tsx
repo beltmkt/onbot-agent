@@ -18,6 +18,7 @@ interface AuthContextType {
 
   // Funções específicas para o Login.tsx
   signIn: (email: string, password: string) => Promise<{ error?: string }>;
+  signInWithGoogle: () => Promise<{ error?: string }>;
   isFallbackMode?: boolean;
   signUp: (email: string, password: string, name: string) => Promise<{ error?: string }>;
   isAuthorizedDomain: (email: string) => boolean;
@@ -37,32 +38,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [loginTime, setLoginTime] = useState<number | null>(null);
-
-  // Inicialização - Verifica sessão do Supabase
-  useEffect(() => {
-            // onAuthStateChange is called on initial load and whenever the auth state changes.
-            // This is the most reliable way to get the session and avoid race conditions.
-            const { data: { subscription } } = supabase.auth.onAuthStateChange(
-              (_event, session) => {
-                setUser(session?.user ?? null);
-                setIsLoading(false);
-    
-                if (_event === 'SIGNED_IN') {
-                  setLoginTime(Date.now());
-                  // Log restoration of a session on page load
-                  // The `login` action type is already handled in the signIn function,
-                  // so we don't need a separate log for INITIAL_SESSION here
-                  // unless we want to distinguish between active login and passive session restoration.
-                  // For now, based on the request "não registrar toda vez que a opágina for atualizada",
-                  // we remove logging for initial session load.
-                }
-              }
-            );
-    // Cleanup subscription on unmount
-    return () => {
-      subscription.unsubscribe();
-    };
-  }, []);
 
   // Função de validação de domínio SEGURA
   const isAuthorizedDomain = useCallback((email: any): boolean => {
@@ -94,6 +69,52 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       return false;
     }
   }, []);
+
+  // Inicialização - Verifica sessão do Supabase
+  useEffect(() => {
+    // onAuthStateChange is called on initial load and whenever the auth state changes.
+    // This is the most reliable way to get the session and avoid race conditions.
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+
+      if (_event === 'SIGNED_IN' && session?.user) {
+        if (!isAuthorizedDomain(session.user.email)) {
+          // Logout imediato se o domínio não for autorizado
+          supabase.auth.signOut();
+          setUser(null);
+          // Opcional: redirecionar para a página de login com uma mensagem de erro
+          // window.location.href = '/login?error=unauthorized_domain';
+          return;
+        }
+
+        setUser(session.user);
+        setLoginTime(Date.now());
+        // Log de login bem-sucedido
+        auditService.createLog({
+          userEmail: session.user.email!,
+          actionType: 'login',
+          status: 'success',
+          metadata: {
+            user_id: session.user.id,
+            name: session.user.user_metadata.name,
+            provider: 'google',
+          },
+        });
+      } else if (_event === 'SIGNED_OUT') {
+        setUser(null);
+      } else {
+        setUser(session?.user ?? null);
+      }
+
+      setIsLoading(false);
+    });
+
+    // Cleanup subscription on unmount
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [isAuthorizedDomain]);
 
   // Função signIn (login com Supabase)
   const signIn = useCallback(async (email: string, password: string): Promise<{ error?: string }> => {
@@ -194,6 +215,33 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       setIsLoading(false);
     }
   }, [isAuthorizedDomain]);
+
+  const signInWithGoogle = async (): Promise<{ error?: string }> => {
+    setIsLoading(true);
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          queryParams: {
+            hd: 'c2sglobal.com',
+          },
+          redirectTo: `${window.location.origin}/home`,
+        },
+      });
+
+      if (error) {
+        console.error('Google sign in error:', error);
+        return { error: error.message || 'Erro ao fazer login com Google' };
+      }
+
+      return {}; // O redirecionamento irá ocorrer
+    } catch (error: any) {
+      console.error('Google sign in error:', error);
+      return { error: 'Erro interno. Tente novamente mais tarde.' };
+    } finally {
+      // O setIsLoading(false) não é chamado aqui porque a página será redirecionada
+    }
+  };
 
   // Função signUp (cadastro com Supabase)
   const signUp = useCallback(async (email: string, password: string, name: string): Promise<{ error?: string }> => {
@@ -406,6 +454,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     isLoading,
     requestRegistration,
     signIn,
+    signInWithGoogle,
     signUp,
     isAuthorizedDomain,
     recoverPassword,
