@@ -89,10 +89,17 @@ export const ChatPage: React.FC = () => {
       console.log("RESPOSTA DO N8N:", data); // Debugging line
 
       // 3. Adiciona resposta do Bot (Ajuste conforme o retorno do seu n8n: data.output, data.text, etc)
+      const botResponseText = data.response?.generations?.[0]?.text || // Nova prioridade
+                              data.content ||
+                              data.output ||
+                              data.message ||
+                              data.text ||
+                              (typeof data.response === 'string' ? data.response : undefined) || // Se data.response for string
+                              JSON.stringify(data); // Fallback final
       const botMsg: Message = { 
         id: Date.now().toString(), 
         sender: 'bot', 
-        content: data.content || data.output || data.message || data.text || data.response || JSON.stringify(data)
+        content: botResponseText
       };
       setMessages(prev => [...prev, botMsg]);
 
