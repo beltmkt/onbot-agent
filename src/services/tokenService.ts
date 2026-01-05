@@ -53,7 +53,7 @@ export const validateCompanyToken = async (token: string, userEmail: string): Pr
           .select('id, company_id, company_name, is_valid, validated_at')
           .eq('token', trimmedToken)
           .eq('is_valid', true) // Usa o campo correto para 'ativo'
-          .single();
+          .maybeSingle();
     
         if (error) {
           console.error('Database error validating token:', error);
@@ -65,10 +65,15 @@ export const validateCompanyToken = async (token: string, userEmail: string): Pr
         }
     
         if (!data) {
-          await auditService.createLog({ userEmail, actionType: 'token_validation', status: 'error', errorMessage: 'Token inválido', metadata: { token_last4: tokenLast4 } });
+          // Token não existe, considerar como 'Novo/Válido' para prosseguir com a criação/upsert
+          await auditService.createLog({ userEmail, actionType: 'token_validation', status: 'info', errorMessage: 'Token não encontrado, considerado novo para criação', metadata: { token_last4: tokenLast4 } });
           return {
-            success: false,
-            error: 'Token inválido'
+            success: true,
+            data: {
+              isValid: true, // Temporariamente válido para permitir criação
+              companyId: undefined, // Sem companyId ainda
+              companyName: undefined // Sem companyName ainda
+            }
           };
         }
     
