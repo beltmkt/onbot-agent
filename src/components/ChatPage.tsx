@@ -60,16 +60,22 @@ export const ChatPage: React.FC = () => {
       const sessionId = localStorage.getItem('chat_session_id') || (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Date.now().toString());
       localStorage.setItem('chat_session_id', sessionId); // Ensure it's stored for persistence
 
+      const metadata: { [key: string]: any } = {
+        userName: user?.user_metadata?.name || user?.email || "Unknown User",
+        userEmail: user?.email || "unknown@example.com",
+        pageContext: "Chat" // Agora sempre "Chat"
+      };
+
+      const companyToken = localStorage.getItem('company_token');
+      if (companyToken) {
+        metadata.companyToken = companyToken;
+      }
+
       const payload = {
         chatInput: textToSend,
         sessionId: sessionId,
         action: "sendMessage",
-        metadata: {
-          userName: user?.user_metadata?.name || user?.email || "Unknown User",
-          userEmail: user?.email || "unknown@example.com",
-          companyToken: localStorage.getItem('company_token') || null, // Envia null se não encontrar o token
-          pageContext: "Chat" // Agora sempre "Chat"
-        }
+        metadata: metadata
       };
 
       console.log("METADATA DEBUG:", JSON.stringify(payload.metadata, null, 2)); // Log para debug antes de enviar
