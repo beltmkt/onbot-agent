@@ -70,6 +70,18 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   }, []);
 
+  useEffect(() => {
+    const checkMidnight = () => {
+      const now = new Date();
+      if (now.getHours() === 0 && now.getMinutes() === 0) {
+        logout();
+      }
+    };
+    const intervalId = setInterval(checkMidnight, 60000); 
+
+    return () => clearInterval(intervalId);
+  }, [logout]);
+
   // Inicialização - Verifica sessão do Supabase
   useEffect(() => {
     const {
@@ -90,12 +102,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           setLoginTime(Date.now());
           auditService.createLog({
             userEmail: session.user.email!,
-            actionType: 'login',
+            actionType: 'CHECK_IN',
             status: 'success',
             metadata: {
               user_id: session.user.id,
               name: session.user.user_metadata.name,
-              provider: session.app_metadata.provider || 'email',
+              provider: session?.user?.app_metadata?.provider || 'email',
             },
           });
         }
@@ -181,13 +193,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       if (data.user) {
         setUser(data.user);
         setLoginTime(Date.now());
-        const logResult = await auditService.createLog({
-          userEmail: email,
-          actionType: 'login',
-          status: 'success',
-          metadata: { user_id: data.user.id, name: data.user.user_metadata.name }
-        });
-        console.log('Audit log created for login:', logResult);
         return {}; // Sucesso
       } else {
         await auditService.createLog({
@@ -395,12 +400,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   // Função de logout
-  const logout = async (): Promise<void> => {
+  const logout = useCallback(async (): Promise<void> => {
     if (user && loginTime) {
       const duration = Math.round((Date.now() - loginTime) / 1000);
       await auditService.createLog({
         userEmail: user.email!,
-        actionType: 'logout',
+        actionType: 'CHECK_OUT',
         status: 'success',
         metadata: { user_id: user.id, name: user.user_metadata.name },
         duration_seconds: duration,
@@ -415,7 +420,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     } catch (error) {
       console.error('Logout error:', error);
     }
-  };
+  }, [user, loginTime]);
 
   const updateUser = async (data: { name?: string; phone?: string }): Promise<{ error?: string }> => {
     const { error } = await supabase.auth.updateUser({ data });

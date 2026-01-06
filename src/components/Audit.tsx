@@ -124,6 +124,7 @@ export const Audit: React.FC = () => {
             ))}
           </select>
           <DatePicker
+            popperClassName="z-index-9999"
             selectsRange
             startDate={filters.startDate}
             endDate={filters.endDate}

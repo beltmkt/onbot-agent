@@ -124,4 +124,9 @@
   .custom-scrollbar::-webkit-scrollbar-thumb:hover {
     background: rgba(255, 255, 255, 0.2);
   }
+
+  /* Custom z-index for datepicker */
+  .z-index-9999 {
+    z-index: 9999;
+  }
 }
