@@ -86,8 +86,8 @@ export const Home: React.FC = () => {
             <div className="w-12 h-12 bg-indigo-500/20 rounded-lg flex items-center justify-center mb-4 group-hover:scale-110 transition">
               <UserPlus className="text-indigo-400" />
             </div>
-            <h3 className="text-lg font-semibold text-left">Criar Usuário</h3>
-            <p className="text-sm text-slate-400 text-left mt-1">Adicionar novo membro ao time.</p>
+            <h3 className="text-lg font-semibold text-left">Criar usuários</h3>
+            <p className="text-sm text-slate-400 text-left mt-1">crie novos usuários no C2S</p>
           </div>
 
           {/* Card: Transferir */}
