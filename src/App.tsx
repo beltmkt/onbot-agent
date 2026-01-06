@@ -1,4 +1,5 @@
-import { BrowserRouter as Router, Routes, Route, Navigate, Outlet } from 'react-router-dom';
+import { useEffect } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate, Outlet, useNavigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { Login } from './components/Login';
 import { CreateUsers } from './components/CreateUsers';
@@ -10,6 +11,8 @@ import { Audit } from './components/Audit';
 import { Settings } from './components/Settings';
 import { RemaxRequests } from './components/RemaxRequests';
 import { ChatPage } from './components/ChatPage'; // Importe o novo componente de chat
+import { Toaster, toast } from 'sonner';
+import { supabase } from './lib/supabase';
 
 
 const ProtectedRoutesLayout: React.FC = () => {
@@ -42,8 +45,32 @@ const ProtectedChatRoute: React.FC = () => {
 };
 
 const AppRoutes: React.FC = () => {
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    // Captura erros na URL (Link Expirado, etc)
+    const hash = window.location.hash;
+    if (hash && hash.includes('error_code=otp_expired')) {
+      toast.error("Este link de login expirou ou já foi usado. Por favor, solicite um novo.");
+      // Limpa a URL para não poluir visualmente
+      window.history.replaceState(null, '', window.location.pathname);
+    }
+  
+    // Monitora o evento de login do Supabase
+    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_IN') {
+        toast.success("Login confirmado com sucesso!");
+        navigate('/home'); 
+      }
+    });
+  
+    // Limpa o listener ao desmontar o componente
+    return () => {
+      authListener?.subscription.unsubscribe();
+    };
+  }, [navigate]);
+
   return (
-    <Router>
       <Routes>
         <Route
           path="/login"
@@ -67,14 +94,16 @@ const AppRoutes: React.FC = () => {
 
         <Route path="/" element={<Navigate to="/home" replace />} />
       </Routes>
-    </Router>
   );
 };
 
 const App: React.FC = () => {
   return (
     <AuthProvider>
-      <AppRoutes />
+      <Router>
+        <Toaster richColors position="top-center" />
+        <AppRoutes />
+      </Router>
     </AuthProvider>
   );
 };
