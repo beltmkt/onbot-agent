@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, Outlet, useNavigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { Login } from './components/Login';
+import { UpdatePassword } from './components/UpdatePassword';
 import { CreateUsers } from './components/CreateUsers';
 import { Home } from './components/Home';
 import { MainLayout } from './components/MainLayout';
@@ -56,11 +57,15 @@ const AppRoutes: React.FC = () => {
       window.history.replaceState(null, '', window.location.pathname);
     }
   
-    // Monitora o evento de login do Supabase
+    // Monitora eventos de autenticação do Supabase
     const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_IN') {
         toast.success("Login confirmado com sucesso!");
         navigate('/home'); 
+      } else if (event === 'PASSWORD_RECOVERY') {
+        // Redireciona para a página de atualização de senha
+        toast.info('Você está em modo de recuperação de senha.');
+        navigate('/update-password');
       }
     });
   
@@ -72,10 +77,8 @@ const AppRoutes: React.FC = () => {
 
   return (
       <Routes>
-        <Route
-          path="/login"
-          element={<Login />}
-        />
+        <Route path="/login" element={<Login />} />
+        <Route path="/update-password" element={<UpdatePassword />} />
         
         <Route element={<ProtectedRoutesLayout />}>
           <Route path="/home" element={<Home />} />
