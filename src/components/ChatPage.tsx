@@ -1,13 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Send, Sparkles, ArrowLeft, Bot, User } from 'lucide-react';
+import { Send, Sparkles, ArrowLeft, Bot, User, AlertTriangle } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useAuth } from '../contexts/AuthContext'; // Importar useAuth
 
 interface Message {
-  id: string; // Changed to string for sessionId
+  id: string;
   sender: 'user' | 'bot';
-  content: string; // Changed from text to content
+  content: string;
+  isError?: boolean;
 }
 
 export const ChatPage: React.FC = () => {
@@ -16,14 +17,26 @@ export const ChatPage: React.FC = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isConfigured, setIsConfigured] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { user } = useAuth(); // Obter informações do usuário
 
   // URL do seu Webhook de Chat no N8N
-  const WEBHOOK_URL = import.meta.env.VITE_N8N_WEBHOOK_URL || 'https://consentient-bridger-pyroclastic.ngrok-free.dev/webhook/c3f08451-1847-461c-9ba0-a0f6d0bac603/chat'; 
+  const WEBHOOK_URL = import.meta.env.VITE_N8N_WEBHOOK_URL; 
 
-  // Efeito para carregar o prompt inicial da Dashboard
+  // Efeito para carregar o prompt inicial da Dashboard e verificar a configuração
   useEffect(() => {
+    if (!WEBHOOK_URL) {
+      setIsConfigured(false);
+      setMessages([{
+        id: 'config-error',
+        sender: 'bot',
+        content: 'A configuração do serviço de chat está incompleta. Por favor, contate o administrador.',
+        isError: true,
+      }]);
+      return;
+    }
+
     // Generate a new session ID if one doesn't exist
     if (!localStorage.getItem('chat_session_id')) {
       localStorage.setItem('chat_session_id', Date.now().toString());
@@ -46,8 +59,8 @@ export const ChatPage: React.FC = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  const handleSend = async (textToSend: string) => { // Renamed input to textToSend
-    if (!textToSend.trim()) return;
+  const handleSend = async (textToSend: string) => {
+    if (!textToSend.trim() || !isConfigured) return;
 
     // 1. Adiciona mensagem do usuário visualmente
     const userMsg: Message = { id: Date.now().toString(), sender: 'user', content: textToSend };
@@ -105,7 +118,7 @@ export const ChatPage: React.FC = () => {
 
     } catch (error) {
       console.error("Erro ao enviar mensagem para o n8n:", error);
-      setMessages(prev => [...prev, { id: Date.now().toString(), sender: 'bot', content: "Erro ao conectar com o agente. Tente novamente." }]);
+      setMessages(prev => [...prev, { id: Date.now().toString(), sender: 'bot', content: "Erro ao conectar com o agente. Tente novamente.", isError: true }]);
     } finally {
       setIsLoading(false);
     }
@@ -144,7 +157,7 @@ export const ChatPage: React.FC = () => {
 
         {/* Message History Area */}
         <div className="flex-1 overflow-y-auto space-y-4 px-4 custom-scrollbar">
-          {messages.length === 0 && !((location.state as { initialPrompt?: string })?.initialPrompt) && (
+          {messages.length === 0 && isConfigured && !((location.state as { initialPrompt?: string })?.initialPrompt) && (
             <div className="flex flex-col items-center justify-center h-full text-gray-400">
               <Sparkles className="w-16 h-16 mb-4 text-indigo-400 animate-pulse" />
               <p className="text-lg">Comece a conversar com o OnBot!</p>
@@ -160,14 +173,16 @@ export const ChatPage: React.FC = () => {
               className={`flex items-end gap-3 ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}
             >
               {msg.sender === 'bot' && (
-                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center text-white">
-                  <Bot size={18} />
+                <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-white ${msg.isError ? 'bg-red-500' : 'bg-indigo-600'}`}>
+                  {msg.isError ? <AlertTriangle size={18} /> : <Bot size={18} />}
                 </div>
               )}
               <div
                 className={`max-w-[75%] p-3 shadow-lg ${
                   msg.sender === 'user'
                     ? 'bg-gradient-to-r from-cyan-500 to-indigo-600 text-white rounded-xl rounded-tr-none'
+                    : msg.isError
+                    ? 'bg-red-500/20 border border-red-500/50 backdrop-blur-md text-white rounded-xl rounded-tl-none'
                     : 'bg-white/5 border border-white/10 backdrop-blur-md text-white rounded-xl rounded-tl-none'
                 }`}
               >
@@ -200,18 +215,18 @@ export const ChatPage: React.FC = () => {
         <div className="w-full max-w-3xl mx-auto flex items-center gap-2 bg-white/5 border border-white/10 rounded-full shadow-glass backdrop-blur-md px-4 py-3">
           <input
             type="text"
-            className="flex-1 bg-transparent text-white placeholder-slate-400 focus:outline-none"
-            placeholder={isLoading ? "Aguarde a resposta do OnBot..." : "Digite sua mensagem..."}
+            className="flex-1 bg-transparent text-white placeholder-slate-400 focus:outline-none disabled:cursor-not-allowed"
+            placeholder={!isConfigured ? "Chat desabilitado." : isLoading ? "Aguarde a resposta do OnBot..." : "Digite sua mensagem..."}
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            disabled={isLoading}
+            disabled={isLoading || !isConfigured}
           />
           <button
             onClick={() => handleSend(input)}
             className="p-2 bg-indigo-600 rounded-full hover:bg-indigo-700 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
             aria-label="Send message"
-            disabled={isLoading || !input.trim()}
+            disabled={isLoading || !input.trim() || !isConfigured}
           >
             <Send className="w-5 h-5 text-white" />
           </button>
