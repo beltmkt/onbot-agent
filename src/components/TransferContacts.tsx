@@ -237,14 +237,7 @@ export const TransferContacts: React.FC = () => {
             disabled={isLoading}
             className="w-full bg-gradient-to-r from-cyan-500 to-purple-600 hover:from-cyan-600 hover:to-purple-700 text-white px-4 py-3 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-wait flex flex-col items-center justify-center"
           >
-            {isLoading ? (
-              'Processando...'
-            ) : (
-              <>
-                <span>Transferir Contato</span>
-                <span className="text-xs opacity-75">Transfira contatos no C2SGO</span>
-              </>
-            )}
+            {isLoading ? 'Processando...' : 'Transferir'}
           </button>
         </form>
         

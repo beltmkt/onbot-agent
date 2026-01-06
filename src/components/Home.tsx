@@ -98,8 +98,8 @@ export const Home: React.FC = () => {
             <div className="w-12 h-12 bg-cyan-500/20 rounded-lg flex items-center justify-center mb-4 group-hover:scale-110 transition">
               <ArrowRightLeft className="text-cyan-400" />
             </div>
-            <h3 className="lg font-semibold text-left">Transferir Lead</h3>
-            <p className="text-sm text-slate-400 text-left mt-1">Mover contatos entre carteiras.</p>
+            <h3 className="lg font-semibold text-left">Transferir Contato</h3>
+            <p className="text-sm text-slate-400 text-left mt-1">Transfira contatos no C2SGo</p>
           </div>
 
           {/* Card: Auditoria */}
