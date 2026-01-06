@@ -72,49 +72,46 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   // Inicialização - Verifica sessão do Supabase
   useEffect(() => {
-    // onAuthStateChange is called on initial load and whenever the auth state changes.
-    // This is the most reliable way to get the session and avoid race conditions.
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
+      const isNewLogin = !user && session?.user;
 
       if (_event === 'SIGNED_IN' && session?.user) {
         if (!isAuthorizedDomain(session.user.email)) {
-          // Logout imediato se o domínio não for autorizado
           supabase.auth.signOut();
           setUser(null);
-          // Opcional: redirecionar para a página de login com uma mensagem de erro
-          // window.location.href = '/login?error=unauthorized_domain';
           return;
         }
 
         setUser(session.user);
-        setLoginTime(Date.now());
-        // Log de login bem-sucedido
-        auditService.createLog({
-          userEmail: session.user.email!,
-          actionType: 'login',
-          status: 'success',
-          metadata: {
-            user_id: session.user.id,
-            name: session.user.user_metadata.name,
-            provider: 'google',
-          },
-        });
+        
+        if (isNewLogin) {
+          setLoginTime(Date.now());
+          auditService.createLog({
+            userEmail: session.user.email!,
+            actionType: 'login',
+            status: 'success',
+            metadata: {
+              user_id: session.user.id,
+              name: session.user.user_metadata.name,
+              provider: session.app_metadata.provider || 'email',
+            },
+          });
+        }
       } else if (_event === 'SIGNED_OUT') {
         setUser(null);
-      } else {
-        setUser(session?.user ?? null);
+      } else if (_event === 'INITIAL_SESSION' && session?.user) {
+        setUser(session.user)
       }
 
       setIsLoading(false);
     });
 
-    // Cleanup subscription on unmount
     return () => {
       subscription.unsubscribe();
     };
-  }, [isAuthorizedDomain]);
+  }, [isAuthorizedDomain, user]);
 
   // Função signIn (login com Supabase)
   const signIn = useCallback(async (email: string, password: string): Promise<{ error?: string }> => {
