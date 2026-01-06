@@ -39,36 +39,49 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [isLoading, setIsLoading] = useState(true);
   const [loginTime, setLoginTime] = useState<number | null>(null);
 
-  // Função de validação de domínio SEGURA
   const isAuthorizedDomain = useCallback((email: any): boolean => {
-    // Verificação completa de tipo
     if (email === null || email === undefined) {
       console.warn('Email é null ou undefined');
       return false;
     }
-
     if (typeof email !== 'string') {
       console.warn('Email não é uma string:', typeof email, email);
       return false;
     }
-
     const trimmedEmail = email.trim();
-
     if (trimmedEmail === '') {
       return false;
     }
-
     try {
-      // Converte para minúsculas e verifica o domínio
       const emailLower = trimmedEmail.toLowerCase();
       const domainLower = AUTHORIZED_DOMAIN.toLowerCase();
-
       return emailLower.endsWith(domainLower);
     } catch (error) {
       console.error('Error in isAuthorizedDomain:', error);
       return false;
     }
   }, []);
+
+  const logout = useCallback(async (): Promise<void> => {
+    if (user && loginTime) {
+      const duration = Math.round((Date.now() - loginTime) / 1000);
+      await auditService.createLog({
+        userEmail: user.email!,
+        actionType: 'CHECK_OUT',
+        status: 'success',
+        metadata: { user_id: user.id, name: user.user_metadata.name },
+        duration_seconds: duration,
+      });
+    }
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) {
+        console.error('Logout error:', error);
+      }
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
+  }, [user, loginTime]);
 
   useEffect(() => {
     const checkMidnight = () => {
@@ -82,7 +95,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     return () => clearInterval(intervalId);
   }, [logout]);
 
-  // Inicialização - Verifica sessão do Supabase
   useEffect(() => {
     const {
       data: { subscription },
@@ -125,11 +137,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     };
   }, [isAuthorizedDomain, user]);
 
-  // Função signIn (login com Supabase)
   const signIn = useCallback(async (email: string, password: string): Promise<{ error?: string }> => {
     console.log('signIn chamado com:', { email });
 
-    // Validação básica
     if (!email || !password) {
       await auditService.createLog({
         userEmail: email,
@@ -140,7 +150,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       return { error: 'Email e senha são obrigatórios' };
     }
 
-    // Valida domínio
     if (!isAuthorizedDomain(email)) {
       await auditService.createLog({
         userEmail: email,
@@ -161,8 +170,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
       if (error) {
         console.error('Supabase sign in error:', error);
-
-        // Trata erros específicos do Supabase
         if (error.message.includes('Invalid login credentials')) {
           await auditService.createLog({
             userEmail: email,
@@ -236,30 +243,24 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         return { error: error.message || 'Erro ao fazer login com Google' };
       }
 
-      return {}; // O redirecionamento irá ocorrer
+      return {};
     } catch (error: any) {
       console.error('Google sign in error:', error);
       return { error: 'Erro interno. Tente novamente mais tarde.' };
-    } finally {
-      // O setIsLoading(false) não é chamado aqui porque a página será redirecionada
     }
   };
 
-  // Função signUp (cadastro com Supabase)
   const signUp = useCallback(async (email: string, password: string, name: string): Promise<{ error?: string }> => {
     console.log('signUp chamado com:', { email, name });
 
-    // Validação básica
     if (!email || !password || !name) {
       return { error: 'Nome, email e senha são obrigatórios' };
     }
 
-    // Valida domínio
     if (!isAuthorizedDomain(email)) {
       return { error: `Apenas emails do domínio ${AUTHORIZED_DOMAIN} são permitidos` };
     }
 
-    // Valida força da senha
     if (password.length < 6) {
       return { error: 'A senha deve ter pelo menos 6 caracteres' };
     }
@@ -279,8 +280,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
       if (error) {
         console.error('Supabase sign up error:', error);
-
-        // Trata erros específicos
         if (error.message.includes('User already registered')) {
           return { error: 'Este email já está cadastrado' };
         } else {
@@ -289,8 +288,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
 
       if (data.user) {
-        // Usuário criado com sucesso, mas precisa confirmar email
-        return {}; // Sucesso - usuário será redirecionado após confirmação
+        return {};
       } else {
         return { error: 'Erro inesperado durante o cadastro' };
       }
@@ -303,7 +301,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   }, [isAuthorizedDomain]);
 
-  // Função login (mantida para compatibilidade)
   const login = async (email: string, password: string): Promise<void> => {
     const result = await signIn(email, password);
     if (result.error) {
@@ -311,15 +308,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
-  // Função requestRegistration (mantida para compatibilidade)
   const requestRegistration = async (email: string): Promise<void> => {
-    const result = await signUp(email, Math.random().toString(36).slice(2, 12), 'Usuário'); // Senha temporária
+    const result = await signUp(email, Math.random().toString(36).slice(2, 12), 'Usuário');
     if (result.error) {
       throw new Error(result.error);
     }
   };
 
-  // Função de recuperação de senha (Supabase)
   const recoverPassword = async (email: string): Promise<{ success: boolean; message: string }> => {
     if (!isAuthorizedDomain(email)) {
       return {
@@ -359,7 +354,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
-  // Função para resetar senha (Supabase)
   const resetPassword = async (_token: string, newPassword: string): Promise<{ success: boolean; message: string }> => {
     if (newPassword.length < 6) {
       return {
@@ -399,37 +393,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
-  // Função de logout
-  const logout = useCallback(async (): Promise<void> => {
-    if (user && loginTime) {
-      const duration = Math.round((Date.now() - loginTime) / 1000);
-      await auditService.createLog({
-        userEmail: user.email!,
-        actionType: 'CHECK_OUT',
-        status: 'success',
-        metadata: { user_id: user.id, name: user.user_metadata.name },
-        duration_seconds: duration,
-      });
-    }
-    try {
-      const { error } = await supabase.auth.signOut();
-      if (error) {
-        console.error('Logout error:', error);
-      }
-      // O listener onAuthStateChange cuidará de limpar o estado do usuário
-    } catch (error) {
-      console.error('Logout error:', error);
-    }
-  }, [user, loginTime]);
-
   const updateUser = async (data: { name?: string; phone?: string }): Promise<{ error?: string }> => {
     const { error } = await supabase.auth.updateUser({ data });
     if (error) {
       console.error("Error updating user:", error);
       return { error: error.message };
     }
-    // The onAuthStateChange listener will automatically update the user state,
-    // but we trigger a manual refresh of the user object here for immediate feedback.
     const { data: { user } } = await supabase.auth.getUser();
     setUser(user);
     return {};
@@ -447,7 +416,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     return {};
   };
 
-  // Context value
   const contextValue: AuthContextType = {
     user,
     login,
