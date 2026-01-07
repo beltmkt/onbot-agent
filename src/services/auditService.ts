@@ -15,6 +15,33 @@ export interface AuditLogData {
 export const auditService = {
   async createLog(data: AuditLogData): Promise<{ success: boolean; error?: string }> {
     try {
+      // Adicionado para evitar logs duplicados de 'login' e 'session_restored' no mesmo dia
+      if (data.actionType === 'login' || data.actionType === 'session_restored') {
+        if (data.userId) {
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+          const tomorrow = new Date(today);
+          tomorrow.setDate(tomorrow.getDate() + 1);
+
+          const { data: existingLog, error: selectError } = await supabase
+            .from('activity_logs')
+            .select('id')
+            .eq('user_id', data.userId)
+            .in('action_type', ['login', 'session_restored'])
+            .gte('created_at', today.toISOString())
+            .lt('created_at', tomorrow.toISOString())
+            .limit(1);
+
+          if (selectError) {
+            console.error('Erro ao verificar log existente:', selectError.message);
+            // Prosseguir com a criação do log mesmo em caso de erro na verificação
+          } else if (existingLog && existingLog.length > 0) {
+            // Log de check-in já existe para hoje, então não faz nada.
+            return { success: true };
+          }
+        }
+      }
+
       const { error } = await supabase.from('activity_logs').insert({
         user_email: data.userEmail,
         user_id: data.userId,

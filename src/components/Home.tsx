@@ -2,18 +2,22 @@ import React, { useState, useRef } from 'react';
 import { Sparkles, UserPlus, ArrowRightLeft, ClipboardList, Command } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
+import { useAuth } from '../hooks/useAuth'; // Importar o hook de autenticação
 
 export const Home: React.FC = () => {
   const navigate = useNavigate();
+  const { user, isLoading } = useAuth(); // Usar o hook para obter dados do usuário
   const [commandInput, setCommandInput] = useState('');
-  const inputRef = useRef<HTMLInputElement>(null); // Ref para o input
-  const userName = "Alisson"; // Pode conectar com seu contexto real depois
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // Determina o nome de exibição de forma dinâmica
+  const displayName = user?.user_metadata?.name?.split(' ')[0] || '';
 
   const handleCommandSubmit = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
-      if (commandInput.trim()) { // Only navigate if there's actual input
+      if (commandInput.trim()) {
         navigate('/onbot-chat', { state: { initialPrompt: commandInput } });
-        setCommandInput(''); // Clear input after submission
+        setCommandInput('');
       } else {
         toast.info("Por favor, digite uma mensagem ou ação.");
       }
@@ -21,7 +25,7 @@ export const Home: React.FC = () => {
   };
 
   const handleSparklesClick = () => {
-    inputRef.current?.focus(); // Foca no input quando o ícone Sparkles é clicado
+    inputRef.current?.focus();
   };
 
   const handleCardClick = (path: string) => {
@@ -34,17 +38,14 @@ export const Home: React.FC = () => {
   return (
     <div className="min-h-screen bg-[#0f172a] text-white flex flex-col items-center justify-center p-4 relative overflow-hidden">
       
-      {/* 1. Background Effects (Manual CSS p/ garantir que apareça) */}
       <div className="absolute top-[-20%] left-1/2 -translate-x-1/2 w-[800px] h-[800px] bg-indigo-600 rounded-full blur-[150px] opacity-20 pointer-events-none"></div>
       <div className="absolute bottom-[-20%] right-[-10%] w-[600px] h-[600px] bg-cyan-500 rounded-full blur-[150px] opacity-10 pointer-events-none"></div>
 
-      {/* 2. Main Container */}
       <div className="relative z-10 w-full max-w-5xl flex flex-col items-center gap-12 text-center">
         
-        {/* Header Section */}
         <div className="space-y-4">
           <h1 className="text-5xl md:text-6xl font-bold tracking-tight">
-            Olá, <span className="bg-gradient-to-r from-cyan-400 to-indigo-500 bg-clip-text text-transparent">{userName}</span>
+            Olá, <span className="bg-gradient-to-r from-cyan-400 to-indigo-500 bg-clip-text text-transparent">{!isLoading && displayName ? displayName : '...'}</span>
           </h1>
           <p className="text-slate-400 text-xl font-light max-w-2xl mx-auto">
             Seu centro de comando está pronto. Qual automação vamos executar hoje?

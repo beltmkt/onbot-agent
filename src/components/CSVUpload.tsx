@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { Upload, FileType, Check, AlertTriangle, X, Loader2, Hash, Power, FileText, CheckCircle, Repeat, Lock } from 'lucide-react';
+import { Upload, FileType, Check, AlertTriangle, X, Loader2, Hash, Power, FileText, CheckCircle, Repeat, Lock, Download } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 type MessageType = 'success' | 'error' | 'info';
@@ -60,6 +60,18 @@ export const CSVUpload = ({
     onRepeat(); 
   }
 
+  const handleDownloadTemplate = () => {
+    const header = "nome,email,telefone,empresa_ou_equipe,master\n";
+    const blob = new Blob([header], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", "modelo_importacao_usuarios.csv");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   const getMessageColor = () => {
     // Palavras-chave que indicam erro, independentemente do tipo de mensagem recebido
     const errorKeywords = ['erro', 'falha', 'inválido', 'duplicado', 'tente novamente']; // Adicionado "tente novamente"
@@ -113,7 +125,15 @@ export const CSVUpload = ({
         Envie sua planilha CSV para criar vendedores na plataforma.
       </p>
 
-      {/* Download do modelo CSV movido para o componente pai se necessário */}
+      <div className="flex justify-start mb-4">
+        <button
+          onClick={handleDownloadTemplate}
+          className="flex items-center gap-2 text-sm text-blue-500 hover:text-blue-400 dark:text-blue-400 dark:hover:text-blue-300 transition-colors"
+        >
+          <Download size={16} />
+          Baixar modelo da planilha
+        </button>
+      </div>
 
       <div className="min-h-[250px] flex flex-col justify-center">
         <AnimatePresence mode="wait">
