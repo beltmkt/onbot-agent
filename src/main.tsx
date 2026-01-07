@@ -3,7 +3,7 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
 import { AuthProvider } from './contexts/AuthContext';
-// import { ThemeProvider } from './contexts/ThemeContext'; // Removido conforme solicitado
+import { ThemeProvider } from './contexts/ThemeContext';
 import './index.css';
 
 const root = ReactDOM.createRoot(
@@ -12,8 +12,10 @@ const root = ReactDOM.createRoot(
 
 root.render(
   <React.StrictMode>
-    <AuthProvider>
-      <App />
-    </AuthProvider>
+    <ThemeProvider>
+      <AuthProvider>
+        <App />
+      </AuthProvider>
+    </ThemeProvider>
   </React.StrictMode>
 );

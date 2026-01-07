@@ -2,17 +2,11 @@ import React, { useState, useRef } from 'react';
 import { Sparkles, UserPlus, ArrowRightLeft, ClipboardList, Command } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { useAuth } from '../hooks/useAuth'; // Importar o hook de autenticação
 
 export const Home: React.FC = () => {
   const navigate = useNavigate();
-  const { user, isLoading } = useAuth(); // Usar o hook para obter dados do usuário
   const [commandInput, setCommandInput] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
-
-  // Determina o nome de exibição de forma dinâmica e segura
-  const nameFromMeta = user?.user_metadata?.name;
-  const displayName = (nameFromMeta && typeof nameFromMeta === 'string') ? nameFromMeta.split(' ')[0] : '';
 
   const handleCommandSubmit = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
@@ -46,7 +40,7 @@ export const Home: React.FC = () => {
         
         <div className="space-y-4">
           <h1 className="text-5xl md:text-6xl font-bold tracking-tight">
-            Olá, <span className="bg-gradient-to-r from-cyan-400 to-indigo-500 bg-clip-text text-transparent">{!isLoading && displayName ? displayName : '...'}</span>
+            Olá!
           </h1>
           <p className="text-slate-400 text-xl font-light max-w-2xl mx-auto">
             Seu centro de comando está pronto. Qual automação vamos executar hoje?
