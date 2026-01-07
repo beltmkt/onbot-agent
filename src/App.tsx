@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, Outlet, useNavigate } from 'react-router-dom';
-import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { useAuth } from './contexts/AuthContext';
 import { Login } from './components/Login';
 import { UpdatePassword } from './components/UpdatePassword';
 import { CreateUsers } from './components/CreateUsers';
@@ -99,12 +99,10 @@ const AppRoutes: React.FC = () => {
 
 const App: React.FC = () => {
   return (
-    <AuthProvider>
-      <Router>
-        <Toaster richColors position="top-center" />
-        <AppRoutes />
-      </Router>
-    </AuthProvider>
+    <Router>
+      <Toaster richColors position="top-center" />
+      <AppRoutes />
+    </Router>
   );
 };
 
