@@ -135,7 +135,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     return () => {
       subscription.unsubscribe();
     };
-  }, [isAuthorizedDomain, user]);
+  }, [isAuthorizedDomain]);
 
   const signIn = useCallback(async (email: string, password: string): Promise<{ error?: string }> => {
     console.log('signIn chamado com:', { email });
@@ -200,6 +200,19 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       if (data.user) {
         setUser(data.user);
         setLoginTime(Date.now());
+
+        // Log de auditoria movido para cá
+        await auditService.createLog({
+          userEmail: data.user.email!,
+          actionType: 'CHECK_IN',
+          status: 'success',
+          metadata: {
+            user_id: data.user.id,
+            name: data.user.user_metadata.name,
+            provider: data.user?.app_metadata?.provider || 'email',
+          },
+        });
+
         return {}; // Sucesso
       } else {
         await auditService.createLog({

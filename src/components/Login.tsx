@@ -7,6 +7,7 @@ import { Mail, Rocket, User, Eye, EyeOff, AlertCircle, CheckCircle, ArrowRight, 
 import { Card } from './ui/Card'; // Importar o novo Card component
 import { Input } from './ui/Input'; // Importar o novo Input component
 import { Button } from './ui/Button'; // Importar o novo Button component
+import { toast } from 'sonner';
 
 
 interface LoginFormData {
@@ -38,7 +39,6 @@ const Login: React.FC = () => {
   });
 
   const [error, setError] = useState<string>('');
-  const [success, setSuccess] = useState<string>('');
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [showPassword, setShowPassword] = useState<boolean>(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState<boolean>(false);
@@ -55,14 +55,12 @@ const Login: React.FC = () => {
 
   useEffect(() => {
     setError('');
-    setSuccess('');
   }, [activeTab]);
 
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    setSuccess('');
     setIsLoading(true);
 
     if (!loginData.email.endsWith('@LABELTSERVICOSDIGITAIS.COM.BR') && !loginData.email.endsWith('@c2sglobal.com')) {
@@ -77,7 +75,7 @@ const Login: React.FC = () => {
       if (result.error) {
         setError(result.error);
       } else {
-        setSuccess('Login realizado com sucesso!');
+        toast.success('Login realizado com sucesso!');
         navigate('/home');
       }
     } catch (err) {
@@ -90,7 +88,6 @@ const Login: React.FC = () => {
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    setSuccess('');
     setIsLoading(true);
 
     if (!registerData.email.endsWith('@LABELTSERVICOSDIGITAIS.COM.BR') && !registerData.email.endsWith('@c2sglobal.com')) {
@@ -117,7 +114,7 @@ const Login: React.FC = () => {
       if (result.error) {
         setError(result.error);
       } else {
-        setSuccess('Conta criada com sucesso! Verifique seu email para confirmação.');
+        toast.success('Conta criada com sucesso! Verifique seu email para confirmação.');
         setRegisterData({
           name: '',
           email: '',
@@ -135,14 +132,13 @@ const Login: React.FC = () => {
   const handleForgotPassword = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    setSuccess('');
     setIsLoading(true);
 
     try {
       const result = await recoverPassword(forgotEmail);
 
       if (result.success) {
-        setSuccess(result.message);
+        toast.success(result.message);
         setForgotEmail('');
         setShowForgotPassword(false);
       } else {
@@ -343,18 +339,6 @@ const Login: React.FC = () => {
               >
                 <AlertCircle className="w-4 h-4" />
                 <span>{error}</span>
-              </motion.div>
-            )}
-
-            {success && (
-              <motion.div
-                className="mt-6 flex items-center gap-2 text-sm bg-green-500/20 text-green-300 p-3 rounded-lg border border-green-400/50"
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-              >
-                <CheckCircle className="w-4 h-4" />
-                <span>{success}</span>
               </motion.div>
             )}
           </AnimatePresence>

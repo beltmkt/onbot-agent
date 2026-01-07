@@ -59,10 +59,7 @@ const AppRoutes: React.FC = () => {
   
     // Monitora eventos de autenticação do Supabase
     const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'SIGNED_IN') {
-        toast.success("Login confirmado com sucesso!");
-        navigate('/home'); 
-      } else if (event === 'PASSWORD_RECOVERY') {
+      if (event === 'PASSWORD_RECOVERY') {
         // Redireciona para a página de atualização de senha
         toast.info('Você está em modo de recuperação de senha.');
         navigate('/update-password');
