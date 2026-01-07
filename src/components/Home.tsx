@@ -10,8 +10,9 @@ export const Home: React.FC = () => {
   const [commandInput, setCommandInput] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Determina o nome de exibição de forma dinâmica
-  const displayName = user?.user_metadata?.name?.split(' ')[0] || '';
+  // Determina o nome de exibição de forma dinâmica e segura
+  const nameFromMeta = user?.user_metadata?.name;
+  const displayName = (nameFromMeta && typeof nameFromMeta === 'string') ? nameFromMeta.split(' ')[0] : '';
 
   const handleCommandSubmit = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
